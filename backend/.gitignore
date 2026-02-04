@@ -23,3 +23,5 @@ npm-debug.log*
 
 # Test coverage
 coverage/
+.env
+node_modules
