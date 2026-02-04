@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Zap, Network, Activity } from 'lucide-react';
+import { Hexagon, Activity } from 'lucide-react';
 import {
   TaskInput,
   SwarmGraph,
@@ -84,17 +84,18 @@ export default function CommandCenter() {
         >
           <div className="flex items-center gap-3">
             <motion.div
-              className="p-2 rounded-xl glass-panel"
-              whileHover={{ scale: 1.05 }}
+              className="p-2 rounded-xl glass-panel relative"
+              whileHover={{ scale: 1.05, rotate: 30 }}
+              transition={{ type: 'spring', stiffness: 300 }}
             >
-              <Network size={24} className="text-[var(--accent-cyan)]" />
+              <Hexagon size={28} className="text-[var(--accent-gold)]" strokeWidth={2.5} />
             </motion.div>
             <div>
               <h1 className="text-2xl font-bold text-gradient">
-                CSN Command Center
+                Hivemind Protocol
               </h1>
-              <p className="text-sm text-[var(--text-muted)]">
-                Content Specialist Network
+              <p className="text-sm text-[var(--accent-gold)] opacity-80">
+                Where agents find agents.
               </p>
             </div>
           </div>
@@ -198,8 +199,12 @@ export default function CommandCenter() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="mt-6 flex items-center justify-end text-xs text-[var(--text-muted)]"
+          className="mt-6 flex items-center justify-between text-xs text-[var(--text-muted)]"
         >
+          <div className="flex items-center gap-2">
+            <Hexagon size={12} className="text-[var(--accent-gold)]" />
+            <span className="text-[var(--accent-gold)] opacity-60">Hivemind Protocol</span>
+          </div>
           <div className="flex items-center gap-2">
             <Activity size={12} />
             <span>Powered by x402 + Helius</span>

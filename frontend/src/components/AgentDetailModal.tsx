@@ -32,7 +32,7 @@ const SPECIALIST_INFO: Record<SpecialistType, {
       'Dependency resolution',
       'Result aggregation',
     ],
-    defaultPrompt: 'You are the CSN Dispatcher. Analyze user prompts and route to appropriate specialists: Aura (sentiment/social), Magos (predictions/analysis), bankr (trading/execution).',
+    defaultPrompt: 'You are the Hivemind Dispatcher. Analyze user prompts and route to appropriate specialists: Aura (sentiment/social), Magos (predictions/analysis), bankr (trading/execution).',
   },
   aura: {
     name: 'Aura',
