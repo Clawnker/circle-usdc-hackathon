@@ -11,7 +11,9 @@ import {
   MessageLog,
   ResultDisplay,
 } from '@/components';
+import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import type { SpecialistType } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -19,6 +21,7 @@ export default function CommandCenter() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   
   const {
     isConnected,
@@ -91,23 +94,31 @@ export default function CommandCenter() {
                 CSN Command Center
               </h1>
               <p className="text-sm text-[var(--text-muted)]">
-                Clawnker Specialist Network
+                Content Specialist Network
               </p>
             </div>
           </div>
           
           {/* Connection Status */}
-          <motion.div 
-            className="flex items-center gap-2 px-3 py-2 rounded-full glass-panel-subtle"
+          <motion.button 
+            onClick={() => {
+              if (!isConnected) {
+                // Force reconnect by resetting
+                reset();
+                window.location.reload();
+              }
+            }}
+            className="flex items-center gap-2 px-3 py-2 rounded-full glass-panel-subtle cursor-pointer hover:bg-white/5 transition-colors"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
+            title={isConnected ? 'WebSocket connected' : 'Click to reconnect'}
           >
             <div className={`status-dot ${isConnected ? 'status-active' : 'status-error'}`} />
             <span className="text-xs text-[var(--text-secondary)]">
-              {isConnected ? 'Connected' : 'Disconnected'}
+              {isConnected ? 'Connected' : 'Click to Connect'}
             </span>
-          </motion.div>
+          </motion.button>
         </motion.header>
 
         {/* Task Input */}
@@ -120,7 +131,7 @@ export default function CommandCenter() {
           <TaskInput 
             onSubmit={handleSubmit} 
             isLoading={isLoading}
-            disabled={!isConnected}
+            disabled={false}
           />
         </motion.div>
 
@@ -137,6 +148,7 @@ export default function CommandCenter() {
               activeSpecialist={currentStep?.specialist || null}
               currentStep={currentStep}
               taskStatus={taskStatus}
+              onAgentClick={(specialist) => setSelectedAgent(specialist)}
             />
           </motion.div>
 
@@ -193,19 +205,26 @@ export default function CommandCenter() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="mt-6 flex items-center justify-between text-xs text-[var(--text-muted)]"
+          className="mt-6 flex items-center justify-end text-xs text-[var(--text-muted)]"
         >
-          <div className="flex items-center gap-4">
-            <span>Colosseum Agent Hackathon 2026</span>
-            <span>•</span>
-            <span>$100k USDC</span>
-          </div>
           <div className="flex items-center gap-2">
             <Activity size={12} />
             <span>Powered by x402 + Helius</span>
           </div>
         </motion.footer>
       </div>
+
+      {/* Agent Detail Modal */}
+      {selectedAgent && (
+        <AgentDetailModal
+          specialist={selectedAgent}
+          onClose={() => setSelectedAgent(null)}
+          onSavePrompt={(specialist, prompt) => {
+            console.log('Saved prompt for', specialist, ':', prompt);
+            // TODO: Persist to backend
+          }}
+        />
+      )}
     </div>
   );
 }

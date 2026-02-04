@@ -19,6 +19,7 @@ interface SwarmGraphProps {
   activeSpecialist: string | null;
   currentStep: { specialist: string; action: string } | null;
   taskStatus: string | null;
+  onAgentClick?: (specialist: SpecialistType) => void;
 }
 
 // Specialist configurations
@@ -177,7 +178,7 @@ function getNodePositions(centerX: number, centerY: number, radius: number) {
   });
 }
 
-export function SwarmGraph({ activeSpecialist, currentStep, taskStatus }: SwarmGraphProps) {
+export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, onAgentClick }: SwarmGraphProps) {
   const centerX = 200;
   const centerY = 150;
   const radius = 140;
@@ -274,6 +275,11 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus }: SwarmG
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
+          onNodeClick={(_, node) => {
+            if (onAgentClick && node.data.specialist) {
+              onAgentClick(node.data.specialist as SpecialistType);
+            }
+          }}
           fitView
           panOnDrag={false}
           zoomOnScroll={false}
@@ -281,7 +287,7 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus }: SwarmG
           zoomOnDoubleClick={false}
           nodesDraggable={false}
           nodesConnectable={false}
-          elementsSelectable={false}
+          elementsSelectable={true}
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.05)" />
