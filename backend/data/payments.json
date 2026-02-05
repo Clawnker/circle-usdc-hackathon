@@ -496,5 +496,14 @@
     "txHash": "11b03410-3e13-4596-aa32-88739bea9fe7",
     "status": "completed",
     "timestamp": "2026-02-05T03:50:52.672Z"
+  },
+  {
+    "amount": "0.00 USDC",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1",
+    "txHash": "8c147270-c593-4eac-9373-85d9417ae197",
+    "status": "completed",
+    "timestamp": "2026-02-05T03:56:53.934Z"
   }
 ]

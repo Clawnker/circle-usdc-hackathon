@@ -100,6 +100,16 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
   }
 });
 
+// Public endpoint for wallet balances (for frontend display)
+app.get('/api/wallet/balances', async (req: Request, res: Response) => {
+  try {
+    const balances = await getBalances();
+    res.json(balances);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message, solana: { sol: 0, usdc: 0 }, evm: { eth: 0, usdc: 0 } });
+  }
+});
+
 app.use(authMiddleware);
 
 // Request logging

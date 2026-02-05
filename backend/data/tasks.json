@@ -5481,5 +5481,78 @@
       "timestamp": "2026-02-05T03:50:51.923Z",
       "executionTimeMs": 95
     }
+  },
+  "b395a6df-916e-4489-b7bc-3c8a99473b8a": {
+    "id": "b395a6df-916e-4489-b7bc-3c8a99473b8a",
+    "prompt": "Price prediction for BONK",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T03:56:51.095Z",
+    "updatedAt": "2026-02-05T03:56:53.936Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "txHash": "8c147270-c593-4eac-9373-85d9417ae197",
+        "status": "completed",
+        "timestamp": "2026-02-05T03:56:53.935Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770263811706-5xa4",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Price prediction for BONK...\"",
+        "timestamp": "2026-02-05T03:56:51.706Z"
+      },
+      {
+        "id": "msg-1770263811710-if7p",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T03:56:51.710Z"
+      },
+      {
+        "id": "msg-1770263812141-ill5",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-05T03:56:52.141Z"
+      },
+      {
+        "id": "msg-1770263813149-0irr",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "BONK 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $0.00002893",
+        "timestamp": "2026-02-05T03:56:53.149Z"
+      },
+      {
+        "id": "msg-1770263813935-9mh6",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.001 USDC → magos",
+        "timestamp": "2026-02-05T03:56:53.935Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "token": "BONK",
+        "currentPrice": 0.000028,
+        "predictedPrice": 0.000028933932455879765,
+        "timeHorizon": "4h",
+        "confidence": 0.7613502659722597,
+        "direction": "bullish",
+        "reasoning": "BONK 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $0.00002893"
+      },
+      "confidence": 0.7613502659722597,
+      "timestamp": "2026-02-05T03:56:53.149Z",
+      "executionTimeMs": 207
+    }
   }
 }
