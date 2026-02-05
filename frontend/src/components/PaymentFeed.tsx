@@ -98,7 +98,7 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
       
       {/* Transaction details */}
       <div className="flex items-center justify-between mt-2 text-xs text-[var(--text-muted)]">
-        <span>{formatTime(payment.createdAt)}</span>
+        <span>{formatTime(payment.createdAt || payment.timestamp || new Date().toISOString())}</span>
         <motion.button
           onClick={openExplorer}
           whileHover={{ scale: 1.1 }}
@@ -106,7 +106,7 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
           className="flex items-center gap-1 hover:text-[var(--accent-cyan)] transition-colors"
         >
           <code className="font-mono">
-            {payment.txSignature.slice(0, 8)}...
+            {payment.txSignature?.slice(0, 8)}...
           </code>
           <ExternalLink size={10} />
         </motion.button>

@@ -13,7 +13,7 @@ export interface Task {
   completedAt?: string;
 }
 
-export type TaskStatus = 'queued' | 'planning' | 'executing' | 'completed' | 'failed';
+export type TaskStatus = 'pending' | 'routing' | 'queued' | 'planning' | 'executing' | 'processing' | 'awaiting_payment' | 'completed' | 'failed';
 
 export interface WorkflowPlan {
   steps: PlannedStep[];
@@ -58,15 +58,16 @@ export interface Specialist {
 // Payment Types
 export interface Payment {
   id: string;
-  taskId: string;
+  taskId?: string;
   from: string;
   to: string;
   amount: number;
-  token: 'SOL' | 'USDC';
-  purpose: string;
-  txSignature: string;
-  status: 'pending' | 'confirmed' | 'failed';
-  createdAt: string;
+  token: string;
+  purpose?: string;
+  txSignature?: string;
+  status?: 'pending' | 'confirmed' | 'failed';
+  createdAt?: string;
+  timestamp?: string;
 }
 
 // Wallet Types
@@ -124,10 +125,11 @@ export type WSEvent = WSTaskStatusEvent | WSAgentMessageEvent | WSPaymentEvent |
 // Agent Message for display
 export interface AgentMessage {
   id: string;
-  taskId: string;
+  taskId?: string;
   from: string;
   to: string;
-  payload: unknown;
+  content: string;
+  payload?: unknown;
   timestamp: string;
 }
 
