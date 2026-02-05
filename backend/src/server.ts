@@ -15,7 +15,8 @@ import dispatcher, { dispatch, getTask, getRecentTasks, subscribeToTask, getSpec
 import { getBalances, getTransactionLog } from './x402';
 import solana from './solana';
 import { DispatchRequest, Task, WSEvent, SpecialistType } from './types';
-import { x402PaymentMiddleware } from './x402-middleware';
+// x402 middleware disabled - using AgentWallet x402/fetch proxy instead
+// import { x402PaymentMiddleware } from './x402-middleware';
 
 dotenv.config();
 
@@ -27,8 +28,8 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 app.use(cors());
 app.use(express.json());
 
-// Specialist endpoints (behind x402 paywall)
-app.post('/api/specialist/:id', x402PaymentMiddleware, async (req: Request, res: Response) => {
+// Specialist endpoints (payment handled via AgentWallet x402/fetch proxy)
+app.post('/api/specialist/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { prompt } = req.body;
