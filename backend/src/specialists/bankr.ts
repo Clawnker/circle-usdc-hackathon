@@ -1,39 +1,70 @@
 /**
- * bankr Specialist - Real Integration
- * Uses bankr API for actual Solana trading
+ * bankr Specialist - AgentWallet Devnet Integration
+ * Uses AgentWallet for devnet Solana transactions
+ * Falls back to bankr API mock for complex operations
  */
 
 import axios from 'axios';
 import { BankrAction, SpecialistResult } from '../types';
+import config from '../config';
 
-// Load bankr config
+const AGENTWALLET_API = 'https://agentwallet.mcpay.tech/api';
+const AGENTWALLET_USERNAME = config.agentWallet.username;
+const AGENTWALLET_TOKEN = config.agentWallet.fundToken;
+
+// Bankr API for complex operations (dry-run mode)
 const BANKR_CONFIG = (() => {
   try {
     const fs = require('fs');
     const configPath = process.env.HOME + '/.clawdbot/skills/bankr/config.json';
     return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
   } catch {
-    return {
-      apiKey: process.env.BANKR_API_KEY || '',
-      apiUrl: 'https://api.bankr.bot'
-    };
+    return { apiKey: '', apiUrl: 'https://api.bankr.bot' };
   }
 })();
 
-const BANKR_API = BANKR_CONFIG.apiUrl;
-const BANKR_KEY = BANKR_CONFIG.apiKey;
-
 /**
- * Submit a job to bankr API
+ * Execute Solana transfer via AgentWallet (devnet)
  */
-async function submitJob(prompt: string): Promise<{ jobId: string }> {
+async function executeAgentWalletTransfer(
+  to: string, 
+  amount: string, 
+  asset: 'sol' | 'usdc' = 'sol'
+): Promise<{ txHash: string; explorer: string; status: string }> {
+  console.log(`[bankr] AgentWallet devnet transfer: ${amount} ${asset} to ${to}`);
+  
+  // Convert amount to lamports/smallest unit
+  const decimals = asset === 'sol' ? 9 : 6;
+  const amountInSmallestUnit = Math.floor(parseFloat(amount) * Math.pow(10, decimals)).toString();
+  
   const response = await axios.post(
-    `${BANKR_API}/v1/agent/jobs`,
-    { prompt },
+    `${AGENTWALLET_API}/wallets/${AGENTWALLET_USERNAME}/actions/transfer-solana`,
+    {
+      to,
+      amount: amountInSmallestUnit,
+      asset,
+      network: 'devnet',
+    },
     {
       headers: {
-        'Authorization': `Bearer ${BANKR_KEY}`,
+        'Authorization': `Bearer ${AGENTWALLET_TOKEN}`,
         'Content-Type': 'application/json',
+      },
+    }
+  );
+  
+  return response.data;
+}
+
+/**
+ * Get wallet balances from AgentWallet
+ */
+async function getAgentWalletBalances(): Promise<any> {
+  const response = await axios.get(
+    `${AGENTWALLET_API}/wallets/${AGENTWALLET_USERNAME}/balances`,
+    {
+      headers: {
+        'Authorization': `Bearer ${AGENTWALLET_TOKEN}`,
       },
     }
   );
@@ -41,30 +72,125 @@ async function submitJob(prompt: string): Promise<{ jobId: string }> {
 }
 
 /**
- * Poll for job status
+ * Simulate swap via bankr API (dry-run) or mock
  */
-async function pollJob(jobId: string, maxAttempts = 30, intervalMs = 1000): Promise<any> {
-  for (let i = 0; i < maxAttempts; i++) {
-    const response = await axios.get(
-      `${BANKR_API}/v1/agent/jobs/${jobId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${BANKR_KEY}`,
+async function simulateSwap(from: string, to: string, amount: string): Promise<BankrAction> {
+  console.log(`[bankr] Simulating swap: ${amount} ${from} -> ${to}`);
+  
+  // Try bankr API with dry-run
+  if (BANKR_CONFIG.apiKey) {
+    try {
+      const response = await axios.post(
+        `${BANKR_CONFIG.apiUrl}/v1/agent/jobs`,
+        { prompt: `Simulate swapping ${amount} ${from} for ${to} (dry run, do not execute)` },
+        {
+          headers: {
+            'Authorization': `Bearer ${BANKR_CONFIG.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        }
+      );
+      
+      // Poll for result briefly
+      const jobId = response.data.jobId;
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const status = await axios.get(
+        `${BANKR_CONFIG.apiUrl}/v1/agent/jobs/${jobId}`,
+        { headers: { 'Authorization': `Bearer ${BANKR_CONFIG.apiKey}` } }
+      );
+      
+      return {
+        type: 'swap',
+        status: 'simulated',
+        details: {
+          from,
+          to,
+          amount,
+          jobId,
+          response: status.data.response || 'Swap simulated via bankr (dry-run)',
+          estimatedOutput: estimateOutput(from, to, amount),
         },
-      }
-    );
-    
-    const job = response.data;
-    console.log(`[bankr] Job ${jobId} status: ${job.status}`);
-    
-    if (job.status === 'completed' || job.status === 'failed') {
-      return job;
+      };
+    } catch (err: any) {
+      console.log('[bankr] Bankr API unavailable, using local mock');
     }
-    
-    await new Promise(resolve => setTimeout(resolve, intervalMs));
   }
   
-  throw new Error('Job timed out');
+  // Local mock fallback
+  return {
+    type: 'swap',
+    status: 'simulated',
+    details: {
+      from,
+      to,
+      amount,
+      estimatedOutput: estimateOutput(from, to, amount),
+      note: 'Simulated swap (demo mode)',
+      estimatedFee: '0.000005 SOL',
+    },
+  };
+}
+
+/**
+ * Estimate swap output based on mock rates
+ */
+function estimateOutput(from: string, to: string, amount: string): string {
+  const rates: Record<string, number> = {
+    'SOL_USDC': 125.50,
+    'USDC_SOL': 0.00797,
+    'SOL_BONK': 2500000,
+    'BONK_SOL': 0.0000004,
+    'SOL_WIF': 50,
+    'WIF_SOL': 0.02,
+  };
+  
+  const key = `${from.toUpperCase()}_${to.toUpperCase()}`;
+  const rate = rates[key] || 1;
+  return (parseFloat(amount) * rate * 0.995).toFixed(6); // 0.5% slippage
+}
+
+/**
+ * Parse user intent from prompt
+ */
+function parseIntent(prompt: string): {
+  type: 'swap' | 'transfer' | 'balance';
+  from?: string;
+  to?: string;
+  amount?: string;
+  address?: string;
+} {
+  const lower = prompt.toLowerCase();
+  
+  // Extract amount
+  const amountMatch = prompt.match(/([\d.]+)\s*(SOL|USDC|BONK|WIF)/i);
+  const amount = amountMatch ? amountMatch[1] : '0.1';
+  
+  // Detect intent
+  if (lower.includes('swap') || lower.includes('buy') || lower.includes('sell') || lower.includes('trade')) {
+    const swapMatch = prompt.match(/(?:swap|buy|trade|sell)\s+(?:([\d.]+)\s+)?(\w+)\s+(?:for|to)\s+(\w+)/i);
+    if (swapMatch) {
+      return {
+        type: 'swap',
+        amount: swapMatch[1] || amount,
+        from: swapMatch[2].toUpperCase(),
+        to: swapMatch[3].toUpperCase(),
+      };
+    }
+    return { type: 'swap', from: 'SOL', to: 'USDC', amount };
+  }
+  
+  if (lower.includes('transfer') || lower.includes('send')) {
+    const addressMatch = prompt.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
+    return { 
+      type: 'transfer', 
+      address: addressMatch?.[0],
+      amount,
+    };
+  }
+  
+  return { type: 'balance' };
 }
 
 /**
@@ -72,50 +198,75 @@ async function pollJob(jobId: string, maxAttempts = 30, intervalMs = 1000): Prom
  */
 export const bankr = {
   name: 'bankr',
-  description: 'Expert in Solana/EVM trading via bankr API. Executes swaps, transfers, and DeFi operations.',
+  description: 'DeFi specialist using AgentWallet for devnet transactions',
   
   async handle(prompt: string): Promise<SpecialistResult> {
     const startTime = Date.now();
     
-    if (!BANKR_KEY) {
-      return {
-        success: false,
-        data: {
-          type: 'swap' as const,
-          status: 'simulated' as const,
-          details: { error: 'Bankr API key not configured' },
-        },
-        timestamp: new Date(),
-        executionTimeMs: Date.now() - startTime,
-      };
-    }
-    
     try {
-      console.log(`[bankr] Submitting to bankr API: "${prompt}"`);
+      const intent = parseIntent(prompt);
+      console.log(`[bankr] Intent: ${intent.type}`, intent);
       
-      // Submit the job
-      const { jobId } = await submitJob(prompt);
-      console.log(`[bankr] Job submitted: ${jobId}`);
+      let data: BankrAction;
+      let txSignature: string | undefined;
       
-      // Poll for completion
-      const result = await pollJob(jobId);
-      
-      // Extract transaction info if available
-      const txSignature = extractTxSignature(result);
-      const actionType = detectActionType(prompt);
+      switch (intent.type) {
+        case 'swap':
+          // Swaps are simulated (no devnet DEX liquidity)
+          data = await simulateSwap(intent.from!, intent.to!, intent.amount!);
+          break;
+          
+        case 'transfer':
+          if (intent.address) {
+            // Real devnet transfer via AgentWallet
+            const result = await executeAgentWalletTransfer(
+              intent.address,
+              intent.amount || '0.01',
+              'sol'
+            );
+            txSignature = result.txHash;
+            data = {
+              type: 'transfer',
+              status: 'confirmed',
+              txSignature,
+              details: {
+                to: intent.address,
+                amount: intent.amount,
+                explorer: result.explorer,
+                network: 'devnet',
+              },
+            };
+          } else {
+            data = {
+              type: 'transfer',
+              status: 'failed',
+              details: { error: 'No recipient address provided' },
+            };
+          }
+          break;
+          
+        case 'balance':
+        default:
+          const balances = await getAgentWalletBalances();
+          const solBalance = balances.solana?.balances?.find((b: any) => b.asset === 'sol');
+          const usdcBalance = balances.solana?.balances?.find((b: any) => b.asset === 'usdc');
+          
+          data = {
+            type: 'balance',
+            status: 'confirmed',
+            details: {
+              address: balances.solana?.address,
+              sol: solBalance ? (parseInt(solBalance.rawValue) / 1e9).toFixed(4) : '0',
+              usdc: usdcBalance ? (parseInt(usdcBalance.rawValue) / 1e6).toFixed(2) : '0',
+              network: 'devnet',
+            },
+          };
+          break;
+      }
       
       return {
-        success: result.status === 'completed',
-        data: {
-          type: actionType,
-          status: result.status === 'completed' ? 'confirmed' : 'failed',
-          txSignature,
-          details: {
-            jobId,
-            response: result.response || result.result,
-            transactions: result.transactions || [],
-          },
-        } as BankrAction,
+        success: true,
+        data,
         confidence: 0.95,
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,
@@ -127,17 +278,14 @@ export const bankr = {
         } : undefined,
       };
     } catch (error: any) {
-      console.error('[bankr] API error:', error.message);
+      console.error('[bankr] Error:', error.message);
       
       return {
         success: false,
         data: {
-          type: 'swap' as const,
-          status: 'failed' as const,
-          details: { 
-            error: error.message,
-            note: 'bankr API call failed',
-          },
+          type: 'balance',
+          status: 'failed',
+          details: { error: error.message },
         },
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,
@@ -145,38 +293,5 @@ export const bankr = {
     }
   },
 };
-
-/**
- * Extract transaction signature from bankr response
- */
-function extractTxSignature(result: any): string | undefined {
-  // Check various places where tx might be
-  if (result.txSignature) return result.txSignature;
-  if (result.transactions?.[0]?.signature) return result.transactions[0].signature;
-  if (result.response?.match?.(/[1-9A-HJ-NP-Za-km-z]{64,88}/)) {
-    return result.response.match(/[1-9A-HJ-NP-Za-km-z]{64,88}/)[0];
-  }
-  return undefined;
-}
-
-/**
- * Detect action type from prompt
- */
-function detectActionType(prompt: string): 'swap' | 'transfer' | 'balance' | 'dca' | 'monitor' {
-  const lower = prompt.toLowerCase();
-  if (lower.includes('swap') || lower.includes('buy') || lower.includes('sell') || lower.includes('trade')) {
-    return 'swap';
-  }
-  if (lower.includes('transfer') || lower.includes('send')) {
-    return 'transfer';
-  }
-  if (lower.includes('balance') || lower.includes('wallet')) {
-    return 'balance';
-  }
-  if (lower.includes('dca')) {
-    return 'dca';
-  }
-  return 'swap'; // default
-}
 
 export default bankr;
