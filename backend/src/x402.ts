@@ -197,62 +197,104 @@ export async function executePayment(
   amount: number,
 ): Promise<{ success: boolean; txSignature?: string }> {
   try {
-    // Use Bankr API for real transfers
     const bankrApiKey = process.env.BANKR_API_KEY || 'bk_SHV4FMGURSAWZ8MZYYNQXEK38YSN3AC4';
-    const bankrApiUrl = 'https://api.bankr.bot';
     
-    console.log(`[x402] Executing real payment via Bankr: ${amount} USDC to ${to}`);
+    console.log(`[x402] Submitting payment via Bankr: ${amount} SOL to ${to}`);
     
-    // Bankr uses natural language for commands
-    const response = await axios.post(
-      `${bankrApiUrl}/v1/agent`,
+    // Submit job
+    const submitResponse = await axios.post(
+      'https://api.bankr.bot/agent/prompt',
       {
-        message: `Send ${amount} USDC to ${to} on Solana`,
+        prompt: `Send ${amount} SOL to ${to} on Solana`,
       },
       {
         headers: {
-          'Authorization': `Bearer ${bankrApiKey}`,
+          'X-API-Key': bankrApiKey,
           'Content-Type': 'application/json',
         }
       }
     );
 
-    console.log('[x402] Bankr response:', JSON.stringify(response.data).slice(0, 200));
-    
-    // Extract tx signature from response
-    const txSignature = response.data?.txHash || 
-                        response.data?.signature ||
-                        response.data?.result?.txHash ||
-                        extractTxFromResponse(response.data);
-    
-    // Log the transaction
-    logTransaction({
-      amount: amount.toString(),
-      currency: 'USDC',
-      network: 'solana',
-      recipient: to,
-      txHash: txSignature || undefined,
-      status: txSignature ? 'completed' : 'pending',
-      timestamp: new Date(),
-    });
+    const jobId = submitResponse.data.jobId;
+    if (!jobId) {
+      console.error('[x402] No jobId returned from Bankr');
+      return { success: false };
+    }
 
-    return {
-      success: true,
-      txSignature,
-    };
+    console.log(`[x402] Bankr job submitted: ${jobId}`);
+    
+    // Poll for completion (max 60 seconds)
+    const maxWaitMs = 60000;
+    const pollIntervalMs = 3000;
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < maxWaitMs) {
+      await new Promise(r => setTimeout(r, pollIntervalMs));
+      
+      const statusResponse = await axios.get(
+        `https://api.bankr.bot/agent/job/${jobId}`,
+        {
+          headers: { 'X-API-Key': bankrApiKey }
+        }
+      );
+      
+      const status = statusResponse.data.status;
+      console.log(`[x402] Bankr job ${jobId} status: ${status}`);
+      
+      if (status === 'completed') {
+        const response = statusResponse.data.response || '';
+        const richData = statusResponse.data.richData || [];
+        
+        // Try to extract tx signature from response
+        const txSignature = extractTxFromBankrResponse(response, richData);
+        
+        logTransaction({
+          amount: amount.toString(),
+          currency: 'SOL',
+          network: 'solana',
+          recipient: to,
+          txHash: txSignature || undefined,
+          status: 'completed',
+          timestamp: new Date(),
+        });
+        
+        return { success: true, txSignature };
+      }
+      
+      if (status === 'failed' || status === 'cancelled') {
+        console.error(`[x402] Bankr job failed: ${statusResponse.data.error}`);
+        return { success: false };
+      }
+    }
+    
+    console.error('[x402] Bankr job timed out');
+    return { success: false };
+    
   } catch (error: any) {
-    console.error('[x402] Bankr payment failed:', error.response?.data || error.message);
+    console.error('[x402] Bankr payment error:', error.response?.data || error.message);
     return { success: false };
   }
 }
 
-// Helper to extract tx from various response formats
-function extractTxFromResponse(data: any): string | undefined {
-  if (!data) return undefined;
-  const str = JSON.stringify(data);
-  // Look for Solana tx signature (base58, 88 chars)
-  const match = str.match(/[1-9A-HJ-NP-Za-km-z]{87,88}/);
-  return match ? match[0] : undefined;
+function extractTxFromBankrResponse(response: string, richData: any[]): string | undefined {
+  // Check richData for transaction info
+  if (richData && Array.isArray(richData)) {
+    for (const item of richData) {
+      if (item.txHash) return item.txHash;
+      if (item.signature) return item.signature;
+      if (item.transactionHash) return item.transactionHash;
+    }
+  }
+  
+  // Try to find Solana tx signature in response text (base58, 87-88 chars)
+  const match = response.match(/[1-9A-HJ-NP-Za-km-z]{87,88}/);
+  if (match) return match[0];
+  
+  // Try to find explorer link
+  const explorerMatch = response.match(/solscan\.io\/tx\/([1-9A-HJ-NP-Za-km-z]+)/);
+  if (explorerMatch) return explorerMatch[1];
+  
+  return undefined;
 }
 
 export default {
