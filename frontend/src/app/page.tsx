@@ -59,6 +59,7 @@ export default function CommandCenter() {
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [reRunPrompt, setReRunPrompt] = useState<string>('');
   const [lastResult, setLastResult] = useState<{
+    query: string;
     status: 'success' | 'failure';
     result: string;
     cost: number;
@@ -130,6 +131,7 @@ export default function CommandCenter() {
             const specialistId = currentStep?.specialist || 'dispatcher';
             
             setLastResult({
+              query: currentPrompt,
               status: 'success',
               result: content || 'Task completed',
               cost: totalCost,
@@ -159,6 +161,7 @@ export default function CommandCenter() {
           const specialistIdFailed = currentStep?.specialist || 'dispatcher';
 
           setLastResult({
+            query: currentPrompt,
             status: 'failure',
             result: error || 'An unexpected error occurred',
             cost: totalCostFailed,

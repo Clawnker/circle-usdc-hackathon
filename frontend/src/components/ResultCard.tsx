@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle, ArrowRight, RotateCcw, Coins, Sparkles } from 'lucide-react';
 
 interface ResultCardProps {
+  query: string;
   status: 'success' | 'failure';
   result: string;
   cost: number;
@@ -14,6 +15,7 @@ interface ResultCardProps {
 }
 
 export function ResultCard({
+  query,
   status,
   result,
   cost,
@@ -41,6 +43,9 @@ export function ResultCard({
         </div>
         
         <div className="flex-1">
+          <div className="text-sm text-gray-400 mb-2">
+            <span className="text-gray-500">Query:</span> "{query}"
+          </div>
           <div className="flex items-center justify-between mb-1">
             <h3 className={`text-xl font-bold ${isSuccess ? 'text-green-400' : 'text-red-400'}`}>
               Task {isSuccess ? 'Completed' : 'Failed'}
@@ -53,6 +58,13 @@ export function ResultCard({
           <p className="text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
             {displayResult}
           </p>
+          
+          {/* Multi-hop teaser */}
+          {query.toLowerCase().includes('buy') && specialist.toLowerCase() !== 'bankr' && (
+            <div className="text-xs text-amber-500/70 mt-2 italic">
+              💡 Multi-step queries (analyze → execute) coming in V2
+            </div>
+          )}
         </div>
       </div>
 
