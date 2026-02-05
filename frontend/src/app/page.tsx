@@ -57,6 +57,10 @@ export default function CommandCenter() {
           message = `Analyzing request...`;
           type = 'dispatch';
           break;
+        case 'awaiting_payment':
+          message = `Awaiting payment confirmation`;
+          type = 'processing';
+          break;
         case 'processing':
           message = `Processing with ${specialistName}`;
           type = 'processing';
@@ -64,10 +68,12 @@ export default function CommandCenter() {
         case 'completed':
           message = `Task completed successfully`;
           type = 'result';
+          setIsLoading(false);
           break;
         case 'failed':
           message = `Task failed`;
           type = 'error';
+          setIsLoading(false);
           break;
         default:
           message = `Status: ${taskStatus}`;
@@ -110,6 +116,50 @@ export default function CommandCenter() {
       });
     }
   }, [payments]);
+
+  // Add agent message when result comes in
+  useEffect(() => {
+    if (result && currentStep?.specialist) {
+      const r = result as any;
+      let content = '';
+      
+      if (r.data?.insight) {
+        content = r.data.insight;
+      } else if (r.data?.summary) {
+        content = r.data.summary;
+      } else if (r.data?.details?.response) {
+        content = typeof r.data.details.response === 'string' 
+          ? r.data.details.response 
+          : JSON.stringify(r.data.details.response);
+      } else if (r.data?.type) {
+        content = `${r.data.type} ${r.data.status || 'completed'}`;
+      }
+      
+      if (content) {
+        const newMessage = {
+          id: `result-${Date.now()}`,
+          from: currentStep.specialist,
+          to: 'dispatcher',
+          content,
+          timestamp: new Date().toISOString(),
+        };
+        
+        // Check if we already have this message (avoid duplicates)
+        const isDuplicate = messages.some(m => m.content === content);
+        if (!isDuplicate) {
+          // Note: messages come from WebSocket, but we can add to activity
+          setActivityItems(prev => [...prev, {
+            id: `msg-${Date.now()}`,
+            type: 'result',
+            message: content.slice(0, 100) + (content.length > 100 ? '...' : ''),
+            specialist: currentStep.specialist,
+            timestamp: new Date(),
+            details: content,
+          }]);
+        }
+      }
+    }
+  }, [result, currentStep, messages]);
 
   const handleSubmit = useCallback(async (prompt: string) => {
     setIsLoading(true);
