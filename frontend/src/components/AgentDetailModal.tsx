@@ -8,7 +8,11 @@ import type { SpecialistType } from '@/types';
 interface AgentDetailModalProps {
   specialist: SpecialistType | null;
   onClose: () => void;
-  onSavePrompt?: (specialist: SpecialistType, prompt: string) => void;
+  isHired?: boolean;
+  isProcessing?: boolean;
+  customInstructions?: string;
+  onUpdateInstructions?: (instructions: string) => void;
+  onRemove?: () => void;
 }
 
 const SPECIALIST_INFO: Record<SpecialistType, {
@@ -148,20 +152,27 @@ const SPECIALIST_INFO: Record<SpecialistType, {
   },
 };
 
-export function AgentDetailModal({ specialist, onClose, onSavePrompt }: AgentDetailModalProps) {
-  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
-  const [customPrompt, setCustomPrompt] = useState('');
+export function AgentDetailModal({ 
+  specialist, 
+  onClose, 
+  isHired, 
+  isProcessing,
+  customInstructions = '',
+  onUpdateInstructions,
+  onRemove
+}: AgentDetailModalProps) {
+  const [tempInstructions, setTempInstructions] = useState(customInstructions);
+  const [isHoveredRemove, setIsHoveredRemove] = useState(false);
 
   if (!specialist) return null;
 
   const info = SPECIALIST_INFO[specialist];
   const Icon = info.icon;
 
-  const handleSavePrompt = () => {
-    if (onSavePrompt && customPrompt.trim()) {
-      onSavePrompt(specialist, customPrompt.trim());
+  const handleSaveInstructions = () => {
+    if (onUpdateInstructions) {
+      onUpdateInstructions(tempInstructions);
     }
-    setIsEditingPrompt(false);
   };
 
   return (
@@ -231,50 +242,55 @@ export function AgentDetailModal({ specialist, onClose, onSavePrompt }: AgentDet
             </ul>
           </div>
 
-          {/* System Prompt */}
-          <div>
+          {/* Custom Instructions (Replaces System Prompt) */}
+          <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                System Prompt
+                Custom Instructions
               </h3>
-              <button
-                onClick={() => {
-                  setCustomPrompt(info.defaultPrompt);
-                  setIsEditingPrompt(!isEditingPrompt);
-                }}
-                className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
-              >
-                <Settings size={14} />
-                {isEditingPrompt ? 'Cancel' : 'Edit'}
-              </button>
+              {customInstructions && !onUpdateInstructions && (
+                <span className="text-xs text-[var(--accent-gold)]">Saved</span>
+              )}
             </div>
             
-            {isEditingPrompt ? (
-              <div className="space-y-3">
-                <textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  className="w-full h-32 p-3 rounded-lg bg-black/30 border border-white/10 
-                    text-sm text-[var(--text-primary)] resize-none focus:outline-none 
-                    focus:border-[var(--accent-cyan)]"
-                  placeholder="Enter custom system prompt..."
-                />
-                <button
-                  onClick={handleSavePrompt}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--accent-cyan)]/20 
-                    text-[var(--accent-cyan)] text-sm font-medium hover:bg-[var(--accent-cyan)]/30 
-                    transition-colors"
-                >
-                  <Save size={14} />
-                  Save Prompt
-                </button>
-              </div>
-            ) : (
-              <div className="p-3 rounded-lg bg-black/30 border border-white/10">
-                <p className="text-xs text-[var(--text-muted)] font-mono leading-relaxed">
-                  {info.defaultPrompt}
-                </p>
-              </div>
+            <div className="space-y-3">
+              <textarea
+                value={tempInstructions}
+                onChange={(e) => setTempInstructions(e.target.value)}
+                className="w-full h-24 p-3 rounded-lg bg-black/30 border border-[var(--accent-gold)]/20 
+                  text-sm text-[var(--text-primary)] resize-none focus:outline-none 
+                  focus:border-[var(--accent-gold)] transition-colors"
+                placeholder="Add instructions like 'Focus on Solana ecosystem' or 'Be concise'"
+              />
+              <button
+                onClick={handleSaveInstructions}
+                disabled={tempInstructions === customInstructions}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                  ${tempInstructions !== customInstructions 
+                    ? 'bg-[var(--accent-gold)]/20 text-[var(--accent-gold)] hover:bg-[var(--accent-gold)]/30' 
+                    : 'bg-white/5 text-white/30 cursor-not-allowed'}`}
+              >
+                <Save size={14} />
+                Save Instructions
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3">
+            {isHired && !isProcessing && (
+              <button
+                onClick={onRemove}
+                onMouseEnter={() => setIsHoveredRemove(true)}
+                onMouseLeave={() => setIsHoveredRemove(false)}
+                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 border
+                  ${isHoveredRemove 
+                    ? 'bg-red-500/10 border-red-500/50 text-red-500' 
+                    : 'bg-transparent border-red-500/20 text-red-500/70 hover:border-red-500/50'
+                  }`}
+              >
+                {isHoveredRemove ? 'Confirm Remove from Swarm' : 'Remove from Swarm'}
+              </button>
             )}
           </div>
         </motion.div>

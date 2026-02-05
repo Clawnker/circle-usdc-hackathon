@@ -40,6 +40,7 @@ export default function CommandCenter() {
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
   const [hiredAgents, setHiredAgents] = useState<string[]>([]);
+  const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
   
   const {
     isConnected,
@@ -191,6 +192,7 @@ export default function CommandCenter() {
         body: JSON.stringify({
           prompt,
           userId: 'demo-user',
+          customInstructions,
         }),
       });
 
@@ -222,6 +224,20 @@ export default function CommandCenter() {
     setHiredAgents(prev => prev.includes(agentId) ? prev : [...prev, agentId]);
     setActiveView('dispatch');
     // We could also pre-fill the prompt here if we wanted
+  }, []);
+
+  const removeHiredAgent = useCallback((agentId: string) => {
+    setHiredAgents(prev => prev.filter(id => id !== agentId));
+    if (preSelectedAgent === agentId) {
+      setPreSelectedAgent(null);
+    }
+  }, [preSelectedAgent]);
+
+  const handleUpdateInstructions = useCallback((agentId: string, instructions: string) => {
+    setCustomInstructions(prev => ({
+      ...prev,
+      [agentId]: instructions
+    }));
   }, []);
 
   // Reset loading state when task completes
@@ -445,9 +461,13 @@ export default function CommandCenter() {
         <AgentDetailModal
           specialist={selectedAgent}
           onClose={() => setSelectedAgent(null)}
-          onSavePrompt={(specialist, prompt) => {
-            console.log('Saved prompt for', specialist, ':', prompt);
-            // TODO: Persist to backend
+          isHired={hiredAgents.includes(selectedAgent)}
+          isProcessing={isLoading}
+          customInstructions={customInstructions[selectedAgent] || ''}
+          onUpdateInstructions={(instructions) => handleUpdateInstructions(selectedAgent, instructions)}
+          onRemove={() => {
+            removeHiredAgent(selectedAgent);
+            setSelectedAgent(null);
           }}
         />
       )}
