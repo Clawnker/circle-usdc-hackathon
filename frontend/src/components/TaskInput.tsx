@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Zap, TrendingUp, Coins } from 'lucide-react';
-import { CostPreview } from './CostPreview';
+import { Sparkles, Zap, TrendingUp, Coins, Loader2, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
 import { SpecialistPricing, SpecialistType } from '../types';
 
 interface TaskInputProps {
@@ -17,43 +16,33 @@ interface TaskInputProps {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 const SUGGESTED_PROMPTS = [
-  {
-    icon: TrendingUp,
-    text: "Find trending meme coins on X",
-    color: "cyan",
-  },
-  {
-    icon: Zap,
-    text: "Get 4h price prediction for BONK",
-    color: "purple",
-  },
-  {
-    icon: Coins,
-    text: "Buy 0.1 SOL of the most bullish token",
-    color: "pink",
-  },
-  {
-    icon: Sparkles,
-    text: "Analyze sentiment for WIF and trade if bullish",
-    color: "green",
-  },
+  { icon: TrendingUp, text: "Find trending meme coins on X", color: "cyan" },
+  { icon: Zap, text: "Get 4h price prediction for BONK", color: "purple" },
+  { icon: Coins, text: "Buy 0.1 SOL of the most bullish token", color: "pink" },
+  { icon: Sparkles, text: "Analyze sentiment for WIF and trade if bullish", color: "green" },
 ];
+
+const SPECIALIST_NAMES: Record<string, string> = {
+  aura: 'Social Analyst Aura',
+  magos: 'Market Oracle Magos',
+  bankr: 'DeFi Specialist Bankr',
+  general: 'General Assistant',
+  alphahunter: 'AlphaHunter',
+  riskbot: 'RiskBot',
+  newsdigest: 'NewsDigest',
+  whalespy: 'WhaleSpy',
+  scribe: 'Scribe',
+  seeker: 'Seeker',
+};
 
 export function TaskInput({ onSubmit, isLoading, disabled, initialAgentId, onClearPreSelect }: TaskInputProps) {
   const [prompt, setPrompt] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
-  const [isConfirmed, setIsConfirmed] = useState(false);
   const [pricing, setPricing] = useState<Record<string, SpecialistPricing> | null>(null);
   const [selectedSpecialist, setSelectedSpecialist] = useState<SpecialistType>('general');
-
-  // Handle pre-selected agent from marketplace
-  useEffect(() => {
-    if (initialAgentId) {
-      setSelectedSpecialist(initialAgentId as SpecialistType);
-      setShowPreview(true);
-      setIsConfirmed(false);
-    }
-  }, [initialAgentId]);
+  const [isDebouncing, setIsDebouncing] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch pricing on mount
   useEffect(() => {
@@ -64,7 +53,7 @@ export function TaskInput({ onSubmit, isLoading, disabled, initialAgentId, onCle
   }, []);
 
   // Simplified routing logic (matching backend)
-  const routePrompt = (p: string): SpecialistType => {
+  const routePrompt = useCallback((p: string): SpecialistType => {
     const lower = p.toLowerCase();
     if (lower.includes('good buy') || lower.includes('should i') || lower.includes('recommend') || /is \w+ a good/.test(lower)) {
       return 'magos';
@@ -76,158 +65,206 @@ export function TaskInput({ onSubmit, isLoading, disabled, initialAgentId, onCle
       return 'bankr';
     }
     return 'general';
-  };
+  }, []);
 
-  const handleInitialSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (prompt.trim() && !isLoading && !disabled) {
-      const specialist = routePrompt(prompt);
-      setSelectedSpecialist(specialist);
-      setShowPreview(true);
-      setIsConfirmed(false);
+  // Handle auto-routing as user types
+  useEffect(() => {
+    if (initialAgentId) {
+      setSelectedSpecialist(initialAgentId as SpecialistType);
+      return;
     }
-  };
 
-  const handleDispatch = () => {
-    if (isConfirmed && prompt.trim() && !isLoading && !disabled) {
-      onSubmit(prompt.trim());
-      setShowPreview(false);
-      setIsConfirmed(false);
+    if (!prompt.trim()) {
+      setSelectedSpecialist('general');
+      setIsDebouncing(false);
+      return;
     }
-  };
 
-  const handleSuggestionClick = (text: string) => {
-    setPrompt(text);
-    const specialist = routePrompt(text);
-    setSelectedSpecialist(specialist);
-    setShowPreview(true);
-    setIsConfirmed(false);
-  };
+    setIsDebouncing(true);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    
+    debounceTimer.current = setTimeout(() => {
+      setSelectedSpecialist(routePrompt(prompt));
+      setIsDebouncing(false);
+    }, 400);
 
-  const handlePromptChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPrompt(e.target.value);
-    if (showPreview) {
-      setShowPreview(false);
-      setIsConfirmed(false);
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [prompt, routePrompt, initialAgentId]);
+
+  const handleDispatch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!prompt.trim() || isLoading || disabled) return;
+
+    const currentFee = pricing?.[selectedSpecialist]?.fee || '0';
+    const isHighAmount = parseFloat(currentFee) > 0.01;
+
+    if (isHighAmount && !showConfirmation) {
+      setShowConfirmation(true);
+      return;
     }
+
+    onSubmit(prompt.trim());
+    setShowConfirmation(false);
+    if (onClearPreSelect) onClearPreSelect();
   };
+
+  const currentPricing = pricing?.[selectedSpecialist];
+  const isReady = prompt.trim().length > 0 && !isLoading && !disabled;
 
   return (
-    <div className="w-full">
-      {/* Main Input */}
-      <div className="space-y-4">
-        <form onSubmit={handleInitialSubmit} className="relative">
-          <div className="glass-panel gradient-border overflow-hidden">
-            <div className="relative flex items-center p-2">
-              <input
-                type="text"
-                value={prompt}
-                onChange={handlePromptChange}
-                placeholder="What would you like the swarm to do?"
-                disabled={isLoading || disabled}
-                className="flex-1 bg-transparent px-4 py-3 text-lg text-[var(--text-primary)] 
-                  placeholder:text-[var(--text-muted)] focus:outline-none disabled:opacity-50"
-              />
-              {!showPreview ? (
-                <motion.button
-                  type="submit"
-                  disabled={!prompt.trim() || isLoading || disabled}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed
-                    disabled:transform-none"
-                >
-                  <Sparkles size={18} />
-                  <span>Analyze</span>
-                </motion.button>
-              ) : (
-                <motion.button
-                  type="button"
-                  onClick={handleDispatch}
-                  disabled={!isConfirmed || isLoading || disabled}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`
-                    flex items-center gap-2 py-2 px-6 rounded-xl font-bold transition-all
-                    ${isConfirmed 
-                      ? 'bg-[var(--gradient-primary)] text-[var(--bg-primary)] shadow-[var(--glow-gold)]' 
-                      : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] cursor-not-allowed'}
-                  `}
-                >
-                  {isLoading ? (
+    <div className="w-full space-y-4">
+      <div className="relative">
+        <form onSubmit={handleDispatch} className="group">
+          <div className={`
+            relative flex flex-col transition-all duration-300 rounded-2xl overflow-hidden
+            bg-[#0D0D0D]/80 backdrop-blur-xl border-2
+            ${isReady ? 'border-[rgba(247,179,43,0.3)] shadow-[0_0_30px_rgba(247,179,43,0.05)]' : 'border-white/5'}
+            focus-within:border-[rgba(247,179,43,0.5)] focus-within:shadow-[0_0_40px_rgba(247,179,43,0.1)]
+          `}>
+            {/* Input Field */}
+            <div className="flex items-center p-2 gap-2">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder="Ask the Hivemind anything..."
+                  disabled={isLoading || disabled}
+                  className="w-full bg-transparent px-5 py-4 text-xl text-white
+                    placeholder:text-white/20 focus:outline-none disabled:opacity-50"
+                />
+                
+                {/* Specialist Indicator (Inline) */}
+                <AnimatePresence>
+                  {prompt.trim() && (
                     <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                      className="w-5 h-5 border-2 border-[var(--bg-primary)] border-t-transparent rounded-full"
-                    />
-                  ) : (
-                    <Zap size={18} />
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none"
+                    >
+                      {isDebouncing ? (
+                        <Loader2 size={16} className="text-[var(--accent-gold)] animate-spin" />
+                      ) : (
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+                          <div className={`w-1.5 h-1.5 rounded-full bg-[var(--accent-gold)] shadow-[0_0_8px_var(--accent-gold)]`} />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-white/60">
+                            {SPECIALIST_NAMES[selectedSpecialist] || selectedSpecialist}
+                          </span>
+                        </div>
+                      )}
+                    </motion.div>
                   )}
-                  <span>Confirm & Dispatch</span>
-                </motion.button>
-              )}
+                </AnimatePresence>
+              </div>
+
+              {/* Action Button */}
+              <motion.button
+                type="submit"
+                disabled={!isReady}
+                whileHover={isReady ? { scale: 1.02, x: 2 } : {}}
+                whileTap={isReady ? { scale: 0.98 } : {}}
+                className={`
+                  relative overflow-hidden group/btn flex items-center gap-3 px-8 py-4 rounded-xl font-bold transition-all duration-300
+                  ${isReady 
+                    ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_25px_rgba(247,179,43,0.4)]' 
+                    : 'bg-white/5 text-white/20 cursor-not-allowed'}
+                `}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" />
+                    <span>Routing...</span>
+                  </>
+                ) : showConfirmation ? (
+                  <>
+                    <CheckCircle2 size={20} />
+                    <span>Confirm Dispatch</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Send</span>
+                    {currentPricing && (
+                      <span className="opacity-70 text-sm font-medium border-l border-black/20 pl-3">
+                        {currentPricing.fee} USDC
+                      </span>
+                    )}
+                    <ChevronRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </motion.button>
             </div>
+
+            {/* Bottom Info Bar */}
+            <AnimatePresence>
+              {prompt.trim() && !isLoading && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="border-t border-white/5 bg-white/[0.02] px-6 py-2.5 flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-[11px] text-white/40 uppercase tracking-widest font-medium">Estimated Cost</span>
+                    <span className="text-sm font-mono text-[var(--accent-gold)]">
+                      {currentPricing?.fee || '0.000'} USDC
+                    </span>
+                    <span className="text-white/20">•</span>
+                    <span className="text-[11px] text-white/40 uppercase tracking-widest font-medium">Specialist</span>
+                    <span className="text-sm text-white/70">
+                      {SPECIALIST_NAMES[selectedSpecialist] || selectedSpecialist}
+                    </span>
+                  </div>
+                  
+                  {showConfirmation && (
+                    <motion.div 
+                      initial={{ x: 20, opacity: 0 }}
+                      animate={{ x: 0, opacity: 1 }}
+                      className="flex items-center gap-2 text-[var(--accent-gold)]"
+                    >
+                      <AlertCircle size={14} />
+                      <span className="text-xs font-medium italic">High value task - please confirm</span>
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </form>
-
-        <AnimatePresence>
-          {showPreview && pricing && (
-            <CostPreview
-              pricing={pricing}
-              specialist={selectedSpecialist}
-              isConfirmed={isConfirmed}
-              onConfirm={() => setIsConfirmed(!isConfirmed)}
-            />
-          )}
-        </AnimatePresence>
       </div>
 
       {/* Suggested Prompts */}
-      {!showPreview && (
-        <motion.div 
-          className="mt-4 flex flex-wrap gap-2"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          exit={{ opacity: 0, y: -10 }}
-        >
-          {SUGGESTED_PROMPTS.map((suggestion, index) => {
-            const IconComponent = suggestion.icon;
-            return (
-              <motion.button
-                key={index}
-                onClick={() => handleSuggestionClick(suggestion.text)}
-                disabled={isLoading || disabled}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 * index }}
-                className={`
-                  glass-panel-subtle flex items-center gap-2 px-3 py-2 text-sm
-                  text-[var(--text-secondary)] hover:text-[var(--text-primary)]
-                  hover:border-[var(--accent-${suggestion.color})] transition-all duration-200
-                  disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
-                `}
-                style={{
-                  borderColor: 'rgba(255,255,255,0.08)',
-                }}
-              >
-                <IconComponent 
-                  size={14} 
-                  style={{ 
-                    color: suggestion.color === 'cyan' ? 'var(--accent-cyan)' :
-                           suggestion.color === 'purple' ? 'var(--accent-purple)' :
-                           suggestion.color === 'pink' ? 'var(--accent-pink)' :
-                           'var(--accent-green)'
-                  }} 
-                />
-                <span>{suggestion.text}</span>
-              </motion.button>
-            );
-          })}
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {!prompt.trim() && !isLoading && (
+          <motion.div 
+            className="flex flex-wrap gap-3"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+          >
+            {SUGGESTED_PROMPTS.map((suggestion, index) => {
+              const Icon = suggestion.icon;
+              return (
+                <motion.button
+                  key={index}
+                  onClick={() => setPrompt(suggestion.text)}
+                  whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.08)' }}
+                  whileTap={{ scale: 0.95 }}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl glass-panel-subtle text-sm text-white/60 hover:text-white transition-colors cursor-pointer border border-white/5"
+                >
+                  <Icon size={14} className="text-[var(--accent-gold)]" />
+                  <span>{suggestion.text}</span>
+                </motion.button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

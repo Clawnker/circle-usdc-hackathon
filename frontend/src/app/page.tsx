@@ -23,12 +23,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 const SPECIALIST_NAMES: Record<string, string> = {
   aura: 'Social Analyst Aura',
   magos: 'Market Oracle Magos',
-  bankr: 'DeFi Specialist bankr',
+  bankr: 'DeFi Specialist Bankr',
   general: 'General Assistant',
   alphahunter: 'AlphaHunter',
   riskbot: 'RiskBot',
   newsdigest: 'NewsDigest',
   whalespy: 'WhaleSpy',
+  scribe: 'Scribe',
+  seeker: 'Seeker',
 };
 
 export default function CommandCenter() {
@@ -39,7 +41,7 @@ export default function CommandCenter() {
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
-  const [hiredAgents, setHiredAgents] = useState<string[]>([]);
+  const [hiredAgents, setHiredAgents] = useState<string[]>(['bankr', 'scribe', 'seeker']);
   const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
   
   const {

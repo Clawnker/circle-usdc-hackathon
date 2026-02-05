@@ -53,7 +53,7 @@ const SPECIALISTS: Record<SpecialistType, {
     glowColor: 'rgba(236, 72, 153, 0.6)',
   },
   bankr: {
-    name: 'bankr',
+    name: 'Bankr',
     description: 'Execution',
     icon: Wallet,
     color: '#22c55e',
@@ -225,7 +225,7 @@ const nodeTypes = { agent: AgentNode };
 
 // Calculate node positions in a circle around center
 function getNodePositions(centerX: number, centerY: number, radius: number, extraAgents: string[] = []) {
-  const baseSpecialists: SpecialistType[] = ['aura', 'magos', 'bankr'];
+  const baseSpecialists: SpecialistType[] = ['bankr', 'scribe', 'seeker'];
   const allSpecialists = [...baseSpecialists];
   
   // Add extra agents if they aren't already there

@@ -11,9 +11,11 @@ interface CostPreviewProps {
   isConfirmed: boolean;
 }
 
+/**
+ * @deprecated Integrated into TaskInput for smoother UX
+ */
 export function CostPreview({ pricing, specialist, onConfirm, isConfirmed }: CostPreviewProps) {
   const selectedPricing = pricing[specialist] || pricing['general'];
-  const fee = parseFloat(selectedPricing?.fee || '0');
 
   return (
     <motion.div
