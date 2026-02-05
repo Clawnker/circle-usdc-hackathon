@@ -86,7 +86,37 @@ const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: str
   scribe: { fee: '0.0001', description: 'General assistant & fallback' },
   seeker: { fee: '0.0001', description: 'Web research & search' },
   general: { fee: '0', description: 'General queries' },
+  'multi-hop': { fee: '0', description: 'Orchestrated multi-agent workflow' },
 };
+
+/**
+ * Detect multi-hop patterns
+ */
+function detectMultiHop(prompt: string): SpecialistType[] | null {
+  const lower = prompt.toLowerCase();
+  
+  // Pattern: "buy" + "trending" = aura → bankr
+  if (lower.includes('buy') && (lower.includes('trending') || lower.includes('popular') || lower.includes('hot'))) {
+    return ['aura', 'bankr'];
+  }
+  
+  // Pattern: "analyze" + "buy" = magos → bankr  
+  if ((lower.includes('analyze') || lower.includes('research')) && lower.includes('buy')) {
+    return ['magos', 'bankr'];
+  }
+  
+  return null; // Single-hop
+}
+
+/**
+ * Helper to extract tokens from Aura's result
+ */
+function extractTokensFromResult(result: string): string[] {
+  // Parse Aura's trending response
+  // Look for token symbols like SOL, BONK, WIF
+  const tokens = result.match(/\b(SOL|BONK|WIF|PEPE|DOGE|SHIB|FOMO)\b/gi) || [];
+  return [...new Set(tokens.map(t => t.toUpperCase()))];
+}
 
 // Event emitter for real-time updates
 type TaskUpdateCallback = (task: Task) => void;
@@ -133,7 +163,8 @@ function addMessage(task: Task, from: string, to: string, content: string): void
  */
 export async function dispatch(request: DispatchRequest): Promise<DispatchResponse> {
   const taskId = uuidv4();
-  const specialist = request.preferredSpecialist || routePrompt(request.prompt);
+  const hops = detectMultiHop(request.prompt);
+  const specialist = request.preferredSpecialist || (hops ? 'multi-hop' : routePrompt(request.prompt));
   
   // Create task
   const task: Task = {
@@ -146,7 +177,10 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     updatedAt: new Date(),
     payments: [],
     messages: [],
-    metadata: { dryRun: request.dryRun },
+    metadata: { 
+      dryRun: request.dryRun,
+      hops: hops || undefined 
+    },
     callbackUrl: request.callbackUrl,
   };
   
@@ -176,6 +210,100 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   // Demo delay for visual effect
   await new Promise(resolve => setTimeout(resolve, 500));
   
+  const hops = task.metadata?.hops as SpecialistType[] | undefined;
+  
+  if (hops && hops.length > 1) {
+    updateTaskStatus(task, 'processing');
+    addMessage(task, 'dispatcher', 'multi-hop', `Executing multi-hop workflow: ${hops.join(' → ')}`);
+    
+    let currentContext = task.prompt;
+    const multiResults: any[] = [];
+    
+    for (let i = 0; i < hops.length; i++) {
+      const specialist = hops[i];
+      const step = i + 1;
+      
+      updateTaskStatus(task, 'processing', { currentStep: step, totalSteps: hops.length });
+      addMessage(task, 'dispatcher', specialist, `[Step ${step}/${hops.length}] Routing to ${specialist}...`);
+      
+      // Call the specialist
+      const result = await callSpecialist(specialist, currentContext);
+      multiResults.push({ specialist, result });
+      
+      // Add specialist response message
+      const responseContent = extractResponseContent(result);
+      addMessage(task, specialist, 'dispatcher', responseContent);
+      
+      // Execute x402 payment for this hop
+      const pricing = SPECIALIST_PRICING[specialist];
+      const specialistFee = parseFloat(pricing.fee);
+      if (specialistFee > 0 && !dryRun) {
+        const recipient = config.specialistWallets[specialist] || specialist;
+        const paymentResult = await executePayment(
+          config.agentWallet.solanaAddress,
+          recipient,
+          specialistFee
+        );
+
+        if (paymentResult.success && paymentResult.txSignature) {
+          const feeRecord = createPaymentRecord(
+            pricing.fee,
+            'USDC',
+            'solana',
+            recipient,
+            paymentResult.txSignature
+          );
+          task.payments.push(feeRecord);
+          addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee: ${pricing.fee} USDC → ${specialist}`);
+        } else {
+          const feeRecord = createPaymentRecord(pricing.fee, 'USDC', 'solana', specialist);
+          task.payments.push(feeRecord);
+          logTransaction(feeRecord);
+          addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Mock): ${pricing.fee} USDC → ${specialist}`);
+        }
+      }
+      
+      // Update context for next hop
+      if (specialist === 'aura' && result.success) {
+        const tokens = extractTokensFromResult(responseContent);
+        if (tokens.length > 0) {
+          currentContext = `Buy 0.1 SOL of ${tokens[0]}`;
+          addMessage(task, 'dispatcher', 'system', `Next step: ${currentContext}`);
+        }
+      } else if ((specialist === 'magos' || specialist === 'seeker') && result.success) {
+        const tokens = extractTokensFromResult(responseContent);
+        if (tokens.length > 0) {
+          currentContext = `Buy 0.1 SOL of ${tokens[0]}`;
+          addMessage(task, 'dispatcher', 'system', `Next step: ${currentContext}`);
+        }
+      }
+      
+      // Delay between hops
+      if (i < hops.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      }
+    }
+    
+    // Final result aggregation
+    const lastResult = multiResults[multiResults.length - 1].result;
+    task.result = {
+      ...lastResult,
+      data: {
+        ...lastResult.data,
+        isMultiHop: true,
+        hops: hops,
+        steps: multiResults.map(r => ({
+          specialist: r.specialist,
+          summary: extractResponseContent(r.result)
+        }))
+      }
+    };
+    
+    updateTaskStatus(task, 'completed');
+    console.log(`[Dispatcher] Multi-hop task ${task.id} completed`);
+    return;
+  }
+
   updateTaskStatus(task, 'routing');
   addMessage(task, 'dispatcher', task.specialist, `Routing task: "${task.prompt.slice(0, 80)}..."`);
   
@@ -475,6 +603,7 @@ export function routePrompt(prompt: string): SpecialistType {
     scribe: 0,
     seeker: 0,
     general: 0,
+    'multi-hop': 0,
   };
   
   for (const rule of rules) {

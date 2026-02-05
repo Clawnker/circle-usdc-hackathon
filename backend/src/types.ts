@@ -3,7 +3,7 @@
  * Core type definitions for the Clawnker Specialist Network
  */
 
-export type SpecialistType = 'magos' | 'aura' | 'bankr' | 'general' | 'scribe' | 'seeker';
+export type SpecialistType = 'magos' | 'aura' | 'bankr' | 'general' | 'scribe' | 'seeker' | 'multi-hop';
 
 export interface Task {
   id: string;

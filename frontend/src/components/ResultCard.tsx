@@ -12,6 +12,7 @@ interface ResultCardProps {
   specialist: string;
   onNewQuery: () => void;
   onViewDetails?: () => void;
+  isMultiHop?: boolean;
 }
 
 export function ResultCard({
@@ -21,7 +22,8 @@ export function ResultCard({
   cost,
   specialist,
   onNewQuery,
-  onViewDetails
+  onViewDetails,
+  isMultiHop
 }: ResultCardProps) {
   const [isExpanded, setIsExpanded] = React.useState(false);
   const isSuccess = status === 'success';
@@ -48,23 +50,18 @@ export function ResultCard({
           </div>
           <div className="flex items-center justify-between mb-1">
             <h3 className={`text-xl font-bold ${isSuccess ? 'text-green-400' : 'text-red-400'}`}>
-              Task {isSuccess ? 'Completed' : 'Failed'}
+              {isMultiHop ? 'Workflow Completed' : `Task ${isSuccess ? 'Completed' : 'Failed'}`}
             </h3>
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
               <Sparkles size={14} className="text-[var(--accent-gold)]" />
-              <span className="text-xs font-mono text-[var(--text-secondary)]">{specialist}</span>
+              <span className="text-xs font-mono text-[var(--text-secondary)]">
+                {isMultiHop ? `Via: ${specialist}` : specialist}
+              </span>
             </div>
           </div>
           <p className="text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
             {displayResult}
           </p>
-          
-          {/* Multi-hop teaser */}
-          {query.toLowerCase().includes('buy') && specialist.toLowerCase() !== 'bankr' && (
-            <div className="text-xs text-amber-500/70 mt-2 italic">
-              💡 Multi-step queries (analyze → execute) coming in V2
-            </div>
-          )}
         </div>
       </div>
 

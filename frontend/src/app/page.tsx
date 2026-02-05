@@ -34,6 +34,7 @@ const SPECIALIST_NAMES: Record<string, string> = {
   scribe: 'Scribe',
   seeker: 'Seeker',
   dispatcher: 'Dispatcher',
+  'multi-hop': 'Multi-hop Orchestrator',
 };
 
 const SPECIALIST_FEES: Record<string, number> = {
@@ -123,9 +124,20 @@ export default function CommandCenter() {
           if (result) {
             const r = result as any;
             let content = '';
-            if (r.data?.insight) content = r.data.insight;
-            else if (r.data?.summary) content = r.data.summary;
-            else if (r.data?.details?.response) content = typeof r.data.details.response === 'string' ? r.data.details.response : JSON.stringify(r.data.details.response);
+            
+            // Handle multi-hop steps
+            if (r.data?.isMultiHop && r.data?.steps) {
+              const hops = r.data.hops as string[];
+              message = `Successfully orchestrated: ${hops.join(' → ')}`;
+              content = r.data.steps.map((s: any) => {
+                const sName = SPECIALIST_NAMES[s.specialist] || s.specialist;
+                return `[${sName}]\n${s.summary}`;
+              }).join('\n\n');
+            } else {
+              if (r.data?.insight) content = r.data.insight;
+              else if (r.data?.summary) content = r.data.summary;
+              else if (r.data?.details?.response) content = typeof r.data.details.response === 'string' ? r.data.details.response : JSON.stringify(r.data.details.response);
+            }
             
             const totalCost = payments.reduce((sum, p) => sum + p.amount, 0);
             const specialistId = currentStep?.specialist || 'dispatcher';
@@ -135,8 +147,9 @@ export default function CommandCenter() {
               status: 'success',
               result: content || 'Task completed',
               cost: totalCost,
-              specialist: SPECIALIST_NAMES[specialistId] || specialistId
-            });
+              specialist: r.data?.isMultiHop ? r.data.hops.map((h: string) => h.charAt(0).toUpperCase() + h.slice(1)).join(' → ') : (SPECIALIST_NAMES[specialistId] || specialistId),
+              isMultiHop: r.data?.isMultiHop
+            } as any);
 
             // Add to query history
             setQueryHistory(prev => {
