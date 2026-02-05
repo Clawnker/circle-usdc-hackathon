@@ -192,59 +192,73 @@ export function getTransactionLog(): PaymentRecord[] {
  * Execute a real x402 transfer on Solana devnet
  */
 export async function executePayment(
-  from: string, // dispatcher wallet
-  to: string,   // specialist wallet address
-  amount: number, // USDC amount
+  from: string,
+  to: string,
+  amount: number,
 ): Promise<{ success: boolean; txSignature?: string }> {
   try {
-    // Prefer AGENTWALLET_API_KEY if available, fallback to config token
-    const apiKey = process.env.AGENTWALLET_API_KEY || config.agentWallet.token;
+    const apiKey = process.env.AGENTWALLET_FUND_TOKEN || config.agentWallet.token;
+    const username = config.agentWallet.username || 'claw';
+    const apiUrl = config.agentWallet.apiUrl || 'https://agentwallet.mcpay.tech/api';
     
     if (!apiKey) {
       console.warn('[x402] No API key for payment execution');
       return { success: false };
     }
 
-    console.log(`[x402] Executing real payment: ${amount} USDC to ${to}`);
+    console.log(`[x402] Executing real payment: ${amount} USDC from ${username} to ${to}`);
     
-    const response = await axios.post('https://api.agentwallet.ai/v1/transfer', {
-      amount: amount.toString(),
-      token: 'USDC',
-      recipient: to,
-      chain: 'solana',
-      network: 'devnet',
-    }, {
-      headers: {
-        'X-API-Key': apiKey,
+    // Use the correct AgentWallet API endpoint
+    const response = await axios.post(
+      `${apiUrl}/wallets/${username}/actions/transfer`,
+      {
+        chain: 'solana',
+        network: 'devnet',
+        asset: 'usdc',
+        amount: amount.toString(),
+        recipient: to,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        }
       }
+    );
+
+    console.log('[x402] Transfer response:', response.data);
+    
+    const txSignature = response.data?.txHash || response.data?.signature || response.data?.transactionHash;
+    
+    // Log the transaction
+    logTransaction({
+      amount: amount.toString(),
+      currency: 'USDC',
+      network: 'solana',
+      recipient: to,
+      txHash: txSignature,
+      status: 'completed',
+      timestamp: new Date(),
+    });
+
+    return {
+      success: true,
+      txSignature,
+    };
+  } catch (error: any) {
+    console.error('[x402] Payment failed:', error.response?.data || error.message);
+    
+    // Still log failed attempt
+    logTransaction({
+      amount: amount.toString(),
+      currency: 'USDC',
+      network: 'solana',
+      recipient: to,
+      status: 'failed',
+      timestamp: new Date(),
     });
     
-    const txHash = response.data.txHash || response.data.signature;
-    
-    if (txHash) {
-      console.log(`[x402] Payment successful: ${txHash}`);
-      
-      // Log it
-      logTransaction(createPaymentRecord(
-        amount.toString(),
-        'USDC',
-        'solana',
-        to,
-        txHash
-      ));
-
-      return {
-        success: true,
-        txSignature: txHash,
-      };
-    } else {
-      throw new Error('No transaction hash returned from API');
-    }
-  } catch (error: any) {
-    console.error('[x402] Payment execution failed:', error.response?.data || error.message);
-    return {
-      success: false,
-    };
+    return { success: false };
   }
 }
 

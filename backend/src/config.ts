@@ -98,11 +98,11 @@ export const config = {
 
   // Specialist Wallets (Receiving addresses)
   specialistWallets: {
-    magos: '7vK86u6Ndf2sScb9jS6s55VnB7rN68f3T4E4E4E4E4E4',
-    aura: '8vK86u6Ndf2sScb9jS6s55VnB7rN68f3T4E4E4E4E4E4',
-    seeker: '9vK86u6Ndf2sScb9jS6s55VnB7rN68f3T4E4E4E4E4E4',
-    bankr: 'Bq48PaxtoWv62QHeX3WYfmHHw9E7hJp38sx5t6tugDyd', // Using main for bankr demo
-    scribe: 'CvK86u6Ndf2sScb9jS6s55VnB7rN68f3T4E4E4E4E4E4',
+    aura: process.env.WALLET_AURA || '8vK86u6Ndf2sScb9jS6s55VnB7rN68f3T4E4E4E4E4E4',
+    magos: process.env.WALLET_MAGOS || '7vK86u6Ndf2sScb9jS6s55VnB7rN68f3T4E4E4E4E4E4',
+    bankr: process.env.WALLET_BANKR || 'Bq48PaxtoWv62QHeX3WYfmHHw9E7hJp38sx5t6tugDyd',
+    seeker: process.env.WALLET_SEEKER || '9vK86u6Ndf2sScb9jS6s55VnB7rN68f3T4E4E4E4E4E4',
+    scribe: process.env.WALLET_SCRIBE || 'CvK86u6Ndf2sScb9jS6s55VnB7rN68f3T4E4E4E4E4E4',
   } as Record<string, string>,
 };
 
