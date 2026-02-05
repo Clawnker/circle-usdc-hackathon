@@ -90,6 +90,62 @@ const SPECIALIST_INFO: Record<SpecialistType, {
     ],
     defaultPrompt: 'You are a General Assistant for Hivemind Protocol. Help users with general queries about the protocol and its specialists.',
   },
+  alphahunter: {
+    name: 'AlphaHunter',
+    description: 'DeFi Opportunity Finder',
+    fullDescription: 'Scans the market for new token launches, liquidity pools, and yield opportunities. Identifies patterns associated with high-growth potential assets.',
+    icon: Sparkles,
+    color: '#f97316',
+    capabilities: [
+      'New token discovery',
+      'Liquidity pool analysis',
+      'Yield farming detection',
+      'Volume anomaly tracking',
+    ],
+    defaultPrompt: 'You are AlphaHunter. Your goal is to find high-potential opportunities in the DeFi space.',
+  },
+  riskbot: {
+    name: 'RiskBot',
+    description: 'Security & Risk Auditor',
+    fullDescription: 'Analyzes smart contracts, tokenomics, and market conditions to identify potential risks, rugs, or security vulnerabilities.',
+    icon: Brain,
+    color: '#ef4444',
+    capabilities: [
+      'Contract auditing',
+      'Tokenomics analysis',
+      'Honeypot detection',
+      'Market volatility assessment',
+    ],
+    defaultPrompt: 'You are RiskBot. Analyze the risk profile of specified tokens or protocols.',
+  },
+  newsdigest: {
+    name: 'NewsDigest',
+    description: 'Market News Aggregator',
+    fullDescription: 'Summarizes key market news, regulatory updates, and project announcements from verified sources to keep you informed of the macro landscape.',
+    icon: Sparkles,
+    color: '#3b82f6',
+    capabilities: [
+      'News summarization',
+      'Regulatory tracking',
+      'Project update monitoring',
+      'Event impact analysis',
+    ],
+    defaultPrompt: 'You are NewsDigest. Provide concise summaries of the latest market news.',
+  },
+  whalespy: {
+    name: 'WhaleSpy',
+    description: 'Large Transaction Tracker',
+    fullDescription: 'Monitors large wallet movements and institutional flows to detect potential accumulation or distribution phases by major market participants.',
+    icon: LineChart,
+    color: '#06b6d4',
+    capabilities: [
+      'Whale wallet tracking',
+      'Exchange inflow/outflow analysis',
+      'Institutional move detection',
+      'Unusual volume alerts',
+    ],
+    defaultPrompt: 'You are WhaleSpy. Monitor and report on large transaction activities.',
+  },
 };
 
 export function AgentDetailModal({ specialist, onClose, onSavePrompt }: AgentDetailModalProps) {

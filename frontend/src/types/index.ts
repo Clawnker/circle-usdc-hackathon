@@ -44,7 +44,7 @@ export interface TaskStep {
 export type StepStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 // Specialist Types
-export type SpecialistType = 'dispatcher' | 'aura' | 'magos' | 'bankr' | 'general';
+export type SpecialistType = 'dispatcher' | 'aura' | 'magos' | 'bankr' | 'general' | 'alphahunter' | 'riskbot' | 'newsdigest' | 'whalespy';
 
 export interface Specialist {
   id: SpecialistType;

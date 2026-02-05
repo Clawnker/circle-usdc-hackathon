@@ -12,13 +12,14 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import { motion } from 'framer-motion';
-import { Brain, Sparkles, LineChart, Wallet, Activity } from 'lucide-react';
+import { Brain, Sparkles, LineChart, Wallet, Activity, Target, Shield, Newspaper, Eye } from 'lucide-react';
 import type { SpecialistType } from '@/types';
 
 interface SwarmGraphProps {
   activeSpecialist: string | null;
   currentStep: { specialist: string; action: string } | null;
   taskStatus: string | null;
+  hiredAgents?: string[];
   onAgentClick?: (specialist: SpecialistType) => void;
 }
 
@@ -65,6 +66,34 @@ const SPECIALISTS: Record<SpecialistType, {
     color: '#F7B32B',
     glowColor: 'rgba(247, 179, 43, 0.6)',
   },
+  alphahunter: {
+    name: 'AlphaHunter',
+    description: 'Discovery',
+    icon: Target,
+    color: '#fbbf24',
+    glowColor: 'rgba(251, 191, 36, 0.6)',
+  },
+  riskbot: {
+    name: 'RiskBot',
+    description: 'Security',
+    icon: Shield,
+    color: '#ef4444',
+    glowColor: 'rgba(239, 68, 68, 0.6)',
+  },
+  newsdigest: {
+    name: 'NewsDigest',
+    description: 'Intelligence',
+    icon: Newspaper,
+    color: '#22d3ee',
+    glowColor: 'rgba(34, 211, 238, 0.6)',
+  },
+  whalespy: {
+    name: 'WhaleSpy',
+    description: 'Tracking',
+    icon: Eye,
+    color: '#8b5cf6',
+    glowColor: 'rgba(139, 92, 246, 0.6)',
+  },
 };
 
 // Custom Agent Node Component
@@ -72,20 +101,27 @@ function AgentNode({ data }: { data: {
   specialist: SpecialistType; 
   isActive: boolean; 
   isCenter: boolean;
+  status?: 'ready' | 'active' | 'complete' | 'idle';
   currentAction?: string;
 }}) {
   const config = SPECIALISTS[data.specialist];
   const Icon = config.icon;
   
+  const isReady = data.status === 'ready';
+  const isComplete = data.status === 'complete';
+  const isActive = data.isActive || data.status === 'active';
+
   return (
     <motion.div
       initial={{ scale: 0, opacity: 0 }}
       animate={{ 
         scale: 1, 
         opacity: 1,
-        boxShadow: data.isActive 
+        boxShadow: isActive 
           ? `0 0 30px ${config.glowColor}, 0 0 60px ${config.glowColor}`
-          : 'none'
+          : isReady
+            ? `0 0 15px ${config.glowColor}`
+            : 'none'
       }}
       transition={{ 
         type: 'spring', 
@@ -98,14 +134,15 @@ function AgentNode({ data }: { data: {
         ${data.isCenter ? 'w-32 h-32' : 'w-24 h-24'}
         rounded-full glass-panel cursor-pointer
         transition-all duration-300
+        ${isReady ? 'border-dashed' : 'border-solid'}
       `}
       style={{
-        borderColor: data.isActive ? config.color : 'rgba(255,255,255,0.1)',
-        borderWidth: data.isActive ? 2 : 1,
+        borderColor: isActive ? config.color : isReady ? config.color : 'rgba(255,255,255,0.1)',
+        borderWidth: isActive ? 3 : isReady ? 2 : 1,
       }}
     >
       {/* Pulse ring when active */}
-      {data.isActive && (
+      {isActive && (
         <motion.div
           className="absolute inset-0 rounded-full"
           style={{ borderColor: config.color, borderWidth: 2 }}
@@ -124,11 +161,11 @@ function AgentNode({ data }: { data: {
       {/* Icon */}
       <motion.div
         animate={{ 
-          rotate: data.isActive ? [0, 5, -5, 0] : 0,
+          rotate: isActive ? [0, 5, -5, 0] : 0,
         }}
         transition={{ 
           duration: 0.5, 
-          repeat: data.isActive ? Infinity : 0,
+          repeat: isActive ? Infinity : 0,
           repeatDelay: 1
         }}
       >
@@ -148,18 +185,20 @@ function AgentNode({ data }: { data: {
       
       {/* Status indicator */}
       <div 
-        className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
-          data.isActive ? 'status-active' : 'status-idle'
+        className={`absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center border border-[var(--bg-primary)] ${
+          isActive ? 'bg-green-500' : isReady ? 'bg-blue-500' : isComplete ? 'bg-green-600' : 'bg-gray-500'
         }`}
-      />
+      >
+        {isComplete && <span className="text-[8px] text-white">✓</span>}
+      </div>
 
       {/* Current action tooltip */}
-      {data.isActive && data.currentAction && (
+      {isActive && data.currentAction && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="absolute -bottom-8 whitespace-nowrap text-xs px-2 py-1 
-            rounded-md glass-panel-subtle text-[var(--text-secondary)]"
+            rounded-md glass-panel-subtle text-[var(--text-secondary)] z-50"
         >
           {data.currentAction}
         </motion.div>
@@ -171,12 +210,22 @@ function AgentNode({ data }: { data: {
 const nodeTypes = { agent: AgentNode };
 
 // Calculate node positions in a circle around center
-function getNodePositions(centerX: number, centerY: number, radius: number) {
-  const specialists: SpecialistType[] = ['aura', 'magos', 'bankr'];
+function getNodePositions(centerX: number, centerY: number, radius: number, extraAgents: string[] = []) {
+  const baseSpecialists: SpecialistType[] = ['aura', 'magos', 'bankr'];
+  const allSpecialists = [...baseSpecialists];
+  
+  // Add extra agents if they aren't already there
+  extraAgents.forEach(id => {
+    const agentId = id.toLowerCase() as SpecialistType;
+    if (!allSpecialists.includes(agentId) && SPECIALISTS[agentId]) {
+      allSpecialists.push(agentId);
+    }
+  });
+
   const angleOffset = -Math.PI / 2; // Start from top
   
-  return specialists.map((specialist, index) => {
-    const angle = angleOffset + (2 * Math.PI * index) / specialists.length;
+  return allSpecialists.map((specialist, index) => {
+    const angle = angleOffset + (2 * Math.PI * index) / allSpecialists.length;
     return {
       id: specialist,
       x: centerX + radius * Math.cos(angle) - 48, // Subtract half node width
@@ -185,12 +234,12 @@ function getNodePositions(centerX: number, centerY: number, radius: number) {
   });
 }
 
-export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, onAgentClick }: SwarmGraphProps) {
+export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAgents = [], onAgentClick }: SwarmGraphProps) {
   const centerX = 200;
   const centerY = 150;
   const radius = 140;
 
-  const positions = useMemo(() => getNodePositions(centerX, centerY, radius), []);
+  const positions = useMemo(() => getNodePositions(centerX, centerY, radius, hiredAgents), [hiredAgents]);
   
   const initialNodes: Node[] = useMemo(() => [
     {
@@ -201,6 +250,7 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, onAgentC
         specialist: 'dispatcher' as SpecialistType, 
         isActive: false, 
         isCenter: true,
+        status: 'idle',
         currentAction: undefined,
       },
     },
@@ -212,51 +262,92 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, onAgentC
         specialist: pos.id as SpecialistType, 
         isActive: false, 
         isCenter: false,
+        status: hiredAgents.includes(pos.id) ? 'ready' : 'idle',
         currentAction: undefined,
       },
     })),
-  ], [positions]);
+  ], [positions, hiredAgents]);
 
-  const initialEdges: Edge[] = useMemo(() => [
-    { id: 'dispatcher-aura', source: 'dispatcher', target: 'aura', animated: false },
-    { id: 'dispatcher-magos', source: 'dispatcher', target: 'magos', animated: false },
-    { id: 'dispatcher-bankr', source: 'dispatcher', target: 'bankr', animated: false },
-    { id: 'aura-magos', source: 'aura', target: 'magos', animated: false },
-    { id: 'magos-bankr', source: 'magos', target: 'bankr', animated: false },
-  ], []);
+  const initialEdges: Edge[] = useMemo(() => {
+    const edges: Edge[] = [];
+    positions.forEach(pos => {
+      edges.push({ 
+        id: `dispatcher-${pos.id}`, 
+        source: 'dispatcher', 
+        target: pos.id, 
+        animated: false 
+      });
+    });
+    
+    // Connect outer nodes in a circle
+    for (let i = 0; i < positions.length; i++) {
+      const nextIndex = (i + 1) % positions.length;
+      edges.push({
+        id: `${positions[i].id}-${positions[nextIndex].id}`,
+        source: positions[i].id,
+        target: positions[nextIndex].id,
+        animated: false
+      });
+    }
+    
+    return edges;
+  }, [positions]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Sync nodes when positions/hiredAgents change
+  useEffect(() => {
+    setNodes(initialNodes);
+    setEdges(initialEdges);
+  }, [initialNodes, initialEdges, setNodes, setEdges]);
 
   // Update active states based on current step
   useEffect(() => {
     const activeId = currentStep?.specialist?.toLowerCase() || 
                      (taskStatus === 'planning' ? 'dispatcher' : null);
     
-    setNodes(nds => nds.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        isActive: node.id === activeId || (taskStatus === 'executing' && node.id === 'dispatcher'),
-        currentAction: node.id === activeId ? currentStep?.action : undefined,
-      },
-    })));
+    setNodes(nds => nds.map(node => {
+      const isCurrentActive = node.id === activeId || (taskStatus === 'executing' && node.id === 'dispatcher');
+      let status = node.data.status;
+      
+      if (isCurrentActive) {
+        status = 'active';
+      } else if (taskStatus === 'completed' && node.data.status === 'active') {
+        status = 'complete';
+      } else if (hiredAgents.includes(node.id) && status !== 'complete' && status !== 'active') {
+        status = 'ready';
+      }
+
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isActive: isCurrentActive,
+          status,
+          currentAction: node.id === activeId ? currentStep?.action : undefined,
+        },
+      };
+    }));
 
     // Animate edges when there's an active specialist
-    setEdges(eds => eds.map(edge => ({
-      ...edge,
-      animated: activeId ? (
-        edge.source === 'dispatcher' && edge.target === activeId ||
-        edge.target === activeId
-      ) : false,
-      style: {
-        stroke: activeId && (edge.source === 'dispatcher' && edge.target === activeId || edge.target === activeId)
-          ? SPECIALISTS[activeId as SpecialistType]?.color || '#00f5ff'
-          : 'var(--text-muted)',
-        strokeWidth: activeId && edge.target === activeId ? 3 : 2,
-      },
-    })));
-  }, [currentStep, taskStatus, setNodes, setEdges]);
+    setEdges(eds => eds.map(edge => {
+      const isTargetActive = edge.target === activeId;
+      const isSourceDispatcher = edge.source === 'dispatcher';
+      const shouldAnimate = activeId && (isTargetActive && (isSourceDispatcher || edge.source !== 'dispatcher'));
+
+      return {
+        ...edge,
+        animated: !!shouldAnimate,
+        style: {
+          stroke: activeId && edge.target === activeId
+            ? SPECIALISTS[activeId as SpecialistType]?.color || '#00f5ff'
+            : 'var(--text-muted)',
+          strokeWidth: activeId && edge.target === activeId ? 3 : 2,
+        },
+      };
+    }));
+  }, [currentStep, taskStatus, hiredAgents, setNodes, setEdges]);
 
   return (
     <div className="w-full h-full min-h-[300px] glass-panel overflow-hidden">
