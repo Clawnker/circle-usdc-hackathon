@@ -10,6 +10,7 @@ import cors from 'cors';
 import * as dotenv from 'dotenv';
 
 import config from './config';
+import { authMiddleware } from './middleware/auth';
 import dispatcher, { dispatch, getTask, getRecentTasks, subscribeToTask, getSpecialists } from './dispatcher';
 import { getBalances, getTransactionLog } from './x402';
 import solana from './solana';
@@ -24,6 +25,7 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(authMiddleware);
 
 // Request logging
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -84,7 +86,7 @@ app.get('/status', async (req: Request, res: Response) => {
  */
 app.post('/dispatch', async (req: Request, res: Response) => {
   try {
-    const { prompt, userId, preferredSpecialist, dryRun } = req.body as DispatchRequest;
+    const { prompt, userId, preferredSpecialist, dryRun, callbackUrl } = req.body as DispatchRequest;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -92,9 +94,10 @@ app.post('/dispatch', async (req: Request, res: Response) => {
 
     const result = await dispatch({
       prompt,
-      userId,
+      userId: userId || (req as any).user.id,
       preferredSpecialist,
       dryRun,
+      callbackUrl,
     });
 
     res.status(202).json(result);
@@ -124,7 +127,10 @@ app.get('/status/:taskId', (req: Request, res: Response) => {
  */
 app.get('/tasks', (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 10;
-  const tasks = getRecentTasks(limit);
+  const user = (req as any).user;
+  
+  // Filter tasks to only return those belonging to the authenticated user
+  const tasks = getRecentTasks(limit * 5).filter(t => t.userId === user.id).slice(0, limit);
   res.json({ tasks, count: tasks.length });
 });
 

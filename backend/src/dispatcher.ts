@@ -14,6 +14,7 @@ import {
   DispatchResponse,
   SpecialistResult,
 } from './types';
+import config from './config';
 import { x402Fetch, getBalances, logTransaction, createPaymentRecord } from './x402';
 import { recordSuccess, recordFailure, getSuccessRate } from './reputation';
 import magos from './specialists/magos';
@@ -185,7 +186,16 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
     const balances = await getBalances();
     console.log(`[Dispatcher] Wallet balances:`, balances);
     
-    // For now, proceed anyway (would gate on balance in production)
+    // Enforce payment if config flag is set
+    const pricing = SPECIALIST_PRICING[task.specialist];
+    const fee = parseFloat(pricing.fee);
+    const usdcBalance = balances.solana.usdc; // Magos is on Solana
+
+    if (config.enforcePayments && usdcBalance < fee) {
+      const errorMsg = `Insufficient balance: ${usdcBalance} USDC < ${fee} USDC required for ${task.specialist}`;
+      addMessage(task, 'x402', 'dispatcher', `❌ ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
   }
   
   updateTaskStatus(task, 'processing');
@@ -244,22 +254,61 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   
   // Call webhook if provided
   if (task.callbackUrl) {
-    try {
-      const axios = require('axios');
-      await axios.post(task.callbackUrl, {
-        taskId: task.id,
-        status: task.status,
-        specialist: task.specialist,
-        result: formatResultForCallback(result),
-        messages: task.messages,
-      });
-      console.log(`[Dispatcher] Callback sent to ${task.callbackUrl}`);
-    } catch (err: any) {
-      console.error(`[Dispatcher] Callback failed:`, err.message);
+    if (!validateCallbackUrl(task.callbackUrl)) {
+      console.error(`[Dispatcher] Blocked potentially malicious callbackUrl: ${task.callbackUrl}`);
+      addMessage(task, 'system', 'dispatcher', `Security: Blocked invalid callbackUrl (SSRF protection)`);
+    } else {
+      try {
+        const axios = require('axios');
+        await axios.post(task.callbackUrl, {
+          taskId: task.id,
+          status: task.status,
+          specialist: task.specialist,
+          result: formatResultForCallback(result),
+          messages: task.messages,
+        });
+        console.log(`[Dispatcher] Callback sent to ${task.callbackUrl}`);
+      } catch (err: any) {
+        console.error(`[Dispatcher] Callback failed:`, err.message);
+      }
     }
   }
   
   console.log(`[Dispatcher] Task ${task.id} ${task.status} in ${result.executionTimeMs}ms`);
+}
+
+/**
+ * Validates a callback URL to prevent SSRF attacks.
+ * Blocks localhost, private IP ranges, and cloud metadata services.
+ */
+function validateCallbackUrl(urlStr: string): boolean {
+  try {
+    const url = new URL(urlStr);
+    
+    // Only allow http:// and https:// schemes
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = url.hostname.toLowerCase();
+    
+    // Block localhost, 127.0.0.1, ::1
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      return false;
+    }
+
+    // Block private IP ranges
+    // 10.x.x.x
+    if (hostname.startsWith('10.')) return false;
+    // 192.168.x.x
+    if (hostname.startsWith('192.168.')) return false;
+    // 169.254.x.x (Cloud metadata)
+    if (hostname.startsWith('169.254.')) return false;
+
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 /**

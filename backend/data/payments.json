@@ -206,5 +206,69 @@
     "recipient": "aura",
     "status": "pending",
     "timestamp": "2026-02-05T00:59:22.508Z"
+  },
+  {
+    "amount": "0.0005",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "aura",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:01:26.479Z"
+  },
+  {
+    "amount": "0.001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "magos",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:01:26.997Z"
+  },
+  {
+    "amount": "0.001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "magos",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:01:45.633Z"
+  },
+  {
+    "amount": "0.0001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "bankr",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:01:53.987Z"
+  },
+  {
+    "amount": "0.001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "magos",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:01:56.569Z"
+  },
+  {
+    "amount": "0.0005",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "aura",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:01:58.264Z"
+  },
+  {
+    "amount": "0.0001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "bankr",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:06:49.979Z"
+  },
+  {
+    "amount": "0.0001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "bankr",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:07:40.196Z"
   }
 ]

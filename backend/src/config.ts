@@ -67,6 +67,9 @@ export const config = {
     credits: heliusConfig?.credits || 0,
   },
 
+  // Security & Gating
+  enforcePayments: process.env.ENFORCE_PAYMENTS === 'true' || (process.env.NODE_ENV === 'production' && process.env.ENFORCE_PAYMENTS !== 'false'),
+
   // Specialist endpoints (ClawArena, MoltX, etc.)
   specialists: {
     clawarena: {

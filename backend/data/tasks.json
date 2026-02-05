@@ -2246,5 +2246,1209 @@
       "timestamp": "2026-02-05T00:59:22.508Z",
       "executionTimeMs": 0
     }
+  },
+  "12067d8f-f26b-4768-8231-7b2259602e50": {
+    "id": "12067d8f-f26b-4768-8231-7b2259602e50",
+    "prompt": "Is WIF a good buy?",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T01:01:23.116Z",
+    "updatedAt": "2026-02-05T01:01:26.998Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:01:26.997Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770253283718-av3j",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Is WIF a good buy?...\"",
+        "timestamp": "2026-02-05T01:01:23.718Z"
+      },
+      {
+        "id": "msg-1770253283719-r7km",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T01:01:23.719Z"
+      },
+      {
+        "id": "msg-1770253284141-1vaw",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-05T01:01:24.141Z"
+      },
+      {
+        "id": "msg-1770253286997-e237",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+        "timestamp": "2026-02-05T01:01:26.997Z"
+      },
+      {
+        "id": "msg-1770253286998-jfjj",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.001 USDC → magos",
+        "timestamp": "2026-02-05T01:01:26.998Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "insight": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+        "confidence": 0.65,
+        "trending": [
+          {
+            "token": "BONK",
+            "mentions": 42,
+            "sentiment": "bullish"
+          },
+          {
+            "token": "WIF",
+            "mentions": 28,
+            "sentiment": "bullish"
+          },
+          {
+            "token": "POPCAT",
+            "mentions": 15,
+            "sentiment": "neutral"
+          }
+        ],
+        "relatedTokens": [
+          "BONK",
+          "WIF",
+          "POPCAT"
+        ]
+      },
+      "confidence": 0.65,
+      "timestamp": "2026-02-05T01:01:26.997Z",
+      "executionTimeMs": 2056
+    }
+  },
+  "9a4fadaf-03d2-4567-a58d-32ee0864ce52": {
+    "id": "9a4fadaf-03d2-4567-a58d-32ee0864ce52",
+    "prompt": "What tokens are people talking about?",
+    "status": "completed",
+    "specialist": "aura",
+    "createdAt": "2026-02-05T01:01:25.067Z",
+    "updatedAt": "2026-02-05T01:01:26.479Z",
+    "payments": [
+      {
+        "amount": "0.0005",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "aura",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:01:26.479Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770253285668-h4bp",
+        "from": "dispatcher",
+        "to": "aura",
+        "content": "Routing task: \"What tokens are people talking about?...\"",
+        "timestamp": "2026-02-05T01:01:25.668Z"
+      },
+      {
+        "id": "msg-1770253285678-lwje",
+        "from": "dispatcher",
+        "to": "aura",
+        "content": "Processing with aura... (fee: 0.0005 USDC)",
+        "timestamp": "2026-02-05T01:01:25.678Z"
+      },
+      {
+        "id": "msg-1770253286479-tmhi",
+        "from": "aura",
+        "to": "dispatcher",
+        "content": "🔥 **Trending Topics**:\n• SOL (bullish)\n• BONK (fomo)\n• WIF (bullish)",
+        "timestamp": "2026-02-05T01:01:26.479Z"
+      },
+      {
+        "id": "msg-1770253286479-yrds",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.0005 USDC → aura",
+        "timestamp": "2026-02-05T01:01:26.479Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "category": "all",
+        "trending": [
+          {
+            "rank": 1,
+            "topic": "SOL",
+            "mentions": 15794,
+            "sentiment": "bullish",
+            "change24h": 32.77625409920366
+          },
+          {
+            "rank": 2,
+            "topic": "BONK",
+            "mentions": 10433,
+            "sentiment": "fomo",
+            "change24h": -12.658343062233325
+          },
+          {
+            "rank": 3,
+            "topic": "WIF",
+            "mentions": 6517,
+            "sentiment": "bullish",
+            "change24h": -11.233202890975527
+          },
+          {
+            "rank": 4,
+            "topic": "JUP",
+            "mentions": 6049,
+            "sentiment": "neutral",
+            "change24h": 32.661793367731555
+          },
+          {
+            "rank": 5,
+            "topic": "RENDER",
+            "mentions": 4713,
+            "sentiment": "bullish",
+            "change24h": 28.923291760151216
+          }
+        ],
+        "summary": "🔥 **Trending Topics**:\n• SOL (bullish)\n• BONK (fomo)\n• WIF (bullish)",
+        "timestamp": "2026-02-05T01:01:26.479Z"
+      },
+      "confidence": 0.7,
+      "timestamp": "2026-02-05T01:01:26.479Z",
+      "executionTimeMs": 0
+    }
+  },
+  "c0ff3cd8-2136-42b7-a6c8-cbb8207d2817": {
+    "id": "c0ff3cd8-2136-42b7-a6c8-cbb8207d2817",
+    "prompt": "Hello",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-05T01:01:27.381Z",
+    "updatedAt": "2026-02-05T01:01:28.859Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770253287983-96i4",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"Hello...\"",
+        "timestamp": "2026-02-05T01:01:27.983Z"
+      },
+      {
+        "id": "msg-1770253287992-nl3b",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-05T01:01:27.992Z"
+      },
+      {
+        "id": "msg-1770253288859-fqny",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-05T01:01:28.859Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "insight": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+          "confidence": 0.65,
+          "trending": [
+            {
+              "token": "BONK",
+              "mentions": 42,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "WIF",
+              "mentions": 28,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "POPCAT",
+              "mentions": 15,
+              "sentiment": "neutral"
+            }
+          ],
+          "relatedTokens": [
+            "BONK",
+            "WIF",
+            "POPCAT"
+          ]
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "optimistic",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: optimistic. Social volume is below average. Standard market conditions.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.665,
+      "timestamp": "2026-02-05T01:01:28.859Z",
+      "executionTimeMs": 67
+    }
+  },
+  "57c61c56-507f-41be-8765-cb97cb6175cf": {
+    "id": "57c61c56-507f-41be-8765-cb97cb6175cf",
+    "prompt": "Predict price of SOL",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T01:01:43.725Z",
+    "updatedAt": "2026-02-05T01:01:45.633Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:01:45.633Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770253304328-6v24",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Predict price of SOL...\"",
+        "timestamp": "2026-02-05T01:01:44.328Z"
+      },
+      {
+        "id": "msg-1770253304339-lqwx",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T01:01:44.339Z"
+      },
+      {
+        "id": "msg-1770253304791-wfza",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-05T01:01:44.791Z"
+      },
+      {
+        "id": "msg-1770253305633-doyb",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "SOL 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $132.61",
+        "timestamp": "2026-02-05T01:01:45.633Z"
+      },
+      {
+        "id": "msg-1770253305633-nwn9",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.001 USDC → magos",
+        "timestamp": "2026-02-05T01:01:45.633Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "token": "SOL",
+        "currentPrice": 127.5,
+        "predictedPrice": 132.60641907326817,
+        "timeHorizon": "4h",
+        "confidence": 0.7766117532406991,
+        "direction": "bullish",
+        "reasoning": "SOL 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $132.61"
+      },
+      "confidence": 0.7766117532406991,
+      "timestamp": "2026-02-05T01:01:45.633Z",
+      "executionTimeMs": 41
+    }
+  },
+  "e2154c0b-7c28-4dc0-9efb-74616976016f": {
+    "id": "e2154c0b-7c28-4dc0-9efb-74616976016f",
+    "prompt": "Check my balance",
+    "status": "completed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-05T01:01:51.743Z",
+    "updatedAt": "2026-02-05T01:01:53.987Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "bankr",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:01:53.987Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770253312344-mnph",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"Check my balance...\"",
+        "timestamp": "2026-02-05T01:01:52.344Z"
+      },
+      {
+        "id": "msg-1770253312346-ryzo",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Processing with bankr... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-05T01:01:52.346Z"
+      },
+      {
+        "id": "msg-1770253313986-2et7",
+        "from": "bankr",
+        "to": "dispatcher",
+        "content": "Your wallet balance is 4.9000 SOL on Solana (devnet) and 1.00 USDC on Base.",
+        "timestamp": "2026-02-05T01:01:53.986Z"
+      },
+      {
+        "id": "msg-1770253313987-yb9v",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.0001 USDC → bankr",
+        "timestamp": "2026-02-05T01:01:53.987Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "type": "balance",
+        "status": "confirmed",
+        "details": {
+          "solanaAddress": "5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1",
+          "evmAddress": "0x676fF3d546932dE6558a267887E58e39f405B135",
+          "solana": {
+            "sol": "4.9000",
+            "usdc": "0.00",
+            "network": "devnet"
+          },
+          "base": {
+            "usdc": "1.00"
+          },
+          "summary": "Your wallet balance is 4.9000 SOL on Solana (devnet) and 1.00 USDC on Base."
+        },
+        "summary": "Your wallet balance is 4.9000 SOL on Solana (devnet) and 1.00 USDC on Base."
+      },
+      "confidence": 0.95,
+      "timestamp": "2026-02-05T01:01:53.986Z",
+      "executionTimeMs": 840
+    }
+  },
+  "614ca5ae-e5ec-40f1-b244-c118684628b5": {
+    "id": "614ca5ae-e5ec-40f1-b244-c118684628b5",
+    "prompt": "Get price prediction for BONK",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T01:01:54.802Z",
+    "updatedAt": "2026-02-05T01:01:56.569Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:01:56.569Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770253315405-tc8l",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Get price prediction for BONK...\"",
+        "timestamp": "2026-02-05T01:01:55.405Z"
+      },
+      {
+        "id": "msg-1770253315414-mq3o",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T01:01:55.414Z"
+      },
+      {
+        "id": "msg-1770253315760-uqgv",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-05T01:01:55.760Z"
+      },
+      {
+        "id": "msg-1770253316569-t96f",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "BONK 4h outlook: Bearish. Distribution pattern, resistance rejection, take profits. Target: $0.00002508",
+        "timestamp": "2026-02-05T01:01:56.569Z"
+      },
+      {
+        "id": "msg-1770253316569-pcha",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.001 USDC → magos",
+        "timestamp": "2026-02-05T01:01:56.569Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "token": "BONK",
+        "currentPrice": 0.000028,
+        "predictedPrice": 0.000025081332507401623,
+        "timeHorizon": "4h",
+        "confidence": 0.7453557688906598,
+        "direction": "bearish",
+        "reasoning": "BONK 4h outlook: Bearish. Distribution pattern, resistance rejection, take profits. Target: $0.00002508"
+      },
+      "confidence": 0.7453557688906598,
+      "timestamp": "2026-02-05T01:01:56.569Z",
+      "executionTimeMs": 9
+    }
+  },
+  "83c5100b-380f-4b26-950b-da9391961253": {
+    "id": "83c5100b-380f-4b26-950b-da9391961253",
+    "prompt": "What is the social sentiment for SOL?",
+    "status": "completed",
+    "specialist": "aura",
+    "createdAt": "2026-02-05T01:01:56.852Z",
+    "updatedAt": "2026-02-05T01:01:58.264Z",
+    "payments": [
+      {
+        "amount": "0.0005",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "aura",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:01:58.264Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770253317454-bpwe",
+        "from": "dispatcher",
+        "to": "aura",
+        "content": "Routing task: \"What is the social sentiment for SOL?...\"",
+        "timestamp": "2026-02-05T01:01:57.454Z"
+      },
+      {
+        "id": "msg-1770253317455-m00o",
+        "from": "dispatcher",
+        "to": "aura",
+        "content": "Processing with aura... (fee: 0.0005 USDC)",
+        "timestamp": "2026-02-05T01:01:57.455Z"
+      },
+      {
+        "id": "msg-1770253318264-75di",
+        "from": "aura",
+        "to": "dispatcher",
+        "content": "SOL is facing significant FUD. Negative narratives spreading rapidly - verify claims before acting.",
+        "timestamp": "2026-02-05T01:01:58.264Z"
+      },
+      {
+        "id": "msg-1770253318264-pq8v",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.0005 USDC → aura",
+        "timestamp": "2026-02-05T01:01:58.264Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "topic": "SOL",
+        "sentiment": "fud",
+        "score": -0.8600955713987232,
+        "volume": 21045,
+        "trending": false,
+        "sources": [
+          "X/Twitter",
+          "Discord",
+          "Telegram"
+        ],
+        "summary": "SOL is facing significant FUD. Negative narratives spreading rapidly - verify claims before acting."
+      },
+      "confidence": 0.8600955713987232,
+      "timestamp": "2026-02-05T01:01:58.264Z",
+      "executionTimeMs": 9
+    }
+  },
+  "040a7296-2924-46ca-96bc-2ffd48a09581": {
+    "id": "040a7296-2924-46ca-96bc-2ffd48a09581",
+    "prompt": "asdfasdfasdfasdfasdf",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-05T01:01:58.907Z",
+    "updatedAt": "2026-02-05T01:02:01.841Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770253319509-z698",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"asdfasdfasdfasdfasdf...\"",
+        "timestamp": "2026-02-05T01:01:59.509Z"
+      },
+      {
+        "id": "msg-1770253319510-al6b",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-05T01:01:59.510Z"
+      },
+      {
+        "id": "msg-1770253321841-qitc",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-05T01:02:01.841Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "insight": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+          "confidence": 0.65,
+          "trending": [
+            {
+              "token": "BONK",
+              "mentions": 42,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "WIF",
+              "mentions": 28,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "POPCAT",
+              "mentions": 15,
+              "sentiment": "neutral"
+            }
+          ],
+          "relatedTokens": [
+            "BONK",
+            "WIF",
+            "POPCAT"
+          ]
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "euphoric",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: euphoric. Social volume is below average. Exercise caution - tops often form here.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.665,
+      "timestamp": "2026-02-05T01:02:01.841Z",
+      "executionTimeMs": 1530
+    }
+  },
+  "0e2136da-39b6-4414-b995-5bce5511509b": {
+    "id": "0e2136da-39b6-4414-b995-5bce5511509b",
+    "prompt": "Buy 0.1 SOL of the most bullish token",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-05T01:06:48.103Z",
+    "updatedAt": "2026-02-05T01:06:49.979Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "bankr",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:06:49.979Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770253608705-go6k",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"Buy 0.1 SOL of the most bullish token...\"",
+        "timestamp": "2026-02-05T01:06:48.705Z"
+      },
+      {
+        "id": "msg-1770253608706-4urp",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Processing with bankr... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-05T01:06:48.706Z"
+      },
+      {
+        "id": "msg-1770253609978-sl3k",
+        "from": "bankr",
+        "to": "dispatcher",
+        "content": "Simulated swap of 0.1 SOL to USDC. Estimated output: 12.487250 USDC",
+        "timestamp": "2026-02-05T01:06:49.978Z"
+      },
+      {
+        "id": "msg-1770253609979-o4mt",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.0001 USDC → bankr",
+        "timestamp": "2026-02-05T01:06:49.979Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "type": "swap",
+        "status": "simulated",
+        "details": {
+          "from": "SOL",
+          "to": "USDC",
+          "amount": "0.1",
+          "estimatedOutput": "12.487250",
+          "note": "Simulated swap (demo mode)",
+          "estimatedFee": "0.000005 SOL"
+        },
+        "summary": "Simulated swap of 0.1 SOL to USDC. Estimated output: 12.487250 USDC"
+      },
+      "confidence": 0.95,
+      "timestamp": "2026-02-05T01:06:49.978Z",
+      "executionTimeMs": 471
+    }
+  },
+  "0c5980ca-8a49-4d38-bc89-6febaebce31d": {
+    "id": "0c5980ca-8a49-4d38-bc89-6febaebce31d",
+    "prompt": "Buy 0.1 SOL of WIF",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-05T01:07:38.506Z",
+    "updatedAt": "2026-02-05T01:07:40.197Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "bankr",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:07:40.196Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770253659106-z3py",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"Buy 0.1 SOL of WIF...\"",
+        "timestamp": "2026-02-05T01:07:39.106Z"
+      },
+      {
+        "id": "msg-1770253659116-t8hl",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Processing with bankr... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-05T01:07:39.116Z"
+      },
+      {
+        "id": "msg-1770253660196-wqtm",
+        "from": "bankr",
+        "to": "dispatcher",
+        "content": "Simulated swap of 0.1 SOL to USDC. Estimated output: 12.487250 USDC",
+        "timestamp": "2026-02-05T01:07:40.196Z"
+      },
+      {
+        "id": "msg-1770253660197-amj6",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.0001 USDC → bankr",
+        "timestamp": "2026-02-05T01:07:40.197Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "type": "swap",
+        "status": "simulated",
+        "details": {
+          "from": "SOL",
+          "to": "USDC",
+          "amount": "0.1",
+          "estimatedOutput": "12.487250",
+          "note": "Simulated swap (demo mode)",
+          "estimatedFee": "0.000005 SOL"
+        },
+        "summary": "Simulated swap of 0.1 SOL to USDC. Estimated output: 12.487250 USDC"
+      },
+      "confidence": 0.95,
+      "timestamp": "2026-02-05T01:07:40.196Z",
+      "executionTimeMs": 279
+    }
+  },
+  "484f288f-4b25-4c22-9c3f-82767e33e85d": {
+    "id": "484f288f-4b25-4c22-9c3f-82767e33e85d",
+    "prompt": "test",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-05T01:13:46.182Z",
+    "updatedAt": "2026-02-05T01:13:48.670Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770254026786-kxfv",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"test...\"",
+        "timestamp": "2026-02-05T01:13:46.786Z"
+      },
+      {
+        "id": "msg-1770254026797-lub3",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-05T01:13:46.797Z"
+      },
+      {
+        "id": "msg-1770254028670-dgbv",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-05T01:13:48.670Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "insight": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+          "confidence": 0.65,
+          "trending": [
+            {
+              "token": "BONK",
+              "mentions": 42,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "WIF",
+              "mentions": 28,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "POPCAT",
+              "mentions": 15,
+              "sentiment": "neutral"
+            }
+          ],
+          "relatedTokens": [
+            "BONK",
+            "WIF",
+            "POPCAT"
+          ]
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "optimistic",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: optimistic. Social volume is below average. Standard market conditions.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.665,
+      "timestamp": "2026-02-05T01:13:48.670Z",
+      "executionTimeMs": 1072
+    }
+  },
+  "1a4d69d8-de74-4f8a-b689-905bc7dca796": {
+    "id": "1a4d69d8-de74-4f8a-b689-905bc7dca796",
+    "prompt": "test",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-05T01:13:52.426Z",
+    "updatedAt": "2026-02-05T01:13:53.963Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770254033028-k5ut",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"test...\"",
+        "timestamp": "2026-02-05T01:13:53.028Z"
+      },
+      {
+        "id": "msg-1770254033038-0t9z",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-05T01:13:53.038Z"
+      },
+      {
+        "id": "msg-1770254033963-vblk",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-05T01:13:53.963Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "insight": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+          "confidence": 0.65,
+          "trending": [
+            {
+              "token": "BONK",
+              "mentions": 42,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "WIF",
+              "mentions": 28,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "POPCAT",
+              "mentions": 15,
+              "sentiment": "neutral"
+            }
+          ],
+          "relatedTokens": [
+            "BONK",
+            "WIF",
+            "POPCAT"
+          ]
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "neutral",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: neutral. Social volume is below average. Standard market conditions.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.665,
+      "timestamp": "2026-02-05T01:13:53.963Z",
+      "executionTimeMs": 126
+    }
+  },
+  "797c562a-e7f2-4d9f-b57e-447a3462ce24": {
+    "id": "797c562a-e7f2-4d9f-b57e-447a3462ce24",
+    "prompt": "predict SOL price",
+    "status": "failed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T01:14:13.368Z",
+    "updatedAt": "2026-02-05T01:14:14.509Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770254053971-lenb",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"predict SOL price...\"",
+        "timestamp": "2026-02-05T01:14:13.971Z"
+      },
+      {
+        "id": "msg-1770254053980-9ibg",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T01:14:13.980Z"
+      },
+      {
+        "id": "msg-1770254054509-x0jk",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "❌ Insufficient balance: 0 USDC < 0.001 USDC required for magos",
+        "timestamp": "2026-02-05T01:14:14.509Z"
+      }
+    ],
+    "metadata": {
+      "error": "Insufficient balance: 0 USDC < 0.001 USDC required for magos"
+    }
+  },
+  "d55bc1cd-8e05-4cc2-9e71-baeaba86fdcc": {
+    "id": "d55bc1cd-8e05-4cc2-9e71-baeaba86fdcc",
+    "prompt": "test",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-05T01:14:18.126Z",
+    "updatedAt": "2026-02-05T01:14:20.265Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770254058730-agq6",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"test...\"",
+        "timestamp": "2026-02-05T01:14:18.730Z"
+      },
+      {
+        "id": "msg-1770254058730-fb3y",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-05T01:14:18.730Z"
+      },
+      {
+        "id": "msg-1770254060265-1f22",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-05T01:14:20.265Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "insight": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+          "confidence": 0.65,
+          "trending": [
+            {
+              "token": "BONK",
+              "mentions": 42,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "WIF",
+              "mentions": 28,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "POPCAT",
+              "mentions": 15,
+              "sentiment": "neutral"
+            }
+          ],
+          "relatedTokens": [
+            "BONK",
+            "WIF",
+            "POPCAT"
+          ]
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "optimistic",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: optimistic. Social volume is above average. Standard market conditions.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.665,
+      "timestamp": "2026-02-05T01:14:20.265Z",
+      "executionTimeMs": 735
+    }
+  },
+  "4c26c1cf-e248-45e7-8d83-d89be37eea9c": {
+    "id": "4c26c1cf-e248-45e7-8d83-d89be37eea9c",
+    "prompt": "test ssrf",
+    "userId": "test-key",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-05T01:14:53.344Z",
+    "updatedAt": "2026-02-05T01:14:55.776Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770254093946-zj54",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"test ssrf...\"",
+        "timestamp": "2026-02-05T01:14:53.946Z"
+      },
+      {
+        "id": "msg-1770254093956-umuz",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-05T01:14:53.956Z"
+      },
+      {
+        "id": "msg-1770254095776-n24p",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-05T01:14:55.776Z"
+      }
+    ],
+    "metadata": {},
+    "callbackUrl": "http://169.254.169.254/latest/meta-data/",
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "insight": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+          "confidence": 0.65,
+          "trending": [
+            {
+              "token": "BONK",
+              "mentions": 42,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "WIF",
+              "mentions": 28,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "POPCAT",
+              "mentions": 15,
+              "sentiment": "neutral"
+            }
+          ],
+          "relatedTokens": [
+            "BONK",
+            "WIF",
+            "POPCAT"
+          ]
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "fearful",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: fearful. Social volume is below average. Potential opportunities - fear creates discounts.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.665,
+      "timestamp": "2026-02-05T01:14:55.776Z",
+      "executionTimeMs": 1020
+    }
+  },
+  "cc787bf2-cc25-4485-87cb-3e8b43fe4639": {
+    "id": "cc787bf2-cc25-4485-87cb-3e8b43fe4639",
+    "prompt": "another user task",
+    "userId": "another-key",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-05T01:15:07.106Z",
+    "updatedAt": "2026-02-05T01:15:08.629Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770254107708-ltxi",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"another user task...\"",
+        "timestamp": "2026-02-05T01:15:07.708Z"
+      },
+      {
+        "id": "msg-1770254107709-5v65",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-05T01:15:07.709Z"
+      },
+      {
+        "id": "msg-1770254108629-j4p7",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-05T01:15:08.629Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "insight": "📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.",
+          "confidence": 0.65,
+          "trending": [
+            {
+              "token": "BONK",
+              "mentions": 42,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "WIF",
+              "mentions": 28,
+              "sentiment": "bullish"
+            },
+            {
+              "token": "POPCAT",
+              "mentions": 15,
+              "sentiment": "neutral"
+            }
+          ],
+          "relatedTokens": [
+            "BONK",
+            "WIF",
+            "POPCAT"
+          ]
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "neutral",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: neutral. Social volume is below average. Standard market conditions.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.665,
+      "timestamp": "2026-02-05T01:15:08.629Z",
+      "executionTimeMs": 120
+    }
   }
 }

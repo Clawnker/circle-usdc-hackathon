@@ -167,6 +167,7 @@ async function getTrending(category: string = 'all'): Promise<{
     sentiment: string;
     change24h: number;
   }>;
+  summary: string;
   timestamp: Date;
 }> {
   // Mock trending data - in production would aggregate from multiple sources

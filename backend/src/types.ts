@@ -99,7 +99,7 @@ export interface AuraSentiment {
 
 export interface BankrAction {
   type: 'swap' | 'transfer' | 'balance' | 'dca' | 'monitor';
-  status: 'executed' | 'pending' | 'simulated';
+  status: 'executed' | 'pending' | 'simulated' | 'confirmed' | 'failed';
   txSignature?: string;
   details: Record<string, any>;
 }
