@@ -3450,5 +3450,117 @@
       "timestamp": "2026-02-05T01:15:08.629Z",
       "executionTimeMs": 120
     }
+  },
+  "2c9ca53e-7fb2-4eb0-a3ed-f88bc58f90c3": {
+    "id": "2c9ca53e-7fb2-4eb0-a3ed-f88bc58f90c3",
+    "prompt": "Buy 0.1 SOL of the most bullish token",
+    "userId": "demo-user",
+    "status": "failed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-05T01:48:09.159Z",
+    "updatedAt": "2026-02-05T01:48:10.395Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770256089768-fdzy",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"Buy 0.1 SOL of the most bullish token...\"",
+        "timestamp": "2026-02-05T01:48:09.768Z"
+      },
+      {
+        "id": "msg-1770256089779-v6jt",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T01:48:09.779Z"
+      },
+      {
+        "id": "msg-1770256090370-45fq",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "❌ Insufficient balance: 0 USDC < 0.0001 USDC required for bankr",
+        "timestamp": "2026-02-05T01:48:10.370Z"
+      }
+    ],
+    "metadata": {
+      "error": "Insufficient balance: 0 USDC < 0.0001 USDC required for bankr"
+    }
+  },
+  "8758f0ac-eb77-43ae-a0e8-6d700345be6b": {
+    "id": "8758f0ac-eb77-43ae-a0e8-6d700345be6b",
+    "prompt": "Buy 0.1 SOL of the most bullish token",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-05T01:51:16.493Z",
+    "updatedAt": "2026-02-05T01:51:18.759Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "bankr",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:51:18.758Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770256277096-vrxg",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"Buy 0.1 SOL of the most bullish token...\"",
+        "timestamp": "2026-02-05T01:51:17.096Z"
+      },
+      {
+        "id": "msg-1770256277099-hiuc",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T01:51:17.099Z"
+      },
+      {
+        "id": "msg-1770256277486-7mgm",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Processing with bankr... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-05T01:51:17.486Z"
+      },
+      {
+        "id": "msg-1770256278758-e93i",
+        "from": "bankr",
+        "to": "dispatcher",
+        "content": "Simulated swap of 0.1 SOL to USDC. Estimated output: 12.487250 USDC",
+        "timestamp": "2026-02-05T01:51:18.758Z"
+      },
+      {
+        "id": "msg-1770256278758-7796",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.0001 USDC → bankr",
+        "timestamp": "2026-02-05T01:51:18.758Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "type": "swap",
+        "status": "simulated",
+        "details": {
+          "from": "SOL",
+          "to": "USDC",
+          "amount": "0.1",
+          "estimatedOutput": "12.487250",
+          "note": "Simulated swap (demo mode)",
+          "estimatedFee": "0.000005 SOL"
+        },
+        "summary": "Simulated swap of 0.1 SOL to USDC. Estimated output: 12.487250 USDC"
+      },
+      "confidence": 0.95,
+      "timestamp": "2026-02-05T01:51:18.757Z",
+      "executionTimeMs": 470
+    }
   }
 }

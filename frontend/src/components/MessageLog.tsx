@@ -35,12 +35,24 @@ function MessageItem({ message, index }: { message: AgentMessage; index: number 
   };
 
   const formatPayload = (payload: unknown): string => {
-    if (typeof payload === 'string') return payload;
-    try {
-      return JSON.stringify(payload, null, 2);
-    } catch {
-      return String(payload);
+    if (!payload) return '(no payload)';
+    if (typeof payload === 'string') return payload || '(empty string)';
+    
+    if (typeof payload === 'object') {
+      const obj = payload as Record<string, unknown>;
+      // Check for common message fields
+      if (obj.content) return String(obj.content);
+      if (obj.message) return String(obj.message);
+      if (obj.result) return String(obj.result);
+      
+      try {
+        const json = JSON.stringify(payload, null, 2);
+        return json || '(empty object)';
+      } catch {
+        return String(payload) || '(unknown)';
+      }
     }
+    return String(payload);
   };
 
   const getPreview = (payload: unknown): string => {
@@ -110,8 +122,8 @@ function MessageItem({ message, index }: { message: AgentMessage; index: number 
             className="overflow-hidden"
           >
             <div className="px-3 pb-3">
-              <pre className="p-3 rounded-lg bg-[var(--bg-primary)] text-xs 
-                font-mono text-[var(--text-secondary)] overflow-x-auto whitespace-pre-wrap">
+              <pre className="p-3 rounded-lg bg-black/30 text-xs min-h-[40px]
+                font-mono text-gray-200 overflow-x-auto whitespace-pre-wrap border border-white/10">
                 {formatPayload(message.payload)}
               </pre>
             </div>

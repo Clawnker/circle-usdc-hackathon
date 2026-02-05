@@ -68,7 +68,7 @@ export const config = {
   },
 
   // Security & Gating
-  enforcePayments: process.env.ENFORCE_PAYMENTS === 'true' || (process.env.NODE_ENV === 'production' && process.env.ENFORCE_PAYMENTS !== 'false'),
+  enforcePayments: process.env.ENFORCE_PAYMENTS === 'true',
 
   // Specialist endpoints (ClawArena, MoltX, etc.)
   specialists: {
