@@ -484,8 +484,8 @@ POST /api/wallets/claw/actions/x402/fetch
 ```
 
 #### 2.4.2 Helius RPC
-- **Mainnet:** `https://mainnet.helius-rpc.com/?api-key=ae7253e1-6ea2-45a2-a071-d3bbcd740164`
-- **Devnet:** `https://devnet.helius-rpc.com/?api-key=ae7253e1-6ea2-45a2-a071-d3bbcd740164`
+- **Mainnet:** `https://mainnet.helius-rpc.com/?api-key=YOUR_HELIUS_API_KEY`
+- **Devnet:** `https://devnet.helius-rpc.com/?api-key=YOUR_HELIUS_API_KEY`
 - **Credits:** 1,000,000 (sufficient for hackathon)
 
 #### 2.4.3 Specialist Connections
@@ -743,10 +743,10 @@ If mainnet is problematic:
 ```bash
 # Backend .env
 PORT=3000
-AGENTWALLET_TOKEN=mf_69df58eca5aab2d4a0897552f87e610d7c0eef78888a2b1cc5e49e69c9b7436b
+AGENTWALLET_TOKEN=mf_YOUR_TOKEN_HERE
 AGENTWALLET_USERNAME=claw
-HELIUS_API_KEY=ae7253e1-6ea2-45a2-a071-d3bbcd740164
-HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=ae7253e1-6ea2-45a2-a071-d3bbcd740164
+HELIUS_API_KEY=YOUR_HELIUS_API_KEY
+HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_HELIUS_API_KEY
 OPENAI_API_KEY=<for classification>
 
 # Frontend .env.local

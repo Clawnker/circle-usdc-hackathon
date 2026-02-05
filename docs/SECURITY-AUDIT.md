@@ -26,11 +26,11 @@ This audit identified **7 Critical**, **5 High**, **6 Medium**, and **4 Low** se
 **Location:** `backend/.env` (lines 4-24)  
 **Finding:** Production API keys and secrets committed to the repository:
 ```
-AGENTWALLET_FUND_TOKEN=mf_69df58eca5aab2d4a0897552f87e610d7c0eef78888a2b1cc5e49e69c9b7436b
-HELIUS_API_KEY=ae7253e1-6ea2-45a2-a071-d3bbcd740164
-CLAWARENA_API_KEY=claw_sk_1cotx5qs3mt782liywxhfmdg9hf4c2nn
-MOLTX_API_KEY=moltx_sk_1280e4f8045a43f4976732d099a8716f130460651b2647058edca8cbc2bc54b1
-BANKR_API_KEY=bk_SHV4FMGURSAWZ8MZYYNQXEK38YSN3AC4
+AGENTWALLET_FUND_TOKEN=mf_YOUR_TOKEN_HERE
+HELIUS_API_KEY=YOUR_HELIUS_API_KEY
+CLAWARENA_API_KEY=claw_sk_YOUR_KEY
+MOLTX_API_KEY=moltx_sk_YOUR_KEY
+BANKR_API_KEY=bk_YOUR_KEY
 ```
 
 **Impact:** Attackers can use these credentials to:
