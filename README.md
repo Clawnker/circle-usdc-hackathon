@@ -55,50 +55,53 @@ Hivemind Protocol bridges the gap between autonomous agents by providing a stand
 ## 🛠️ How It Works
 
 1.  **User submits prompt:** "Analyze the market sentiment for SOL and execute a small buy if positive."
-2.  **Dispatcher routes:** The system identifies that **Magos** (Analysis) and **Aura** (Sentiment) are needed, followed by **Bankr** (Execution).
-3.  **x402 Micropayments:** The dispatcher automatically sends fractional USDC payments to each specialist via Solana devnet.
-4.  **Aggregated Results:** Specialists return data to the dispatcher, which compiles a comprehensive final response for the user.
+2.  **Dispatcher routes:** The system identifies that **Magos** (Analysis) or **Aura** (Sentiment) are needed, followed by **Bankr** (Execution).
+3.  **x402 Micropayments:** The dispatcher automatically sends fractional USDC payments to each specialist via Solana devnet using the x402 protocol.
+4.  **Aggregated Results:** Specialists return data to the dispatcher, which compiles a comprehensive final response and broadcasts updates via WebSockets.
 
----
+## 🏗️ Architecture
 
-## 💻 Tech Stack
-
-*   **Blockchain:** [Solana](https://solana.com/) (Devnet) for lightning-fast x402 settlements.
-*   **Infrastructure:** [Helius RPC](https://helius.dev/) for reliable chain interaction.
-*   **Backend:** TypeScript / Node.js orchestration engine.
-*   **Frontend:** Next.js with [React Flow](https://reactflow.dev/) for real-time swarm visualization.
-*   **Agent Standard:** `skill.md` YAML schema for capability discovery.
-
----
-
-## 🤝 The Specialists
-
-| Agent | Role | Success Rate | Fee (USDC) |
-| :--- | :--- | :--- | :--- |
-| **Magos** | Market analysis & price predictions | `94.2%` | `0.001` |
-| **Aura** | Social sentiment & trend tracking | `89.5%` | `0.0005` |
-| **Bankr** | Secure wallet operations & transfers | `99.9%` | `0.0001` |
-
----
+- **Backend**: Node.js/TypeScript Express server.
+  - `dispatcher.ts`: The brains of the protocol. Handles routing and multi-hop orchestration.
+  - `x402.ts`: Integration with AgentWallet for payment tracking.
+  - `x402-protocol.ts`: Implementation of the x402 gated access flow.
+  - `specialists/`: Individual agent modules (Aura, Magos, Bankr, Scribe, Seeker).
+- **Frontend**: Next.js 15 with Tailwind CSS and Framer Motion.
+  - `SwarmGraph.tsx`: Visual representation of the agent network and active tasks.
+  - `TaskInput.tsx`: Natural language interface for dispatching tasks.
+  - `useWebSocket.ts`: Hook for real-time state synchronization.
 
 ## 🚀 Quick Start
 
-Get the Hivemind swarm running locally in minutes.
+### Prerequisites
+- Node.js 18+
+- An AgentWallet account (for x402 payments)
+- Helius API Key (for Solana RPC)
+
+### Setup
 
 ```bash
-# Clone the protocol
+# 1. Clone the protocol
 git clone https://github.com/your-org/hivemind-protocol.git
+cd hivemind-protocol/hackathon
 
-# Start the Backend Specialists
-cd hackathon/backend
+# 2. Configure Backend
+cd backend
+cp .env.example .env
+# Edit .env and add your HELIUS_API_KEY and AGENTWALLET_TOKEN
+
+# 3. Install and Run Backend
 npm install
 npm run dev
 
-# Start the Orchestration Frontend
+# 4. Configure & Run Frontend (New Terminal)
 cd ../frontend
+cp .env.example .env.local
 npm install
 npm run dev
 ```
+
+Visit `http://localhost:3001` to access the Hivemind Command Center.
 
 ---
 

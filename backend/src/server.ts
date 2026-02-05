@@ -15,8 +15,6 @@ import dispatcher, { dispatch, getTask, getRecentTasks, subscribeToTask, getSpec
 import { getBalances, getTransactionLog } from './x402';
 import solana from './solana';
 import { DispatchRequest, Task, WSEvent, SpecialistType } from './types';
-// x402 middleware disabled - using AgentWallet x402/fetch proxy instead
-// import { x402PaymentMiddleware } from './x402-middleware';
 
 dotenv.config();
 
@@ -27,15 +25,6 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-// Specialist pricing (USDC on Solana devnet)
-const SPECIALIST_FEES: Record<string, number> = {
-  aura: 0.0005,
-  magos: 0.001,
-  bankr: 0.0001,
-  seeker: 0.0001,
-  scribe: 0.0001,
-};
 
 // Treasury wallet for receiving payments
 const TREASURY_WALLET = '5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1';
@@ -56,7 +45,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
     
     if (!paymentSignature) {
       // Return 402 with payment requirements (x402 v2 format with accepts array)
-      const fee = SPECIALIST_FEES[id] || 0.001;
+      const fee = (config.fees as any)[id] || 0.001;
       
       // x402 v2 format: root object with accepts array
       const paymentRequired = {

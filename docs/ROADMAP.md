@@ -150,3 +150,24 @@
 ---
 
 *Last updated: 2026-02-04 20:01 EST*
+
+## V2 Features
+
+### AgentWallet Authentication
+- Replace traditional "Connect Wallet" with "Connect with AgentWallet"
+- OAuth-style flow: redirect → auth → callback with token
+- AgentWallet becomes the identity layer for the protocol
+- Benefits:
+  - No browser extensions needed
+  - Email-based auth (accessible to AI agents)
+  - x402 payments automatically enabled
+  - Policy controls (spending limits) built-in
+  - Unified activity/transaction history
+
+### Implementation
+1. Frontend: "Connect with AgentWallet" button
+2. Redirect to `agentwallet.mcpay.tech/connect?callback=<our-url>`
+3. User completes email OTP
+4. Callback returns session token
+5. Store token, use for all x402/fetch calls
+6. Display connected username in UI

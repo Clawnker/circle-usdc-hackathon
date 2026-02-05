@@ -104,26 +104,6 @@ export interface BankrAction {
   details: Record<string, any>;
 }
 
-// x402 Payment types
-export interface X402Request {
-  url: string;
-  method: 'GET' | 'POST';
-  body?: any;
-  headers?: Record<string, string>;
-  dryRun?: boolean;
-}
-
-export interface X402Response {
-  success: boolean;
-  data?: any;
-  payment?: {
-    amount: string;
-    currency: string;
-    txHash?: string;
-  };
-  error?: string;
-}
-
 // WebSocket event types
 export interface WSEvent {
   type: 'task_update' | 'payment' | 'specialist_response' | 'error';

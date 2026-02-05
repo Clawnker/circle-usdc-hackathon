@@ -32,48 +32,36 @@ curl -X POST https://api.csn.clawnker.work/v1/agents/register \
 
 ## Core Endpoints
 
-### POST /v1/dispatch
+### POST /dispatch
 
 Submit a task for the specialist network to execute.
 
 ```bash
-curl -X POST https://api.csn.clawnker.work/v1/dispatch \
-  -H "Authorization: Bearer YOUR_API_KEY" \
+curl -X POST http://localhost:3000/dispatch \
+  -H "X-API-Key: demo-key" \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Find trending meme coins on X, get price predictions, buy 0.1 SOL of the most bullish",
-    "config": {
-      "max_spend_usd": 5.00,
-      "network": "devnet",
-      "dry_run": false
-    }
+    "userId": "demo-user"
   }'
 ```
 
 **Response:**
 ```json
 {
-  "task_id": "task_abc123",
-  "status": "planning",
-  "estimated_cost_usd": 0.05,
-  "plan": {
-    "steps": [
-      {"specialist": "aura", "action": "find_trending", "cost": 0.01},
-      {"specialist": "magos", "action": "predict_price", "cost": 0.02},
-      {"specialist": "bankr", "action": "swap", "cost": 0.02}
-    ]
-  },
-  "websocket": "wss://api.csn.clawnker.work/ws?task=task_abc123"
+  "taskId": "task_abc123",
+  "status": "pending",
+  "specialist": "multi-hop"
 }
 ```
 
-### GET /v1/tasks/:taskId
+### GET /status/:taskId
 
 Check task status and results.
 
 ```bash
-curl https://api.csn.clawnker.work/v1/tasks/task_abc123 \
-  -H "Authorization: Bearer YOUR_API_KEY"
+curl http://localhost:3000/status/task_abc123 \
+  -H "X-API-Key: demo-key"
 ```
 
 **Response:**
@@ -135,10 +123,11 @@ curl https://api.csn.clawnker.work/v1/tasks/task_abc123 \
 
 ### GET /v1/specialists
 
-List available specialists and their capabilities.
+List available specialists and their reputation.
 
 ```bash
-curl https://api.csn.clawnker.work/v1/specialists
+curl http://localhost:3000/v1/specialists \
+  -H "X-API-Key: demo-key"
 ```
 
 **Response:**
@@ -146,29 +135,12 @@ curl https://api.csn.clawnker.work/v1/specialists
 {
   "specialists": [
     {
-      "id": "aura",
-      "name": "Aura",
-      "description": "Social sentiment analysis and trending detection",
-      "capabilities": ["sentiment", "trending", "influencer_tracking"],
-      "cost_per_call_usd": 0.01,
-      "avg_latency_ms": 2000
+      "name": "aura",
+      "description": "Social sentiment analysis",
+      "fee": "0.0005",
+      "success_rate": 100
     },
-    {
-      "id": "magos",
-      "name": "Magos",
-      "description": "Price predictions and risk analysis",
-      "capabilities": ["price_prediction", "risk_score", "technical_analysis"],
-      "cost_per_call_usd": 0.02,
-      "avg_latency_ms": 1500
-    },
-    {
-      "id": "bankr",
-      "name": "bankr",
-      "description": "Solana DeFi execution via Jupiter",
-      "capabilities": ["swap", "transfer", "balance", "portfolio"],
-      "cost_per_call_usd": 0.02,
-      "avg_latency_ms": 3000
-    }
+    ...
   ]
 }
 ```

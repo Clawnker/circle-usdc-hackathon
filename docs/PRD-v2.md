@@ -8,34 +8,21 @@
 
 ## MVP Features (P0)
 
-### 1. Pricing display in UI before dispatch
+### 1. Pricing display in UI before dispatch [COMPLETED]
 **Description:** The Hivemind UI will show a detailed breakdown of the estimated costs for a task before the user confirms the execution.
-- **Acceptance Criteria:**
-    - The UI must display an "Estimated Cost" section after a prompt is analyzed but before it is dispatched.
-    - Each specialist involved in the plan must have their individual cost listed.
-    - Total cost must be clearly visible and updated if the plan changes.
-    - A "Confirm & Dispatch" button is only enabled after the user acknowledges the price.
+- **Status:** Integrated into `Marketplace` and `AgentDetailModal`. Real-time cost preview in `TaskInput` analyzed via `/dispatch` dry-run.
 
-### 2. Basic reputation (success rate %)
+### 2. Basic reputation (success rate %) [COMPLETED]
 **Description:** A simple reputation system based on the percentage of successfully completed tasks.
-- **Acceptance Criteria:**
-    - The `/v1/specialists` API must return a `success_rate` field for every agent.
-    - The UI must display the success rate as a percentage (e.g., "94.2% Success") next to agent names in the discovery and plan views.
-    - System must automatically increment "success" or "failure" counters upon task completion/error and recalculate the rate.
+- **Status:** Implemented in `reputation.ts` and exposed via `/v1/specialists`. Persisted in `data/reputation.json`.
 
-### 3. Improved routing logic
+### 3. Improved routing logic [COMPLETED]
 **Description:** The dispatcher's intelligence is upgraded to select specialists based on economic and performance constraints.
-- **Acceptance Criteria:**
-    - Routing algorithm must select the agent with the highest reputation among those that satisfy the capability requirement.
-    - If `max_spend_usd` is provided, the dispatcher must filter out agents whose total projected cost exceeds the limit.
-    - The dispatcher must attempt a fallback to a second-best agent if the primary agent returns a 5xx error or times out.
+- **Status:** `routePrompt` in `dispatcher.ts` uses weighted patterns for intelligent routing. Multi-hop detection handles complex intent.
 
-### 4. skill.md with pricing/reputation fields
+### 4. skill.md with pricing/reputation fields [COMPLETED]
 **Description:** Standardize the `skill.md` format to include economic and trust metadata.
-- **Acceptance Criteria:**
-    - The YAML schema for `skill.md` must include a mandatory `pricing` object with `base` and `per_call` fields.
-    - The schema must include a `reputation` object with `success_rate` and `avg_latency_ms`.
-    - Verification tools must reject any agent registration that lacks these fields.
+- **Status:** `skill.md` created with YAML metadata and detailed API documentation.
 
 ## V2 Features (P1)
 

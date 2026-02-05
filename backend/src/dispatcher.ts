@@ -15,7 +15,7 @@ import {
   SpecialistResult,
 } from './types';
 import config from './config';
-import { x402Fetch, getBalances, logTransaction, createPaymentRecord, executePayment } from './x402';
+import { getBalances, logTransaction, createPaymentRecord } from './x402';
 import { executeDemoPayment } from './x402-protocol';
 import { recordSuccess, recordFailure, getSuccessRate } from './reputation';
 import magos from './specialists/magos';
@@ -79,20 +79,18 @@ function saveTasks(): void {
 // Initial load
 loadTasks();
 
-/**
- * Process an x402 payment
- */
-async function processX402Payment(
-  paymentSignature: string,
-  specialistAddress: string,
-  amount: number
-): Promise<{ success: boolean; txSignature?: string }> {
-  // Real on-chain transaction!
-  console.log(`[x402] Payment: ${paymentSignature}`);
-  return { success: true, txSignature: paymentSignature };
-}
+// Specialist descriptions
+const SPECIALIST_DESCRIPTIONS: Record<SpecialistType, string> = {
+  magos: 'Market analysis & predictions',
+  aura: 'Social sentiment analysis',
+  bankr: 'Wallet operations',
+  scribe: 'General assistant & fallback',
+  seeker: 'Web research & search',
+  general: 'General queries',
+  'multi-hop': 'Orchestrated multi-agent workflow',
+};
 
-// Specialist pricing (x402 fees in USDC)
+// Specialist pricing information
 const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: string }> = {
   magos: { fee: '0.001', description: 'Market analysis & predictions' },
   aura: { fee: '0.0005', description: 'Social sentiment analysis' },
@@ -248,9 +246,8 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       const responseContent = extractResponseContent(result);
       addMessage(task, specialist, 'dispatcher', responseContent);
       
-    // Execute x402 payment for this hop
-      const pricing = SPECIALIST_PRICING[specialist];
-      const specialistFee = parseFloat(pricing.fee);
+      // Execute x402 payment for this hop
+      const specialistFee = (config.fees as any)[specialist] || 0;
       if (specialistFee > 0 && !dryRun) {
         // For x402-gated specialists, use AgentWallet proxy
         const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
@@ -271,21 +268,21 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
           
           if (paymentResult.txSignature) {
             const feeRecord = createPaymentRecord(
-              pricing.fee,
+              String(specialistFee),
               'USDC',
               'solana',
               specialist,
               paymentResult.txSignature
             );
             task.payments.push(feeRecord);
-            addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee: ${pricing.fee} USDC → ${specialist}`);
+            addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee: ${specialistFee} USDC → ${specialist}`);
           }
         } else {
           console.warn(`[Dispatcher] Payment failed for ${specialist}, logging mock record`);
-          const feeRecord = createPaymentRecord(pricing.fee, 'USDC', 'solana', specialist);
+          const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'solana', specialist);
           task.payments.push(feeRecord);
           logTransaction(feeRecord);
-          addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Mock): ${pricing.fee} USDC → ${specialist}`);
+          addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Mock): ${specialistFee} USDC → ${specialist}`);
         }
       }
       
@@ -345,8 +342,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
     console.log(`[Dispatcher] Wallet balances:`, balances);
     
     // Enforce payment if config flag is set
-    const pricing = SPECIALIST_PRICING[task.specialist];
-    const fee = parseFloat(pricing.fee);
+    const fee = (config.fees as any)[task.specialist] || 0;
     const usdcBalance = balances.solana.usdc; // Magos is on Solana
 
     if (config.enforcePayments && usdcBalance < fee) {
@@ -359,8 +355,8 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   updateTaskStatus(task, 'processing');
   
   // Get specialist fee
-  const pricing = SPECIALIST_PRICING[task.specialist];
-  addMessage(task, 'dispatcher', task.specialist, `Processing with ${task.specialist}... (fee: ${pricing.fee} USDC)`);
+  const fee = (config.fees as any)[task.specialist] || 0;
+  addMessage(task, 'dispatcher', task.specialist, `Processing with ${task.specialist}... (fee: ${fee} USDC)`);
   
   // Demo delay before calling specialist
   await new Promise(resolve => setTimeout(resolve, 800));
@@ -373,8 +369,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   addMessage(task, task.specialist, 'dispatcher', responseContent);
   
   // Execute real x402 payment
-  const specialistFee = parseFloat(pricing.fee);
-  if (specialistFee > 0 && !dryRun) {
+  if (fee > 0 && !dryRun) {
     // For x402-gated specialists, use AgentWallet proxy
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
     const specialistUrl = `${baseUrl}/api/specialist/${task.specialist}`;
@@ -382,7 +377,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
     const paymentResult = await executeDemoPayment(
       specialistUrl,
       { prompt: task.prompt },
-      specialistFee
+      fee
     );
 
     if (paymentResult.success) {
@@ -393,26 +388,26 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       
       if (paymentResult.txSignature) {
         const feeRecord = createPaymentRecord(
-          pricing.fee,
+          String(fee),
           'USDC',
           'solana',
           task.specialist,
           paymentResult.txSignature
         );
         task.payments.push(feeRecord);
-        addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee: ${pricing.fee} USDC → ${task.specialist}`);
+        addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee: ${fee} USDC → ${task.specialist}`);
       }
     } else {
       console.warn(`[Dispatcher] Payment failed for ${task.specialist}, logging mock record`);
       const feeRecord = createPaymentRecord(
-        pricing.fee,
+        String(fee),
         'USDC',
         'solana',
         task.specialist
       );
       task.payments.push(feeRecord);
       logTransaction(feeRecord);
-      addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Mock): ${pricing.fee} USDC → ${task.specialist}`);
+      addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Mock): ${fee} USDC → ${task.specialist}`);
     }
   }
   
@@ -670,8 +665,8 @@ export function routePrompt(prompt: string): SpecialistType {
  */
 async function checkPaymentRequired(specialist: SpecialistType): Promise<boolean> {
   // Specialists with non-zero fees require payment
-  const pricing = SPECIALIST_PRICING[specialist];
-  return pricing && parseFloat(pricing.fee) > 0;
+  const fee = (config.fees as any)[specialist] || 0;
+  return fee > 0;
 }
 
 /**
@@ -782,9 +777,11 @@ export function getRecentTasks(limit: number = 10): Task[] {
  */
 export function getSpecialistPricing(): Record<SpecialistType, { fee: string; description: string; success_rate: number }> {
   const pricingWithRep: any = {};
-  for (const [key, value] of Object.entries(SPECIALIST_PRICING)) {
+  for (const [key, description] of Object.entries(SPECIALIST_DESCRIPTIONS)) {
+    const fee = (config.fees as any)[key] || 0;
     pricingWithRep[key] = {
-      ...value,
+      fee: String(fee),
+      description,
       success_rate: getSuccessRate(key as SpecialistType)
     };
   }
@@ -795,10 +792,10 @@ export function getSpecialistPricing(): Record<SpecialistType, { fee: string; de
  * Get full specialist list with reputation data
  */
 export function getSpecialists(): any[] {
-  return Object.entries(SPECIALIST_PRICING).map(([name, info]) => ({
+  return Object.entries(SPECIALIST_DESCRIPTIONS).map(([name, description]) => ({
     name,
-    description: info.description,
-    fee: info.fee,
+    description,
+    fee: String((config.fees as any)[name] || 0),
     success_rate: getSuccessRate(name as SpecialistType)
   }));
 }

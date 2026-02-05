@@ -7,7 +7,6 @@
 import axios from 'axios';
 import config from '../config';
 import { AuraSentiment, SpecialistResult } from '../types';
-import { x402Fetch } from '../x402';
 
 const MOLTX_API = config.specialists.moltx.baseUrl;
 const API_KEY = config.specialists.moltx.apiKey;
