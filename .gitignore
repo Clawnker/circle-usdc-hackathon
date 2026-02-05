@@ -1,0 +1,33 @@
+# Environment files
+.env
+.env.*
+*.env
+
+# Keys and secrets
+*.pem
+*.key
+devnet-keypair.json
+*-keypair.json
+credentials.json
+
+# Node
+node_modules/
+.next/
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage/
+.nyc_output/
