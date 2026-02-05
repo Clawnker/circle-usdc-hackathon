@@ -79,6 +79,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     payments: [],
     messages: [],
     metadata: { dryRun: request.dryRun },
+    callbackUrl: request.callbackUrl,
   };
   
   tasks.set(taskId, task);
@@ -153,6 +154,23 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   task.result = result;
   updateTaskStatus(task, result.success ? 'completed' : 'failed');
   
+  // Call webhook if provided
+  if (task.callbackUrl) {
+    try {
+      const axios = require('axios');
+      await axios.post(task.callbackUrl, {
+        taskId: task.id,
+        status: task.status,
+        specialist: task.specialist,
+        result: formatResultForCallback(result),
+        messages: task.messages,
+      });
+      console.log(`[Dispatcher] Callback sent to ${task.callbackUrl}`);
+    } catch (err: any) {
+      console.error(`[Dispatcher] Callback failed:`, err.message);
+    }
+  }
+  
   console.log(`[Dispatcher] Task ${task.id} ${task.status} in ${result.executionTimeMs}ms`);
 }
 
@@ -173,6 +191,30 @@ function extractResponseContent(result: SpecialistResult): string {
     return `${data.type} ${data.status || 'completed'}${data.txSignature ? ` (tx: ${data.txSignature.slice(0, 16)}...)` : ''}`;
   }
   return result.success ? 'Task completed' : 'Task failed';
+}
+
+/**
+ * Format result for callback webhook (human-readable)
+ */
+function formatResultForCallback(result: SpecialistResult): { summary: string; data: any } {
+  const data = result.data;
+  let summary = '';
+  
+  if (data?.type === 'balance' && data?.details?.summary) {
+    summary = `💰 **Balance**\n${data.details.summary}`;
+  } else if (data?.type === 'transfer' && data?.status === 'confirmed') {
+    summary = `✅ **Transfer Confirmed**\nSent ${data.details?.amount} to ${data.details?.to?.slice(0, 8)}...`;
+  } else if (data?.type === 'swap') {
+    summary = `🔄 **Swap ${data.status}**\n${data.details?.amount} ${data.details?.from} → ${data.details?.to}`;
+  } else if (data?.insight) {
+    summary = `📊 **Analysis**\n${data.insight}`;
+  } else if (data?.tokens && Array.isArray(data.tokens)) {
+    summary = `🔥 **Trending Tokens**\n${data.tokens.slice(0, 3).map((t: any) => `• ${t.symbol || t.name}`).join('\n')}`;
+  } else {
+    summary = extractResponseContent(result);
+  }
+  
+  return { summary, data };
 }
 
 /**

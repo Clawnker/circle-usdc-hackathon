@@ -17,6 +17,7 @@ export interface Task {
   payments: PaymentRecord[];
   messages: AgentMessage[];
   metadata?: Record<string, any>;
+  callbackUrl?: string;  // Webhook to call on completion
 }
 
 export interface AgentMessage {
@@ -63,6 +64,7 @@ export interface DispatchRequest {
   preferredSpecialist?: SpecialistType;
   maxPayment?: PaymentInfo;
   dryRun?: boolean;
+  callbackUrl?: string;  // Webhook URL to POST result on completion
 }
 
 export interface DispatchResponse {
