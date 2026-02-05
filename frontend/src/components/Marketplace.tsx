@@ -66,7 +66,7 @@ const CORE_AGENTS = [
   }
 ];
 
-const COMMUNITY_AGENTS = [
+const MARKETPLACE_AGENTS = [
   {
     id: 'magos',
     name: 'Magos',
@@ -80,7 +80,7 @@ const COMMUNITY_AGENTS = [
     isVerified: true,
     color: 'gold',
     capabilities: ['analysis', 'prediction', 'trading'],
-    tier: 'community' as const
+    tier: 'marketplace' as const
   },
   {
     id: 'aura',
@@ -95,7 +95,7 @@ const COMMUNITY_AGENTS = [
     isVerified: true,
     color: 'purple',
     capabilities: ['sentiment', 'social', 'monitoring'],
-    tier: 'community' as const
+    tier: 'marketplace' as const
   },
   {
     id: 'alphahunter',
@@ -110,7 +110,7 @@ const COMMUNITY_AGENTS = [
     isVerified: false,
     color: 'green',
     capabilities: ['discovery', 'trading', 'alpha'],
-    tier: 'community' as const
+    tier: 'marketplace' as const
   },
   {
     id: 'riskbot',
@@ -125,7 +125,7 @@ const COMMUNITY_AGENTS = [
     isVerified: true,
     color: 'orange',
     capabilities: ['security', 'audit', 'risk'],
-    tier: 'community' as const
+    tier: 'marketplace' as const
   },
   {
     id: 'newsdigest',
@@ -140,7 +140,7 @@ const COMMUNITY_AGENTS = [
     isVerified: false,
     color: 'cyan',
     capabilities: ['news', 'summary', 'info'],
-    tier: 'community' as const
+    tier: 'marketplace' as const
   },
   {
     id: 'whalespy',
@@ -155,11 +155,11 @@ const COMMUNITY_AGENTS = [
     isVerified: false,
     color: 'purple',
     capabilities: ['tracking', 'whale', 'onchain'],
-    tier: 'community' as const
+    tier: 'marketplace' as const
   }
 ];
 
-const ALL_AGENTS = [...CORE_AGENTS, ...COMMUNITY_AGENTS];
+const ALL_AGENTS = [...CORE_AGENTS, ...MARKETPLACE_AGENTS];
 
 interface MarketplaceProps {
   onHireAgent: (specialist: string) => void;
@@ -171,7 +171,7 @@ export function Marketplace({ onHireAgent }: MarketplaceProps) {
   const [filterType, setFilterType] = useState<string>('all');
 
   const filteredAndSortedAgents = useMemo(() => {
-    let result = COMMUNITY_AGENTS.filter(agent => {
+    let result = MARKETPLACE_AGENTS.filter(agent => {
       const matchesSearch = agent.name.toLowerCase().includes(search.toLowerCase()) || 
                             agent.description.toLowerCase().includes(search.toLowerCase()) ||
                             agent.capabilities.some(c => c.includes(search.toLowerCase()));
@@ -190,7 +190,7 @@ export function Marketplace({ onHireAgent }: MarketplaceProps) {
     return result;
   }, [search, sortBy, filterType]);
 
-  const allCapabilities = Array.from(new Set(COMMUNITY_AGENTS.flatMap(a => a.capabilities)));
+  const allCapabilities = Array.from(new Set(MARKETPLACE_AGENTS.flatMap(a => a.capabilities)));
 
   return (
     <div className="flex flex-col h-full">

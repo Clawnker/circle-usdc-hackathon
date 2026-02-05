@@ -24,7 +24,7 @@ export interface AgentMarketplaceProps {
   tasksCompleted: number;
   isVerified?: boolean;
   color: string;
-  tier?: 'core' | 'community';
+  tier?: 'core' | 'marketplace';
   onHire: (id: string) => void;
 }
 
@@ -40,7 +40,7 @@ export function AgentCard({
   tasksCompleted,
   isVerified = false,
   color,
-  tier = 'community',
+  tier = 'marketplace',
   onHire
 }: AgentMarketplaceProps) {
   return (

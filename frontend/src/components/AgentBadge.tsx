@@ -3,7 +3,7 @@
 import React from 'react';
 
 interface AgentBadgeProps {
-  tier: 'core' | 'community';
+  tier: 'core' | 'marketplace';
 }
 
 export function AgentBadge({ tier }: AgentBadgeProps) {
@@ -17,7 +17,7 @@ export function AgentBadge({ tier }: AgentBadgeProps) {
 
   return (
     <div className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-500/20 text-purple-400 border border-purple-500/50">
-      Community
+      Marketplace
     </div>
   );
 }

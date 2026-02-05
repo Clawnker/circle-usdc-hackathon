@@ -11,6 +11,7 @@ import {
   MessageLog,
   ResultDisplay,
   Marketplace,
+  ResultCard,
 } from '@/components';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
@@ -52,6 +53,12 @@ export default function CommandCenter() {
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
   const [hiredAgents, setHiredAgents] = useState<string[]>(['bankr', 'scribe', 'seeker']);
   const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
+  const [lastResult, setLastResult] = useState<{
+    status: 'success' | 'failure';
+    result: string;
+    cost: number;
+    specialist: string;
+  } | null>(null);
   
   const {
     isConnected,
@@ -90,11 +97,34 @@ export default function CommandCenter() {
           message = `Task completed successfully`;
           type = 'result';
           setIsLoading(false);
+          // Set last result for ResultCard
+          if (result) {
+            const r = result as any;
+            let content = '';
+            if (r.data?.insight) content = r.data.insight;
+            else if (r.data?.summary) content = r.data.summary;
+            else if (r.data?.details?.response) content = typeof r.data.details.response === 'string' ? r.data.details.response : JSON.stringify(r.data.details.response);
+            
+            const totalCost = payments.reduce((sum, p) => sum + p.amount, 0);
+            
+            setLastResult({
+              status: 'success',
+              result: content || 'Task completed',
+              cost: totalCost,
+              specialist: SPECIALIST_NAMES[currentStep?.specialist || ''] || 'Specialist'
+            });
+          }
           break;
         case 'failed':
           message = `Task failed`;
           type = 'error';
           setIsLoading(false);
+          setLastResult({
+            status: 'failure',
+            result: error || 'An unexpected error occurred',
+            cost: payments.reduce((sum, p) => sum + p.amount, 0),
+            specialist: SPECIALIST_NAMES[currentStep?.specialist || ''] || 'Specialist'
+          });
           break;
         default:
           message = `Status: ${taskStatus}`;
@@ -185,6 +215,7 @@ export default function CommandCenter() {
   const handleSubmit = useCallback(async (prompt: string) => {
     setIsLoading(true);
     setError(null);
+    setLastResult(null);
     reset();
     setActivityItems([{
       id: `${Date.now()}-submit`,
@@ -230,6 +261,12 @@ export default function CommandCenter() {
       setIsLoading(false);
     }
   }, [reset, subscribe]);
+
+  const handleNewQuery = useCallback(() => {
+    setLastResult(null);
+    setCurrentTaskId(null);
+    reset();
+  }, [reset]);
 
   const handleHireAgent = useCallback((agentId: string) => {
     setPreSelectedAgent(agentId);
@@ -342,20 +379,31 @@ export default function CommandCenter() {
               transition={{ duration: 0.2 }}
               className="flex-1 flex flex-col"
             >
-              {/* Task Input */}
+              {/* Task Input or Result Card */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
                 className="mb-6"
               >
-                <TaskInput 
-                  onSubmit={handleSubmit} 
-                  isLoading={isLoading}
-                  disabled={false}
-                  initialAgentId={preSelectedAgent}
-                  onClearPreSelect={() => setPreSelectedAgent(null)}
-                />
+                <AnimatePresence mode="wait">
+                  {lastResult ? (
+                    <ResultCard
+                      key="result-card"
+                      {...lastResult}
+                      onNewQuery={handleNewQuery}
+                    />
+                  ) : (
+                    <TaskInput 
+                      key="task-input"
+                      onSubmit={handleSubmit} 
+                      isLoading={isLoading}
+                      disabled={false}
+                      initialAgentId={preSelectedAgent}
+                      onClearPreSelect={() => setPreSelectedAgent(null)}
+                    />
+                  )}
+                </AnimatePresence>
               </motion.div>
 
               {/* Main Grid */}

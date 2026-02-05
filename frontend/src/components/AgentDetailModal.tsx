@@ -238,7 +238,7 @@ export function AgentDetailModal({
                   <h2 className="text-xl font-bold" style={{ color: info.color }}>
                     {info.name}
                   </h2>
-                  <AgentBadge tier={['bankr', 'scribe', 'seeker', 'dispatcher'].includes(specialist) ? 'core' : 'community'} />
+                  <AgentBadge tier={['bankr', 'scribe', 'seeker', 'dispatcher'].includes(specialist) ? 'core' : 'marketplace'} />
                 </div>
                 {fee !== undefined && fee > 0 && (
                   <div className="text-amber-400 text-sm font-medium mb-1">

@@ -3562,5 +3562,80 @@
       "timestamp": "2026-02-05T01:51:18.757Z",
       "executionTimeMs": 470
     }
+  },
+  "b02ae8e0-6fa2-4dbd-a58e-f00eed651b35": {
+    "id": "b02ae8e0-6fa2-4dbd-a58e-f00eed651b35",
+    "prompt": "what's happening on x today?",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "aura",
+    "createdAt": "2026-02-05T01:58:22.687Z",
+    "updatedAt": "2026-02-05T01:58:24.726Z",
+    "payments": [
+      {
+        "amount": "0.0005",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "aura",
+        "status": "pending",
+        "timestamp": "2026-02-05T01:58:24.725Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770256703289-gijs",
+        "from": "dispatcher",
+        "to": "aura",
+        "content": "Routing task: \"what's happening on x today?...\"",
+        "timestamp": "2026-02-05T01:58:23.289Z"
+      },
+      {
+        "id": "msg-1770256703290-l3pt",
+        "from": "dispatcher",
+        "to": "aura",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T01:58:23.290Z"
+      },
+      {
+        "id": "msg-1770256703924-njzi",
+        "from": "dispatcher",
+        "to": "aura",
+        "content": "Processing with aura... (fee: 0.0005 USDC)",
+        "timestamp": "2026-02-05T01:58:23.924Z"
+      },
+      {
+        "id": "msg-1770256704725-hdjo",
+        "from": "aura",
+        "to": "dispatcher",
+        "content": "Current market vibes: euphoric. Social volume is above average. Exercise caution - tops often form here.",
+        "timestamp": "2026-02-05T01:58:24.725Z"
+      },
+      {
+        "id": "msg-1770256704726-z83t",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.0005 USDC → aura",
+        "timestamp": "2026-02-05T01:58:24.726Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "market": "crypto",
+        "mood": "euphoric",
+        "topMentions": [
+          "SOL",
+          "BTC",
+          "memecoins",
+          "DeFi"
+        ],
+        "summary": "Current market vibes: euphoric. Social volume is above average. Exercise caution - tops often form here.",
+        "confidence": 0.68
+      },
+      "confidence": 0.68,
+      "timestamp": "2026-02-05T01:58:24.725Z",
+      "executionTimeMs": 0
+    }
   }
 }

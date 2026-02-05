@@ -7,3 +7,4 @@ export { ResultDisplay } from './ResultDisplay';
 export { CostPreview } from './CostPreview';
 export { Marketplace } from './Marketplace';
 export { AgentCard } from './AgentCard';
+export { ResultCard } from './ResultCard';

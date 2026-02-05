@@ -278,5 +278,13 @@
     "recipient": "bankr",
     "status": "pending",
     "timestamp": "2026-02-05T01:51:18.758Z"
+  },
+  {
+    "amount": "0.0005",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "aura",
+    "status": "pending",
+    "timestamp": "2026-02-05T01:58:24.725Z"
   }
 ]
