@@ -446,5 +446,14 @@
     "recipient": "bankr",
     "status": "pending",
     "timestamp": "2026-02-05T03:06:12.595Z"
+  },
+  {
+    "amount": "0.001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1",
+    "txHash": "tXGa1zxP5RQoxKex6d2CwcLpPW9JEgn9yb7X7x6f3NNBBGwVT8gbjvDkLdm2vttwRp5a76eA8Jojd5fG1NbwXZtU",
+    "status": "completed",
+    "timestamp": "2026-02-05T03:18:45.351Z"
   }
 ]

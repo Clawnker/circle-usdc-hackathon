@@ -4935,5 +4935,222 @@
       "timestamp": "2026-02-05T03:05:10.513Z",
       "executionTimeMs": 144
     }
+  },
+  "1bae9545-704b-4135-bc79-6cdf6baf48b0": {
+    "id": "1bae9545-704b-4135-bc79-6cdf6baf48b0",
+    "prompt": "Buy 0.1 SOL of top token",
+    "userId": "demo-user",
+    "status": "failed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-05T03:10:50.135Z",
+    "updatedAt": "2026-02-05T03:10:51.260Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770261050741-llqg",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"Buy 0.1 SOL of top token...\"",
+        "timestamp": "2026-02-05T03:10:50.741Z"
+      },
+      {
+        "id": "msg-1770261050742-rnho",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T03:10:50.742Z"
+      },
+      {
+        "id": "msg-1770261051195-uf0s",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "❌ Insufficient balance: 0 USDC < 0.0001 USDC required for bankr",
+        "timestamp": "2026-02-05T03:10:51.195Z"
+      }
+    ],
+    "metadata": {
+      "error": "Insufficient balance: 0 USDC < 0.0001 USDC required for bankr"
+    }
+  },
+  "5259f42f-e383-4255-aa6c-bf13e4406e60": {
+    "id": "5259f42f-e383-4255-aa6c-bf13e4406e60",
+    "prompt": "Price prediction for BONK",
+    "userId": "demo-user",
+    "status": "failed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T03:12:14.901Z",
+    "updatedAt": "2026-02-05T03:12:16.087Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770261135507-oeaz",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Price prediction for BONK...\"",
+        "timestamp": "2026-02-05T03:12:15.507Z"
+      },
+      {
+        "id": "msg-1770261135517-g0lw",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T03:12:15.517Z"
+      },
+      {
+        "id": "msg-1770261136061-n8e8",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "❌ Insufficient balance: 0 USDC < 0.001 USDC required for magos",
+        "timestamp": "2026-02-05T03:12:16.061Z"
+      }
+    ],
+    "metadata": {
+      "error": "Insufficient balance: 0 USDC < 0.001 USDC required for magos"
+    }
+  },
+  "e5d6516a-17fc-4b46-9fb8-5c492747cb11": {
+    "id": "e5d6516a-17fc-4b46-9fb8-5c492747cb11",
+    "prompt": "Price prediction for BONK",
+    "userId": "demo-user",
+    "status": "failed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T03:15:25.403Z",
+    "updatedAt": "2026-02-05T03:15:26.491Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770261326007-3sio",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Price prediction for BONK...\"",
+        "timestamp": "2026-02-05T03:15:26.007Z"
+      },
+      {
+        "id": "msg-1770261326018-a30g",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T03:15:26.018Z"
+      },
+      {
+        "id": "msg-1770261326478-12bj",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "❌ Insufficient balance: 0 USDC < 0.001 USDC required for magos",
+        "timestamp": "2026-02-05T03:15:26.478Z"
+      }
+    ],
+    "metadata": {
+      "error": "Insufficient balance: 0 USDC < 0.001 USDC required for magos"
+    }
+  },
+  "ec810175-9dfc-4cfb-843a-888723a42352": {
+    "id": "ec810175-9dfc-4cfb-843a-888723a42352",
+    "prompt": "Price prediction for BONK",
+    "userId": "demo-user",
+    "status": "failed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T03:18:11.182Z",
+    "updatedAt": "2026-02-05T03:18:12.671Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770261491786-zenr",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Price prediction for BONK...\"",
+        "timestamp": "2026-02-05T03:18:11.786Z"
+      },
+      {
+        "id": "msg-1770261491799-5o70",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T03:18:11.799Z"
+      },
+      {
+        "id": "msg-1770261492671-6069",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "❌ Insufficient balance: 0 USDC < 0.001 USDC required for magos",
+        "timestamp": "2026-02-05T03:18:12.671Z"
+      }
+    ],
+    "metadata": {
+      "error": "Insufficient balance: 0 USDC < 0.001 USDC required for magos"
+    }
+  },
+  "6e3350bd-2e0c-40f2-8b9e-730403cf9657": {
+    "id": "6e3350bd-2e0c-40f2-8b9e-730403cf9657",
+    "prompt": "Price prediction for BONK",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-05T03:18:43.057Z",
+    "updatedAt": "2026-02-05T03:18:45.854Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1",
+        "txHash": "tXGa1zxP5RQoxKex6d2CwcLpPW9JEgn9yb7X7x6f3NNBBGwVT8gbjvDkLdm2vttwRp5a76eA8Jojd5fG1NbwXZtU",
+        "status": "completed",
+        "timestamp": "2026-02-05T03:18:45.853Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770261523663-mv7h",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Price prediction for BONK...\"",
+        "timestamp": "2026-02-05T03:18:43.663Z"
+      },
+      {
+        "id": "msg-1770261523673-1fao",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-05T03:18:43.673Z"
+      },
+      {
+        "id": "msg-1770261524446-8rjy",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-05T03:18:44.446Z"
+      },
+      {
+        "id": "msg-1770261525351-8fzl",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "BONK 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $0.00002910",
+        "timestamp": "2026-02-05T03:18:45.351Z"
+      },
+      {
+        "id": "msg-1770261525853-79b0",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee: 0.001 USDC → magos",
+        "timestamp": "2026-02-05T03:18:45.853Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "token": "BONK",
+        "currentPrice": 0.000028,
+        "predictedPrice": 0.000029103831443988734,
+        "timeHorizon": "4h",
+        "confidence": 0.6626558816244118,
+        "direction": "bullish",
+        "reasoning": "BONK 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $0.00002910"
+      },
+      "confidence": 0.6626558816244118,
+      "timestamp": "2026-02-05T03:18:45.351Z",
+      "executionTimeMs": 104
+    }
   }
 }

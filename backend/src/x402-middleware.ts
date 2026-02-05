@@ -37,7 +37,7 @@ export const specialistRoutes: any = {
       {
         scheme: 'exact',
         price: '$0.0005',
-        network: BASE_SEPOLIA, // Use Base Sepolia for testnet
+        network: SOLANA_DEVNET, // Use Base Sepolia for testnet
         payTo: TREASURY_WALLET,
       }
     ],
@@ -49,7 +49,7 @@ export const specialistRoutes: any = {
       {
         scheme: 'exact',
         price: '$0.001',
-        network: BASE_SEPOLIA,
+        network: SOLANA_DEVNET,
         payTo: TREASURY_WALLET,
       }
     ],
@@ -61,7 +61,7 @@ export const specialistRoutes: any = {
       {
         scheme: 'exact',
         price: '$0.0001',
-        network: BASE_SEPOLIA,
+        network: SOLANA_DEVNET,
         payTo: TREASURY_WALLET,
       }
     ],
@@ -73,7 +73,7 @@ export const specialistRoutes: any = {
       {
         scheme: 'exact',
         price: '$0.0001',
-        network: BASE_SEPOLIA,
+        network: SOLANA_DEVNET,
         payTo: TREASURY_WALLET,
       }
     ],
@@ -85,7 +85,7 @@ export const specialistRoutes: any = {
       {
         scheme: 'exact',
         price: '$0.0001',
-        network: BASE_SEPOLIA,
+        network: SOLANA_DEVNET,
         payTo: TREASURY_WALLET,
       }
     ],

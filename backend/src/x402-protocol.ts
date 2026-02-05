@@ -30,7 +30,7 @@ export async function executeDemoPayment(
         url: specialistEndpoint,
         method: 'POST',
         body: requestBody,
-        preferredChain: 'evm',  // Base Sepolia for testnet
+        preferredChain: 'solana',  // Base Sepolia for testnet
       },
       {
         headers: {
