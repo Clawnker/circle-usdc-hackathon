@@ -63,7 +63,7 @@ export async function executeDemoPayment(
         url: specialistEndpoint,
         method: 'POST',
         body: requestBody,
-        preferredChain: 'base',  // Use Base - we have USDC there
+        // Let AgentWallet auto-select chain based on 402 response payment options
       },
       {
         headers: {
