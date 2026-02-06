@@ -13,6 +13,8 @@ import {
   Marketplace,
   ResultCard,
   QueryHistory,
+  ApprovalPopup,
+  AddToSwarmBanner,
 } from '@/components';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
@@ -65,6 +67,25 @@ export default function CommandCenter() {
     result: string;
     cost: number;
     specialist: string;
+  } | null>(null);
+  
+  // Approval popup state
+  const [pendingApproval, setPendingApproval] = useState<{
+    prompt: string;
+    specialist: string;
+    specialistInfo: {
+      name: string;
+      description: string;
+      fee: string;
+      feeCurrency: string;
+      successRate?: number;
+    };
+  } | null>(null);
+  
+  // Post-task add to swarm state
+  const [showAddToSwarm, setShowAddToSwarm] = useState<{
+    specialist: string;
+    specialistName: string;
   } | null>(null);
   
   const {
@@ -268,11 +289,12 @@ export default function CommandCenter() {
     }
   }, [result, currentStep]);
 
-  const handleSubmit = useCallback(async (prompt: string) => {
+  const handleSubmit = useCallback(async (prompt: string, approvedAgent?: string) => {
     setIsLoading(true);
     setError(null);
     setLastResult(null);
     setCurrentPrompt(prompt);
+    setShowAddToSwarm(null);
     reset();
     setActivityItems([{
       id: `${Date.now()}-submit`,
@@ -293,7 +315,8 @@ export default function CommandCenter() {
           prompt,
           userId: 'demo-user',
           customInstructions,
-          hiredAgents,  // Only route to specialists in the user's swarm
+          hiredAgents,
+          approvedAgent,  // Pass the approved agent if user approved
         }),
       });
 
@@ -302,8 +325,28 @@ export default function CommandCenter() {
       }
 
       const data = await response.json();
+      
+      // Check if approval is required (agent not in swarm)
+      if (data.requiresApproval && data.specialistInfo) {
+        setIsLoading(false);
+        setPendingApproval({
+          prompt,
+          specialist: data.specialist,
+          specialistInfo: data.specialistInfo,
+        });
+        return;
+      }
+      
       setCurrentTaskId(data.taskId);
       subscribe(data.taskId);
+      
+      // Track if we used an agent outside the swarm (for post-task prompt)
+      if (approvedAgent && !hiredAgents.includes(approvedAgent)) {
+        // Will show "Add to swarm" after task completes
+        const specialistName = SPECIALIST_NAMES[approvedAgent] || approvedAgent;
+        // Store for later - will show after task completes
+        (window as any).__pendingSwarmAdd = { specialist: approvedAgent, specialistName };
+      }
       
       // Add routing activity
       const specialistName = SPECIALIST_NAMES[data.specialist] || data.specialist;
@@ -318,7 +361,21 @@ export default function CommandCenter() {
       setError(err instanceof Error ? err.message : 'Failed to submit task');
       setIsLoading(false);
     }
-  }, [reset, subscribe, customInstructions]);
+  }, [reset, subscribe, customInstructions, hiredAgents]);
+
+  // Handle approval from popup
+  const handleApproveAgent = useCallback(() => {
+    if (pendingApproval) {
+      const { prompt, specialist } = pendingApproval;
+      setPendingApproval(null);
+      handleSubmit(prompt, specialist);
+    }
+  }, [pendingApproval, handleSubmit]);
+
+  const handleCancelApproval = useCallback(() => {
+    setPendingApproval(null);
+    setIsLoading(false);
+  }, []);
 
   const handleNewQuery = useCallback(() => {
     setLastResult(null);
@@ -354,10 +411,26 @@ export default function CommandCenter() {
     handleSubmit(prompt);
   }, [handleSubmit]);
 
-  // Reset loading state when task completes
-  if (isLoading && (taskStatus === 'completed' || taskStatus === 'failed')) {
-    setIsLoading(false);
-  }
+  // Reset loading state and check for add-to-swarm when task completes
+  useEffect(() => {
+    if (taskStatus === 'completed') {
+      setIsLoading(false);
+      // Check if there's a pending swarm add
+      const pendingAdd = (window as any).__pendingSwarmAdd;
+      if (pendingAdd) {
+        setShowAddToSwarm(pendingAdd);
+        delete (window as any).__pendingSwarmAdd;
+      }
+    } else if (taskStatus === 'failed') {
+      setIsLoading(false);
+      delete (window as any).__pendingSwarmAdd;
+    }
+  }, [taskStatus]);
+
+  // Handle adding agent to swarm
+  const handleAddToSwarm = useCallback((specialist: string) => {
+    setHiredAgents(prev => prev.includes(specialist) ? prev : [...prev, specialist]);
+  }, []);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -464,11 +537,22 @@ export default function CommandCenter() {
               >
                 <AnimatePresence mode="wait">
                   {lastResult ? (
-                    <ResultCard
-                      key="result-card"
-                      {...lastResult}
-                      onNewQuery={handleNewQuery}
-                    />
+                    <div className="space-y-4">
+                      <ResultCard
+                        key="result-card"
+                        {...lastResult}
+                        onNewQuery={handleNewQuery}
+                      />
+                      {/* Add to Swarm Banner - shows after task completes with non-swarm agent */}
+                      {showAddToSwarm && (
+                        <AddToSwarmBanner
+                          specialist={showAddToSwarm.specialist}
+                          specialistName={showAddToSwarm.specialistName}
+                          onAdd={handleAddToSwarm}
+                          onDismiss={() => setShowAddToSwarm(null)}
+                        />
+                      )}
+                    </div>
                   ) : (
                     <TaskInput 
                       key="task-input"
@@ -619,6 +703,18 @@ export default function CommandCenter() {
             setSelectedAgent(null);
           }}
           fee={SPECIALIST_FEES[selectedAgent]}
+        />
+      )}
+
+      {/* Approval Popup for non-swarm agents */}
+      {pendingApproval && (
+        <ApprovalPopup
+          isOpen={true}
+          specialist={pendingApproval.specialist}
+          specialistInfo={pendingApproval.specialistInfo}
+          prompt={pendingApproval.prompt}
+          onApprove={handleApproveAgent}
+          onCancel={handleCancelApproval}
         />
       )}
     </div>

@@ -64,8 +64,10 @@ export interface DispatchRequest {
   preferredSpecialist?: SpecialistType;
   maxPayment?: PaymentInfo;
   dryRun?: boolean;
+  previewOnly?: boolean;  // Return routing plan without executing
   callbackUrl?: string;  // Webhook URL to POST result on completion
   hiredAgents?: SpecialistType[];  // Only route to specialists in the user's swarm
+  approvedAgent?: SpecialistType;  // User approved this agent (bypasses swarm check)
 }
 
 export interface DispatchResponse {
@@ -74,6 +76,15 @@ export interface DispatchResponse {
   specialist: SpecialistType;
   result?: SpecialistResult;
   error?: string;
+  // Preview mode fields
+  requiresApproval?: boolean;  // True if specialist not in swarm
+  specialistInfo?: {
+    name: string;
+    description: string;
+    fee: string;
+    feeCurrency: string;
+    successRate?: number;
+  };
 }
 
 // Specialist-specific types
@@ -111,4 +122,25 @@ export interface WSEvent {
   taskId: string;
   payload: any;
   timestamp: Date;
+}
+
+// x402 Protocol Types
+export interface X402Request {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  body?: any;
+}
+
+export interface X402Response {
+  status: number;
+  headers: Record<string, string>;
+  body: any;
+  paymentRequired?: boolean;
+  paymentDetails?: {
+    amount: string;
+    asset: string;
+    payTo: string;
+    network: string;
+  };
 }

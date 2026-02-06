@@ -177,14 +177,46 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   const taskId = uuidv4();
   const hops = detectMultiHop(request.prompt);
   
-  // Filter multi-hop to only include hired agents
+  // Determine the best specialist for this prompt (ignoring swarm filter for routing decision)
+  const bestSpecialist = request.preferredSpecialist || (hops ? 'multi-hop' : routePrompt(request.prompt));
+  
+  // Check if user approved this specific agent
+  const isApproved = request.approvedAgent === bestSpecialist;
+  
+  // Check if specialist is in user's swarm (hired agents)
+  const isInSwarm = !request.hiredAgents || request.hiredAgents.includes(bestSpecialist);
+  
+  // If not in swarm and not approved, check if we need approval
+  const requiresApproval = !isInSwarm && !isApproved && bestSpecialist !== 'general' && bestSpecialist !== 'scribe';
+  
+  // If preview only or requires approval, return info without executing
+  if (request.previewOnly || requiresApproval) {
+    const pricing = SPECIALIST_PRICING[bestSpecialist] || { fee: '0', description: 'Unknown' };
+    const successRate = getSuccessRate(bestSpecialist);
+    
+    return {
+      taskId: '', // No task created yet
+      status: 'pending',
+      specialist: bestSpecialist,
+      requiresApproval,
+      specialistInfo: {
+        name: getSpecialistDisplayName(bestSpecialist),
+        description: pricing.description,
+        fee: pricing.fee,
+        feeCurrency: 'USDC',
+        successRate: successRate > 0 ? successRate : undefined,
+      },
+    };
+  }
+  
+  // Filter multi-hop to only include hired agents (unless approved)
   let filteredHops = hops;
-  if (hops && request.hiredAgents) {
-    filteredHops = hops.filter(h => request.hiredAgents!.includes(h));
+  if (hops && request.hiredAgents && !isApproved) {
+    filteredHops = hops.filter(h => request.hiredAgents!.includes(h) || h === request.approvedAgent);
     if (filteredHops.length === 0) filteredHops = null;
   }
   
-  const specialist = request.preferredSpecialist || (filteredHops ? 'multi-hop' : routePrompt(request.prompt, request.hiredAgents));
+  const specialist = request.preferredSpecialist || (filteredHops ? 'multi-hop' : bestSpecialist);
   
   // Create task
   const task: Task = {
@@ -201,6 +233,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       dryRun: request.dryRun,
       hops: filteredHops || undefined,
       hiredAgents: request.hiredAgents,
+      wasApproved: isApproved, // Track if user approved a non-swarm agent
     },
     callbackUrl: request.callbackUrl,
   };
@@ -222,6 +255,22 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     status: task.status,
     specialist,
   };
+}
+
+/**
+ * Get display name for a specialist
+ */
+function getSpecialistDisplayName(specialist: SpecialistType): string {
+  const names: Record<SpecialistType, string> = {
+    magos: 'Market Oracle',
+    aura: 'Social Analyst',
+    bankr: 'DeFi Executor',
+    scribe: 'General Assistant',
+    seeker: 'Web Researcher',
+    general: 'General',
+    'multi-hop': 'Multi-Agent Workflow',
+  };
+  return names[specialist] || specialist;
 }
 
 /**

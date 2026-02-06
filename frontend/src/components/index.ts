@@ -8,3 +8,5 @@ export { Marketplace } from './Marketplace';
 export { AgentCard } from './AgentCard';
 export { ResultCard } from './ResultCard';
 export { QueryHistory } from './QueryHistory';
+export { ApprovalPopup } from './ApprovalPopup';
+export { AddToSwarmBanner } from './AddToSwarmBanner';

@@ -5728,5 +5728,404 @@
       "timestamp": "2026-02-05T04:22:23.121Z",
       "executionTimeMs": 1
     }
+  },
+  "2bad8b45-dc85-44f0-a611-f843a72f8b27": {
+    "id": "2bad8b45-dc85-44f0-a611-f843a72f8b27",
+    "prompt": "check balance",
+    "userId": "test-user",
+    "status": "completed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-06T01:01:25.150Z",
+    "updatedAt": "2026-02-06T01:01:27.643Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "bankr",
+        "status": "pending",
+        "timestamp": "2026-02-06T01:01:27.642Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770339685765-qxmd",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"check balance...\"",
+        "timestamp": "2026-02-06T01:01:25.765Z"
+      },
+      {
+        "id": "msg-1770339685768-0l1o",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T01:01:25.768Z"
+      },
+      {
+        "id": "msg-1770339686513-f31x",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Processing with bankr... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T01:01:26.513Z"
+      },
+      {
+        "id": "msg-1770339687423-6noa",
+        "from": "bankr",
+        "to": "dispatcher",
+        "content": "💰 **Wallet Balance** (Devnet)\n📍 `5xUugg8y...C1Z1`\n\n**Balances:**\n• SOL: 4.8995\n\n**Recent Activity:**\nNo recent transactions",
+        "timestamp": "2026-02-06T01:01:27.423Z"
+      },
+      {
+        "id": "msg-1770339687643-d6is",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.0001 USDC → bankr",
+        "timestamp": "2026-02-06T01:01:27.643Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "type": "balance",
+        "status": "confirmed",
+        "details": {
+          "solanaAddress": "5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1",
+          "network": "devnet",
+          "balances": {
+            "SOL": 4.8995,
+            "USDC": 0
+          },
+          "realSOL": 4.8995,
+          "lastSync": "2026-02-06T01:01:27.313Z",
+          "recentTransactions": []
+        },
+        "summary": "💰 **Wallet Balance** (Devnet)\n📍 `5xUugg8y...C1Z1`\n\n**Balances:**\n• SOL: 4.8995\n\n**Recent Activity:**\nNo recent transactions"
+      },
+      "confidence": 0.95,
+      "timestamp": "2026-02-06T01:01:27.423Z",
+      "executionTimeMs": 111
+    }
+  },
+  "abaac6e7-dba2-4728-ae8e-afd311bd57b6": {
+    "id": "abaac6e7-dba2-4728-ae8e-afd311bd57b6",
+    "prompt": "Price prediction for BONK",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-06T01:01:47.391Z",
+    "updatedAt": "2026-02-06T01:01:49.640Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-06T01:01:49.639Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770339707995-zhu5",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Price prediction for BONK...\"",
+        "timestamp": "2026-02-06T01:01:47.995Z"
+      },
+      {
+        "id": "msg-1770339708004-caa4",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T01:01:48.004Z"
+      },
+      {
+        "id": "msg-1770339708725-jy5w",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-06T01:01:48.725Z"
+      },
+      {
+        "id": "msg-1770339709527-70bg",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "BONK 4h outlook: Bearish. Distribution pattern, resistance rejection, take profits. Target: $0.00002676",
+        "timestamp": "2026-02-06T01:01:49.527Z"
+      },
+      {
+        "id": "msg-1770339709640-ze4d",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.001 USDC → magos",
+        "timestamp": "2026-02-06T01:01:49.640Z"
+      }
+    ],
+    "metadata": {},
+    "result": {
+      "success": true,
+      "data": {
+        "token": "BONK",
+        "currentPrice": 0.000028,
+        "predictedPrice": 0.000026760987939585006,
+        "timeHorizon": "4h",
+        "confidence": 0.6822697519218328,
+        "direction": "bearish",
+        "reasoning": "BONK 4h outlook: Bearish. Distribution pattern, resistance rejection, take profits. Target: $0.00002676"
+      },
+      "confidence": 0.6822697519218328,
+      "timestamp": "2026-02-06T01:01:49.527Z",
+      "executionTimeMs": 1
+    }
+  },
+  "84346cb9-740d-48fb-81b1-8d26207d17b2": {
+    "id": "84346cb9-740d-48fb-81b1-8d26207d17b2",
+    "prompt": "Buy 0.1 SOL of top token",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-06T01:06:21.309Z",
+    "updatedAt": "2026-02-06T01:06:23.920Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "bankr",
+        "status": "pending",
+        "timestamp": "2026-02-06T01:06:23.919Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770339981913-8icv",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"Buy 0.1 SOL of top token...\"",
+        "timestamp": "2026-02-06T01:06:21.913Z"
+      },
+      {
+        "id": "msg-1770339981924-k5ij",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T01:06:21.924Z"
+      },
+      {
+        "id": "msg-1770339982766-243q",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Processing with bankr... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T01:06:22.766Z"
+      },
+      {
+        "id": "msg-1770339983712-qo93",
+        "from": "bankr",
+        "to": "dispatcher",
+        "content": "🔄 **Swap Executed via Jupiter**\n• Input: 0.1 SOL\n• Output: 7.590577 USDC\n• Route: PancakeSwap\n• Price Impact: 0%\n\n📊 **Updated Balances:**\n• SOL: 4.7995\n• USDC: 7.5906",
+        "timestamp": "2026-02-06T01:06:23.712Z"
+      },
+      {
+        "id": "msg-1770339983919-6c40",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.0001 USDC → bankr",
+        "timestamp": "2026-02-06T01:06:23.919Z"
+      }
+    ],
+    "metadata": {
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "type": "swap",
+        "status": "executed",
+        "details": {
+          "from": "SOL",
+          "to": "USDC",
+          "amount": "0.1",
+          "inputMint": "So11111111111111111111111111111111111111112",
+          "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "estimatedOutput": "7.590577",
+          "priceImpact": "0",
+          "slippageBps": 100,
+          "route": "PancakeSwap",
+          "routePlan": [
+            {
+              "dex": "PancakeSwap",
+              "inputMint": "So111111...",
+              "outputMint": "EPjFWdd5...",
+              "inAmount": "100000000",
+              "outAmount": "7590577",
+              "percent": 100
+            }
+          ],
+          "network": "devnet (simulated)",
+          "balancesBefore": {
+            "SOL": "4.8995",
+            "USDC": "0.0000"
+          },
+          "balancesAfter": {
+            "SOL": "4.7995",
+            "USDC": "7.5906"
+          }
+        },
+        "summary": "🔄 **Swap Executed via Jupiter**\n• Input: 0.1 SOL\n• Output: 7.590577 USDC\n• Route: PancakeSwap\n• Price Impact: 0%\n\n📊 **Updated Balances:**\n• SOL: 4.7995\n• USDC: 7.5906"
+      },
+      "confidence": 0.95,
+      "timestamp": "2026-02-06T01:06:23.712Z",
+      "executionTimeMs": 145
+    }
+  },
+  "0a81f51d-d702-4eb3-bf6c-0e9aad4fb15c": {
+    "id": "0a81f51d-d702-4eb3-bf6c-0e9aad4fb15c",
+    "prompt": "WIF sentiment analysis",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-06T01:07:59.569Z",
+    "updatedAt": "2026-02-06T01:08:03.516Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-06T01:08:03.515Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770340080172-crzi",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"WIF sentiment analysis...\"",
+        "timestamp": "2026-02-06T01:08:00.172Z"
+      },
+      {
+        "id": "msg-1770340080173-d9dd",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T01:08:00.173Z"
+      },
+      {
+        "id": "msg-1770340080969-6n0p",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-06T01:08:00.969Z"
+      },
+      {
+        "id": "msg-1770340083385-lebv",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "Sentiment for **WIF**: NEUTRAL (0 bullish signals, 0 bearish). Mixed signals, wait for confirmation.",
+        "timestamp": "2026-02-06T01:08:03.385Z"
+      },
+      {
+        "id": "msg-1770340083516-0zct",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.001 USDC → magos",
+        "timestamp": "2026-02-06T01:08:03.516Z"
+      }
+    ],
+    "metadata": {
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "insight": "Sentiment for **WIF**: NEUTRAL (0 bullish signals, 0 bearish). Mixed signals, wait for confirmation.",
+        "confidence": 0.5,
+        "sentiment": "neutral",
+        "score": 0,
+        "relatedTokens": [
+          "WIF"
+        ]
+      },
+      "confidence": 0.5,
+      "timestamp": "2026-02-06T01:08:03.385Z",
+      "executionTimeMs": 1615
+    }
+  },
+  "e47e6bad-a088-41e4-9251-21719a8be469": {
+    "id": "e47e6bad-a088-41e4-9251-21719a8be469",
+    "prompt": "WIF sentiment analysis",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-06T01:08:15.278Z",
+    "updatedAt": "2026-02-06T01:08:18.189Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-06T01:08:18.189Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770340095881-ap2d",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"WIF sentiment analysis...\"",
+        "timestamp": "2026-02-06T01:08:15.881Z"
+      },
+      {
+        "id": "msg-1770340095886-7814",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T01:08:15.886Z"
+      },
+      {
+        "id": "msg-1770340097182-fyyj",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-06T01:08:17.182Z"
+      },
+      {
+        "id": "msg-1770340098073-zxm3",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "Sentiment for **WIF**: NEUTRAL (0 bullish signals, 0 bearish). Mixed signals, wait for confirmation.",
+        "timestamp": "2026-02-06T01:08:18.073Z"
+      },
+      {
+        "id": "msg-1770340098189-l96v",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.001 USDC → magos",
+        "timestamp": "2026-02-06T01:08:18.189Z"
+      }
+    ],
+    "metadata": {
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "insight": "Sentiment for **WIF**: NEUTRAL (0 bullish signals, 0 bearish). Mixed signals, wait for confirmation.",
+        "confidence": 0.5,
+        "sentiment": "neutral",
+        "score": 0,
+        "relatedTokens": [
+          "WIF"
+        ]
+      },
+      "confidence": 0.5,
+      "timestamp": "2026-02-06T01:08:18.073Z",
+      "executionTimeMs": 90
+    }
   }
 }

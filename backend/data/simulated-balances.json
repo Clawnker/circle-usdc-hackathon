@@ -1,0 +1,19 @@
+{
+  "lastRealBalanceCheck": 1770339687313,
+  "realSOL": 4.8995,
+  "balances": {
+    "SOL": 4.7995,
+    "USDC": 7.590577
+  },
+  "transactions": [
+    {
+      "type": "swap",
+      "from": "SOL",
+      "to": "USDC",
+      "amountIn": 0.1,
+      "amountOut": 7.590577,
+      "timestamp": 1770339983711,
+      "route": "PancakeSwap"
+    }
+  ]
+}
