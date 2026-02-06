@@ -581,6 +581,8 @@ wss.on('close', () => {
 });
 
 function handleWSMessage(ws: ExtendedWebSocket, message: any) {
+  console.log('[WS] Received message:', message.type, message.taskId || '');
+  
   // Authentication handler
   if (message.type === 'auth') {
     const apiKey = message.apiKey;
@@ -589,8 +591,10 @@ function handleWSMessage(ws: ExtendedWebSocket, message: any) {
 
     if (apiKey && validKeys.includes(apiKey)) {
       ws.userId = apiKey;
+      console.log('[WS] Client authenticated:', apiKey);
       ws.send(JSON.stringify({ type: 'authenticated', userId: ws.userId }));
     } else {
+      console.log('[WS] Auth failed for key:', apiKey);
       ws.send(JSON.stringify({ error: 'Authentication failed' }));
     }
     return;
@@ -627,7 +631,7 @@ function handleWSMessage(ws: ExtendedWebSocket, message: any) {
         subscriptions.add(message.taskId);
         wsClients.set(ws, subscriptions);
 
-        // Set up subscription
+        // Set up subscription for future updates
         const unsubscribe = subscribeToTask(message.taskId, (updatedTask: Task) => {
           sendToClient(ws, {
             type: 'task_update',
@@ -640,6 +644,19 @@ function handleWSMessage(ws: ExtendedWebSocket, message: any) {
         // Store unsubscribe function
         if (ws.subscriptions) {
           ws.subscriptions.set(message.taskId, unsubscribe);
+        }
+
+        // IMMEDIATELY send current task state (fixes race condition)
+        const currentTask = getTask(message.taskId);
+        console.log('[WS] Looking up task:', message.taskId, 'found:', !!currentTask, currentTask?.status);
+        if (currentTask) {
+          console.log('[WS] Sending immediate task state:', currentTask.status);
+          sendToClient(ws, {
+            type: 'task_update',
+            taskId: currentTask.id,
+            payload: currentTask,
+            timestamp: new Date(),
+          });
         }
 
         ws.send(JSON.stringify({
@@ -680,7 +697,10 @@ function handleWSMessage(ws: ExtendedWebSocket, message: any) {
 
 function sendToClient(ws: WebSocket, event: WSEvent) {
   if (ws.readyState === WebSocket.OPEN) {
+    console.log('[WS] Sending to client:', event.type, event.taskId || '');
     ws.send(JSON.stringify(event));
+  } else {
+    console.log('[WS] Client not ready, state:', ws.readyState);
   }
 }
 

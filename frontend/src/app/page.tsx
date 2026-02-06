@@ -372,7 +372,7 @@ export default function CommandCenter() {
         },
         body: JSON.stringify({
           prompt,
-          userId: 'demo-user',
+          userId: process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
           customInstructions,
           hiredAgents,
           approvedAgent,  // Pass the approved agent if user approved

@@ -12963,5 +12963,663 @@
       "timestamp": "2026-02-06T14:47:59.038Z",
       "executionTimeMs": 0
     }
+  },
+  "07a4b30a-964b-4b48-80a4-c2de8a67f1da": {
+    "id": "07a4b30a-964b-4b48-80a4-c2de8a67f1da",
+    "prompt": "Find trending meme coins",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T15:27:06.427Z",
+    "updatedAt": "2026-02-06T15:27:09.390Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770391627034-bopw",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Find trending meme coins...\"",
+        "timestamp": "2026-02-06T15:27:07.034Z"
+      },
+      {
+        "id": "msg-1770391627044-ento",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T15:27:07.044Z"
+      },
+      {
+        "id": "msg-1770391628032-bxvs",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T15:27:08.032Z"
+      },
+      {
+        "id": "msg-1770391629390-26y2",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "timestamp": "2026-02-06T15:27:09.390Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: trending meme coins**\n\n**Key Findings:**\n1. **Top Meme Coins by Market Cap | CoinGecko**\n   All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed\n\n2. **Top Memes Tokens by Market Capitalization | CoinMarketCap** _(December 28, 2025)_\n   Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).\n\n3. **Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub** _(January 23, 2025)_\n   In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.\n\n4. **Solana Meme Coins - Top 50 List | Coinranking**\n   Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes.\n\n5. **Meme Coins | Top Meme Tokens by Market Cap** _(December 7, 2025)_\n   Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.\n\n**Sources:**\n[1. Top Meme Coins by Market Cap | CoinGecko](https://www.coingecko.com/en/categories/meme-token)\n[2. Top Memes Tokens by Market Capitalization | CoinMarketCap](https://coinmarketcap.com/view/memes/)\n[3. Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub](https://altorise.com/hub/memecoins/)\n[4. Solana Meme Coins - Top 50 List | Coinranking](https://coinranking.com/coins/solana-meme)\n[5. Meme Coins | Top Meme Tokens by Market Cap](https://www.kraken.com/categories/meme)\n",
+        "insight": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "results": [
+          {
+            "title": "Top Meme Coins by Market Cap | CoinGecko",
+            "url": "https://www.coingecko.com/en/categories/meme-token",
+            "description": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed"
+          },
+          {
+            "title": "Top Memes Tokens by Market Capitalization | CoinMarketCap",
+            "url": "https://coinmarketcap.com/view/memes/",
+            "description": "Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).",
+            "age": "December 28, 2025"
+          },
+          {
+            "title": "Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub",
+            "url": "https://altorise.com/hub/memecoins/",
+            "description": "In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+            "age": "January 23, 2025"
+          },
+          {
+            "title": "Solana Meme Coins - Top 50 List | Coinranking",
+            "url": "https://coinranking.com/coins/solana-meme",
+            "description": "Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes."
+          },
+          {
+            "title": "Meme Coins | Top Meme Tokens by Market Cap",
+            "url": "https://www.kraken.com/categories/meme",
+            "description": "Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.",
+            "age": "December 7, 2025"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "trending meme coins",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T15:27:09.390Z",
+      "executionTimeMs": 558
+    }
+  },
+  "b72d2a5b-0052-4fa9-844c-44379a1c3e91": {
+    "id": "b72d2a5b-0052-4fa9-844c-44379a1c3e91",
+    "prompt": "Find trending meme coins",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T15:30:29.142Z",
+    "updatedAt": "2026-02-06T15:30:31.933Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770391829751-q467",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Find trending meme coins...\"",
+        "timestamp": "2026-02-06T15:30:29.751Z"
+      },
+      {
+        "id": "msg-1770391829760-ljzw",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T15:30:29.760Z"
+      },
+      {
+        "id": "msg-1770391830736-9xy6",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T15:30:30.736Z"
+      },
+      {
+        "id": "msg-1770391831933-gd5w",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "timestamp": "2026-02-06T15:30:31.933Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: trending meme coins**\n\n**Key Findings:**\n1. **Top Meme Coins by Market Cap | CoinGecko**\n   All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed\n\n2. **Top Memes Tokens by Market Capitalization | CoinMarketCap** _(December 28, 2025)_\n   Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).\n\n3. **Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub** _(January 23, 2025)_\n   In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.\n\n4. **Solana Meme Coins - Top 50 List | Coinranking**\n   Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes.\n\n5. **Meme Coins | Top Meme Tokens by Market Cap** _(December 7, 2025)_\n   Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.\n\n**Sources:**\n[1. Top Meme Coins by Market Cap | CoinGecko](https://www.coingecko.com/en/categories/meme-token)\n[2. Top Memes Tokens by Market Capitalization | CoinMarketCap](https://coinmarketcap.com/view/memes/)\n[3. Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub](https://altorise.com/hub/memecoins/)\n[4. Solana Meme Coins - Top 50 List | Coinranking](https://coinranking.com/coins/solana-meme)\n[5. Meme Coins | Top Meme Tokens by Market Cap](https://www.kraken.com/categories/meme)\n",
+        "insight": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "results": [
+          {
+            "title": "Top Meme Coins by Market Cap | CoinGecko",
+            "url": "https://www.coingecko.com/en/categories/meme-token",
+            "description": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed"
+          },
+          {
+            "title": "Top Memes Tokens by Market Capitalization | CoinMarketCap",
+            "url": "https://coinmarketcap.com/view/memes/",
+            "description": "Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).",
+            "age": "December 28, 2025"
+          },
+          {
+            "title": "Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub",
+            "url": "https://altorise.com/hub/memecoins/",
+            "description": "In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+            "age": "January 23, 2025"
+          },
+          {
+            "title": "Solana Meme Coins - Top 50 List | Coinranking",
+            "url": "https://coinranking.com/coins/solana-meme",
+            "description": "Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes."
+          },
+          {
+            "title": "Meme Coins | Top Meme Tokens by Market Cap",
+            "url": "https://www.kraken.com/categories/meme",
+            "description": "Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.",
+            "age": "December 7, 2025"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "trending meme coins",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T15:30:31.933Z",
+      "executionTimeMs": 396
+    }
+  },
+  "51d77c8c-935a-4534-abcc-645e06feeb99": {
+    "id": "51d77c8c-935a-4534-abcc-645e06feeb99",
+    "prompt": "Find trending meme coins",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T15:33:10.986Z",
+    "updatedAt": "2026-02-06T15:33:13.657Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770391991593-zjh8",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Find trending meme coins...\"",
+        "timestamp": "2026-02-06T15:33:11.593Z"
+      },
+      {
+        "id": "msg-1770391991603-tefa",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T15:33:11.603Z"
+      },
+      {
+        "id": "msg-1770391992404-08j5",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T15:33:12.404Z"
+      },
+      {
+        "id": "msg-1770391993656-9hc6",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "timestamp": "2026-02-06T15:33:13.656Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: trending meme coins**\n\n**Key Findings:**\n1. **Top Meme Coins by Market Cap | CoinGecko**\n   All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed\n\n2. **Top Memes Tokens by Market Capitalization | CoinMarketCap** _(December 28, 2025)_\n   Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).\n\n3. **Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub** _(January 23, 2025)_\n   In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.\n\n4. **Solana Meme Coins - Top 50 List | Coinranking**\n   Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes.\n\n5. **Meme Coins | Top Meme Tokens by Market Cap** _(December 7, 2025)_\n   Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.\n\n**Sources:**\n[1. Top Meme Coins by Market Cap | CoinGecko](https://www.coingecko.com/en/categories/meme-token)\n[2. Top Memes Tokens by Market Capitalization | CoinMarketCap](https://coinmarketcap.com/view/memes/)\n[3. Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub](https://altorise.com/hub/memecoins/)\n[4. Solana Meme Coins - Top 50 List | Coinranking](https://coinranking.com/coins/solana-meme)\n[5. Meme Coins | Top Meme Tokens by Market Cap](https://www.kraken.com/categories/meme)\n",
+        "insight": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "results": [
+          {
+            "title": "Top Meme Coins by Market Cap | CoinGecko",
+            "url": "https://www.coingecko.com/en/categories/meme-token",
+            "description": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed"
+          },
+          {
+            "title": "Top Memes Tokens by Market Capitalization | CoinMarketCap",
+            "url": "https://coinmarketcap.com/view/memes/",
+            "description": "Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).",
+            "age": "December 28, 2025"
+          },
+          {
+            "title": "Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub",
+            "url": "https://altorise.com/hub/memecoins/",
+            "description": "In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+            "age": "January 23, 2025"
+          },
+          {
+            "title": "Solana Meme Coins - Top 50 List | Coinranking",
+            "url": "https://coinranking.com/coins/solana-meme",
+            "description": "Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes."
+          },
+          {
+            "title": "Meme Coins | Top Meme Tokens by Market Cap",
+            "url": "https://www.kraken.com/categories/meme",
+            "description": "Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.",
+            "age": "December 7, 2025"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "trending meme coins",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T15:33:13.656Z",
+      "executionTimeMs": 451
+    }
+  },
+  "b313e714-f0d8-4848-83f6-b97afe32c1a8": {
+    "id": "b313e714-f0d8-4848-83f6-b97afe32c1a8",
+    "prompt": "Find trending meme coins",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T15:34:35.293Z",
+    "updatedAt": "2026-02-06T15:34:37.894Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770392075900-b2tw",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Find trending meme coins...\"",
+        "timestamp": "2026-02-06T15:34:35.900Z"
+      },
+      {
+        "id": "msg-1770392075903-a5ri",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T15:34:35.903Z"
+      },
+      {
+        "id": "msg-1770392076718-4j2d",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T15:34:36.718Z"
+      },
+      {
+        "id": "msg-1770392077894-nzsp",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "timestamp": "2026-02-06T15:34:37.894Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: trending meme coins**\n\n**Key Findings:**\n1. **Top Meme Coins by Market Cap | CoinGecko**\n   All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed\n\n2. **Top Memes Tokens by Market Capitalization | CoinMarketCap** _(December 28, 2025)_\n   Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).\n\n3. **Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub** _(January 23, 2025)_\n   In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.\n\n4. **Solana Meme Coins - Top 50 List | Coinranking**\n   Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes.\n\n5. **Meme Coins | Top Meme Tokens by Market Cap** _(December 7, 2025)_\n   Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.\n\n**Sources:**\n[1. Top Meme Coins by Market Cap | CoinGecko](https://www.coingecko.com/en/categories/meme-token)\n[2. Top Memes Tokens by Market Capitalization | CoinMarketCap](https://coinmarketcap.com/view/memes/)\n[3. Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub](https://altorise.com/hub/memecoins/)\n[4. Solana Meme Coins - Top 50 List | Coinranking](https://coinranking.com/coins/solana-meme)\n[5. Meme Coins | Top Meme Tokens by Market Cap](https://www.kraken.com/categories/meme)\n",
+        "insight": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "results": [
+          {
+            "title": "Top Meme Coins by Market Cap | CoinGecko",
+            "url": "https://www.coingecko.com/en/categories/meme-token",
+            "description": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed"
+          },
+          {
+            "title": "Top Memes Tokens by Market Capitalization | CoinMarketCap",
+            "url": "https://coinmarketcap.com/view/memes/",
+            "description": "Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).",
+            "age": "December 28, 2025"
+          },
+          {
+            "title": "Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub",
+            "url": "https://altorise.com/hub/memecoins/",
+            "description": "In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+            "age": "January 23, 2025"
+          },
+          {
+            "title": "Solana Meme Coins - Top 50 List | Coinranking",
+            "url": "https://coinranking.com/coins/solana-meme",
+            "description": "Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes."
+          },
+          {
+            "title": "Meme Coins | Top Meme Tokens by Market Cap",
+            "url": "https://www.kraken.com/categories/meme",
+            "description": "Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.",
+            "age": "December 7, 2025"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "trending meme coins",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T15:34:37.894Z",
+      "executionTimeMs": 375
+    }
+  },
+  "efd8c787-5000-4b08-8abc-15b7cf9e4dd3": {
+    "id": "efd8c787-5000-4b08-8abc-15b7cf9e4dd3",
+    "prompt": "Find trending meme coins",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T15:35:40.526Z",
+    "updatedAt": "2026-02-06T15:35:43.135Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770392141134-1l7q",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Find trending meme coins...\"",
+        "timestamp": "2026-02-06T15:35:41.134Z"
+      },
+      {
+        "id": "msg-1770392141144-zghg",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T15:35:41.144Z"
+      },
+      {
+        "id": "msg-1770392141961-dhh0",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T15:35:41.961Z"
+      },
+      {
+        "id": "msg-1770392143134-b6tn",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "timestamp": "2026-02-06T15:35:43.134Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: trending meme coins**\n\n**Key Findings:**\n1. **Top Meme Coins by Market Cap | CoinGecko**\n   All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed\n\n2. **Top Memes Tokens by Market Capitalization | CoinMarketCap** _(December 28, 2025)_\n   Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).\n\n3. **Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub** _(January 23, 2025)_\n   In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.\n\n4. **Solana Meme Coins - Top 50 List | Coinranking**\n   Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes.\n\n5. **Meme Coins | Top Meme Tokens by Market Cap** _(December 7, 2025)_\n   Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.\n\n**Sources:**\n[1. Top Meme Coins by Market Cap | CoinGecko](https://www.coingecko.com/en/categories/meme-token)\n[2. Top Memes Tokens by Market Capitalization | CoinMarketCap](https://coinmarketcap.com/view/memes/)\n[3. Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub](https://altorise.com/hub/memecoins/)\n[4. Solana Meme Coins - Top 50 List | Coinranking](https://coinranking.com/coins/solana-meme)\n[5. Meme Coins | Top Meme Tokens by Market Cap](https://www.kraken.com/categories/meme)\n",
+        "insight": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "results": [
+          {
+            "title": "Top Meme Coins by Market Cap | CoinGecko",
+            "url": "https://www.coingecko.com/en/categories/meme-token",
+            "description": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed"
+          },
+          {
+            "title": "Top Memes Tokens by Market Capitalization | CoinMarketCap",
+            "url": "https://coinmarketcap.com/view/memes/",
+            "description": "Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).",
+            "age": "December 28, 2025"
+          },
+          {
+            "title": "Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub",
+            "url": "https://altorise.com/hub/memecoins/",
+            "description": "In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+            "age": "January 23, 2025"
+          },
+          {
+            "title": "Solana Meme Coins - Top 50 List | Coinranking",
+            "url": "https://coinranking.com/coins/solana-meme",
+            "description": "Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes."
+          },
+          {
+            "title": "Meme Coins | Top Meme Tokens by Market Cap",
+            "url": "https://www.kraken.com/categories/meme",
+            "description": "Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.",
+            "age": "December 7, 2025"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "trending meme coins",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T15:35:43.134Z",
+      "executionTimeMs": 373
+    }
+  },
+  "8de68a77-0626-4009-b2a6-06ace52b1250": {
+    "id": "8de68a77-0626-4009-b2a6-06ace52b1250",
+    "prompt": "Find trending meme coins",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T15:37:04.613Z",
+    "updatedAt": "2026-02-06T15:37:07.361Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770392225221-qdqp",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Find trending meme coins...\"",
+        "timestamp": "2026-02-06T15:37:05.221Z"
+      },
+      {
+        "id": "msg-1770392225224-rtzp",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T15:37:05.224Z"
+      },
+      {
+        "id": "msg-1770392226174-uv76",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T15:37:06.174Z"
+      },
+      {
+        "id": "msg-1770392227360-nkrb",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "timestamp": "2026-02-06T15:37:07.360Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: trending meme coins**\n\n**Key Findings:**\n1. **Top Meme Coins by Market Cap | CoinGecko**\n   All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed\n\n2. **Top Memes Tokens by Market Capitalization | CoinMarketCap** _(December 28, 2025)_\n   Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).\n\n3. **Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub** _(January 23, 2025)_\n   In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.\n\n4. **Solana Meme Coins - Top 50 List | Coinranking**\n   Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes.\n\n5. **Meme Coins | Top Meme Tokens by Market Cap** _(December 7, 2025)_\n   Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.\n\n**Sources:**\n[1. Top Meme Coins by Market Cap | CoinGecko](https://www.coingecko.com/en/categories/meme-token)\n[2. Top Memes Tokens by Market Capitalization | CoinMarketCap](https://coinmarketcap.com/view/memes/)\n[3. Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub](https://altorise.com/hub/memecoins/)\n[4. Solana Meme Coins - Top 50 List | Coinranking](https://coinranking.com/coins/solana-meme)\n[5. Meme Coins | Top Meme Tokens by Market Cap](https://www.kraken.com/categories/meme)\n",
+        "insight": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "results": [
+          {
+            "title": "Top Meme Coins by Market Cap | CoinGecko",
+            "url": "https://www.coingecko.com/en/categories/meme-token",
+            "description": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed"
+          },
+          {
+            "title": "Top Memes Tokens by Market Capitalization | CoinMarketCap",
+            "url": "https://coinmarketcap.com/view/memes/",
+            "description": "Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).",
+            "age": "December 28, 2025"
+          },
+          {
+            "title": "Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub",
+            "url": "https://altorise.com/hub/memecoins/",
+            "description": "In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+            "age": "January 23, 2025"
+          },
+          {
+            "title": "Solana Meme Coins - Top 50 List | Coinranking",
+            "url": "https://coinranking.com/coins/solana-meme",
+            "description": "Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes."
+          },
+          {
+            "title": "Meme Coins | Top Meme Tokens by Market Cap",
+            "url": "https://www.kraken.com/categories/meme",
+            "description": "Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.",
+            "age": "December 7, 2025"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "trending meme coins",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T15:37:07.360Z",
+      "executionTimeMs": 385
+    }
+  },
+  "cb7a5eb9-5dfa-4c6b-ab49-ca70becfe5cd": {
+    "id": "cb7a5eb9-5dfa-4c6b-ab49-ca70becfe5cd",
+    "prompt": "Find trending meme coins",
+    "userId": "demo-key",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T15:38:25.153Z",
+    "updatedAt": "2026-02-06T15:38:28.191Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770392305761-53ji",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Find trending meme coins...\"",
+        "timestamp": "2026-02-06T15:38:25.761Z"
+      },
+      {
+        "id": "msg-1770392305772-q6ef",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T15:38:25.772Z"
+      },
+      {
+        "id": "msg-1770392306945-uado",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T15:38:26.945Z"
+      },
+      {
+        "id": "msg-1770392308191-ibmb",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "timestamp": "2026-02-06T15:38:28.191Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: trending meme coins**\n\n**Key Findings:**\n1. **Top Meme Coins by Market Cap | CoinGecko**\n   All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed\n\n2. **Top Memes Tokens by Market Capitalization | CoinMarketCap** _(December 28, 2025)_\n   Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).\n\n3. **Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub** _(January 23, 2025)_\n   In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.\n\n4. **Solana Meme Coins - Top 50 List | Coinranking**\n   Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes.\n\n5. **Meme Coins | Top Meme Tokens by Market Cap** _(December 7, 2025)_\n   Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.\n\n**Sources:**\n[1. Top Meme Coins by Market Cap | CoinGecko](https://www.coingecko.com/en/categories/meme-token)\n[2. Top Memes Tokens by Market Capitalization | CoinMarketCap](https://coinmarketcap.com/view/memes/)\n[3. Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub](https://altorise.com/hub/memecoins/)\n[4. Solana Meme Coins - Top 50 List | Coinranking](https://coinranking.com/coins/solana-meme)\n[5. Meme Coins | Top Meme Tokens by Market Cap](https://www.kraken.com/categories/meme)\n",
+        "insight": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET). In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+        "results": [
+          {
+            "title": "Top Meme Coins by Market Cap | CoinGecko",
+            "url": "https://www.coingecko.com/en/categories/meme-token",
+            "description": "All Meme 4chan-Themed AI Meme Anime-Themed Base Meme Bitcoin Meme Cat-Themed Celebrity-Themed Chinese Meme Christmas Themed Country-Themed Meme Desci Meme Dog-Themed Duck-Themed Elon Musk-Inspired Emoji-Themed Four.meme Ecosystem (BNB Memes) Frog-Themed Mascot-Themed Memorial Themed Murad Picks Parody Meme PolitiFi Solana Meme Sticker-Themed Coins Stock market-themed STX.CITY Ecosystem Sui Meme Sun Pump Ecosystem The Boy’s Club TikTok Meme TON Meme TRON Meme Wall Street Bets Themed Wojak-Themed Zodiac-Themed Zoo-Themed"
+          },
+          {
+            "title": "Top Memes Tokens by Market Capitalization | CoinMarketCap",
+            "url": "https://coinmarketcap.com/view/memes/",
+            "description": "Dogecoin’s explosion of popularity led to an ever-growing number of dog coins like Baby Doge Coin, SHIBA INU, Shiba BSC, and many more. However, Meme coins span everything from the very cute (Mini Baby Doge) to the very vulgar (DiarrheaCoin and CUMROCKET).",
+            "age": "December 28, 2025"
+          },
+          {
+            "title": "Memecoins: Top 10 Picks for 2025 You Need!- Altorise Hub",
+            "url": "https://altorise.com/hub/memecoins/",
+            "description": "In 2024, meme coins have seen a staggering 586% increase in total value year-to-date, according to a Binance study. This trend has been largely driven by social media influence and community engagement. Meme coin social media chatter increased by 53% since January 2024, even surpassing mentions of AI coins by over 20% in the same period.",
+            "age": "January 23, 2025"
+          },
+          {
+            "title": "Solana Meme Coins - Top 50 List | Coinranking",
+            "url": "https://coinranking.com/coins/solana-meme",
+            "description": "Cultural flywheel: Influencers (Ansem, Hsaka) post ticker → CT raids → Jupiter trending → pump.fun front-page → TikTok → repeat. Airdrop meta: Jupiter, Jito, Parcl, Kamino airdrops created “SOL rich” user-base looking for next 100×. Launchpad reflexivity: pump.fun earns fees in SOL → buys more SOL → price up → more liquidity for memes."
+          },
+          {
+            "title": "Meme Coins | Top Meme Tokens by Market Cap",
+            "url": "https://www.kraken.com/categories/meme",
+            "description": "Memecoins are commonly traded on decentralized exchanges and can quickly rise or fall in the coin market. Shiba Inu and Dogecoin are among the most popular meme coins in the crypto space.",
+            "age": "December 7, 2025"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "trending meme coins",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T15:38:28.191Z",
+      "executionTimeMs": 445
+    }
   }
 }
