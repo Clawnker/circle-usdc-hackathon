@@ -9432,5 +9432,200 @@
       "timestamp": "2026-02-06T01:56:42.174Z",
       "executionTimeMs": 239
     }
+  },
+  "4a73b06b-287b-49e9-9f62-a6d40533dc60": {
+    "id": "4a73b06b-287b-49e9-9f62-a6d40533dc60",
+    "prompt": "buy 0.5 sol worth of BONK and send it to Bq48PaxtoWv62QHeX3WYfmHHw9E7hJp38sx5t6tugDyd",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "bankr",
+    "createdAt": "2026-02-06T01:57:23.404Z",
+    "updatedAt": "2026-02-06T01:57:25.994Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "bankr",
+        "status": "pending",
+        "timestamp": "2026-02-06T01:57:25.994Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770343044009-hi6z",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Routing task: \"buy 0.5 sol worth of BONK and send it to Bq48PaxtoWv62QHeX3WYfmHHw9E7hJp38sx5t6t...\"",
+        "timestamp": "2026-02-06T01:57:24.009Z"
+      },
+      {
+        "id": "msg-1770343044011-mv2z",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T01:57:24.011Z"
+      },
+      {
+        "id": "msg-1770343044871-3say",
+        "from": "dispatcher",
+        "to": "bankr",
+        "content": "Processing with bankr... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T01:57:24.871Z"
+      },
+      {
+        "id": "msg-1770343045827-yxvv",
+        "from": "bankr",
+        "to": "dispatcher",
+        "content": "📦 **Multi-Step Transaction** (2 steps)\n\n**Step 1: Swap**\n• Input: 0.5 SOL\n• Output: 669695.205688 BONK\n• Route: WhaleStreet → ZeroFi\n\n**Step 2: Transfer**\n• Amount: 669695.205688 BONK\n• To: Bq48PaxtoWv62QHeX3WYfmHHw9E7hJp38sx5t6tugDyd\n• Status: Simulated ✓\n\n📊 **Final Balances:**\n• SOL: 3.7895\n• USDC: 15.2965\n• BONK: 434.2K\n",
+        "timestamp": "2026-02-06T01:57:25.828Z"
+      },
+      {
+        "id": "msg-1770343045994-2kb7",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.0001 USDC → bankr",
+        "timestamp": "2026-02-06T01:57:25.994Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "type": "compound",
+        "status": "success",
+        "steps": [
+          {
+            "step": 1,
+            "type": "swap",
+            "status": "executed",
+            "from": "SOL",
+            "to": "BONK",
+            "input": "0.5",
+            "output": "669695.205688",
+            "route": "WhaleStreet → ZeroFi"
+          },
+          {
+            "step": 2,
+            "type": "transfer",
+            "status": "simulated",
+            "token": "BONK",
+            "amount": 669695.205688,
+            "recipient": "Bq48PaxtoWv62QHeX3WYfmHHw9E7hJp38sx5t6tugDyd",
+            "txHash": "sim_mla8jglf"
+          }
+        ],
+        "details": {
+          "response": "📦 **Multi-Step Transaction** (2 steps)\n\n**Step 1: Swap**\n• Input: 0.5 SOL\n• Output: 669695.205688 BONK\n• Route: WhaleStreet → ZeroFi\n\n**Step 2: Transfer**\n• Amount: 669695.205688 BONK\n• To: Bq48PaxtoWv62QHeX3WYfmHHw9E7hJp38sx5t6tugDyd\n• Status: Simulated ✓\n\n📊 **Final Balances:**\n• SOL: 3.7895\n• USDC: 15.2965\n• BONK: 434.2K\n",
+          "balancesAfter": {
+            "SOL": 3.7895000000000003,
+            "USDC": 15.296454,
+            "BONK": 434237.73032999993,
+            "TOP": 0.199
+          }
+        }
+      },
+      "timestamp": "2026-02-06T01:57:25.827Z",
+      "executionTimeMs": 155
+    }
+  },
+  "1fb1b9e3-851b-4bad-8307-e1ef63b4b254": {
+    "id": "1fb1b9e3-851b-4bad-8307-e1ef63b4b254",
+    "prompt": "What is Firedancer?",
+    "userId": "test",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T02:07:50.546Z",
+    "updatedAt": "2026-02-06T02:07:52.926Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "seeker",
+        "status": "pending",
+        "timestamp": "2026-02-06T02:07:52.926Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770343671154-nrgt",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"What is Firedancer?...\"",
+        "timestamp": "2026-02-06T02:07:51.154Z"
+      },
+      {
+        "id": "msg-1770343671156-4xgn",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T02:07:51.156Z"
+      },
+      {
+        "id": "msg-1770343671969-9t3p",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T02:07:51.969Z"
+      },
+      {
+        "id": "msg-1770343672771-ckdb",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "Firedancer is a new, independent Solana validator client being built by Jump Crypto to increase network resilience.",
+        "timestamp": "2026-02-06T02:07:52.771Z"
+      },
+      {
+        "id": "msg-1770343672926-n46j",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.0001 USDC → seeker",
+        "timestamp": "2026-02-06T02:07:52.926Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: Firedancer**\n\n**Summary**: Found 2 relevant results.\n\n**Key Findings**:\n1. **Firedancer: A New Solana Validator Client by Jump Crypto**\n   Firedancer is a new, independent Solana validator client being built by Jump Crypto to increase network resilience.\n\n2. **Firedancer Testnet Achieves 1M+ TPS**\n   Jump Crypto's Firedancer validator client demonstrates unprecedented transaction throughput on testnet.\n\n**Sources**:\n• [Firedancer: A New Solana Validator Client by Jump Crypto](https://jumpcrypto.com/firedancer)\n• [Firedancer Testnet Achieves 1M+ TPS](https://theblock.co/post/firedancer-testnet)\n",
+        "insight": "Firedancer is a new, independent Solana validator client being built by Jump Crypto to increase network resilience.",
+        "results": [
+          {
+            "title": "Firedancer: A New Solana Validator Client by Jump Crypto",
+            "url": "https://jumpcrypto.com/firedancer",
+            "description": "Firedancer is a new, independent Solana validator client being built by Jump Crypto to increase network resilience.",
+            "age": "1 week ago"
+          },
+          {
+            "title": "Firedancer Testnet Achieves 1M+ TPS",
+            "url": "https://theblock.co/post/firedancer-testnet",
+            "description": "Jump Crypto's Firedancer validator client demonstrates unprecedented transaction throughput on testnet.",
+            "age": "3 days ago"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "Firedancer",
+          "count": 2
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T02:07:52.771Z",
+      "executionTimeMs": 1
+    }
   }
 }

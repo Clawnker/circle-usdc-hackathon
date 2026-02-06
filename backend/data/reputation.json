@@ -22,9 +22,9 @@
       "votes": []
     },
     "bankr": {
-      "successCount": 22,
+      "successCount": 23,
       "failureCount": 0,
-      "upvotes": 22,
+      "upvotes": 23,
       "downvotes": 1,
       "votes": [
         {
@@ -37,16 +37,16 @@
       ]
     },
     "seeker": {
-      "successCount": 13,
+      "successCount": 14,
       "failureCount": 0,
-      "upvotes": 13,
+      "upvotes": 14,
       "downvotes": 0,
       "votes": []
     },
     "DeFi Specialist Bankr": {
       "successCount": 0,
       "failureCount": 0,
-      "upvotes": 1,
+      "upvotes": 2,
       "downvotes": 0,
       "votes": [
         {
@@ -55,6 +55,13 @@
           "voterType": "human",
           "vote": "up",
           "timestamp": 1770342632129
+        },
+        {
+          "taskId": "4a73b06b-287b-49e9-9f62-a6d40533dc60",
+          "voterId": "demo-user",
+          "voterType": "human",
+          "vote": "up",
+          "timestamp": 1770343076256
         }
       ]
     },
@@ -128,6 +135,7 @@
     "demo-user:d86ea43d-cd0c-41f3-9e62-041f1e53c8a0": "up",
     "demo-user:ae1bdde4-5358-4968-9818-c098781d8716": "up",
     "demo-user:25a56ef8-905f-4a7e-9ef8-94053f1ff8b0": "down",
-    "demo-user:db1b868f-851f-4331-9e5b-55696bfb880f": "up"
+    "demo-user:db1b868f-851f-4331-9e5b-55696bfb880f": "up",
+    "demo-user:4a73b06b-287b-49e9-9f62-a6d40533dc60": "up"
   }
 }

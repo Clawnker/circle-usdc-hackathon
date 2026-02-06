@@ -1,10 +1,10 @@
 {
-  "lastRealBalanceCheck": 1770342969588,
+  "lastRealBalanceCheck": 1770343630031,
   "realSOL": 4.8895,
   "balances": {
-    "SOL": 4.2895,
+    "SOL": 3.7895000000000003,
     "USDC": 15.296454,
-    "BONK": 434237.73033000005,
+    "BONK": 434237.73032999993,
     "TOP": 0.199
   },
   "transactions": [
@@ -114,6 +114,24 @@
       "amountIn": 669672.215705,
       "amountOut": 0,
       "timestamp": 1770343002164,
+      "route": "Bq48Paxt..."
+    },
+    {
+      "type": "swap",
+      "from": "SOL",
+      "to": "BONK",
+      "amountIn": 0.5,
+      "amountOut": 669695.205688,
+      "timestamp": 1770343045821,
+      "route": "WhaleStreet → ZeroFi"
+    },
+    {
+      "type": "transfer",
+      "from": "BONK",
+      "to": "EXTERNAL",
+      "amountIn": 669695.205688,
+      "amountOut": 0,
+      "timestamp": 1770343045821,
       "route": "Bq48Paxt..."
     }
   ]
