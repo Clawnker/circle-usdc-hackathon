@@ -58,6 +58,10 @@ export default function CommandCenter() {
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
   const [hiredAgents, setHiredAgents] = useState<string[]>(['bankr', 'scribe', 'seeker']);
   const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
+  
+  // Core agents cannot be removed from the swarm
+  const CORE_AGENTS = ['bankr', 'scribe', 'seeker'];
+  
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([]);
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [reRunPrompt, setReRunPrompt] = useState<string>('');
@@ -392,6 +396,11 @@ export default function CommandCenter() {
   }, []);
 
   const removeHiredAgent = useCallback((agentId: string) => {
+    // Prevent removing core agents
+    if (CORE_AGENTS.includes(agentId)) {
+      console.warn(`Cannot remove core agent: ${agentId}`);
+      return;
+    }
     setHiredAgents(prev => prev.filter(id => id !== agentId));
     if (preSelectedAgent === agentId) {
       setPreSelectedAgent(null);
@@ -696,6 +705,7 @@ export default function CommandCenter() {
           onClose={() => setSelectedAgent(null)}
           isHired={hiredAgents.includes(selectedAgent)}
           isProcessing={isLoading}
+          isCoreAgent={CORE_AGENTS.includes(selectedAgent)}
           customInstructions={customInstructions[selectedAgent] || ''}
           onUpdateInstructions={(instructions) => handleUpdateInstructions(selectedAgent, instructions)}
           onRemove={() => {

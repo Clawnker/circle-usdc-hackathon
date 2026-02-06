@@ -6127,5 +6127,153 @@
       "timestamp": "2026-02-06T01:08:18.073Z",
       "executionTimeMs": 90
     }
+  },
+  "8142f809-6211-45ec-aab0-714553f17202": {
+    "id": "8142f809-6211-45ec-aab0-714553f17202",
+    "prompt": "Price prediction for BONK",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-06T01:10:08.170Z",
+    "updatedAt": "2026-02-06T01:10:10.557Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-06T01:10:10.556Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770340208775-izhr",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Price prediction for BONK...\"",
+        "timestamp": "2026-02-06T01:10:08.775Z"
+      },
+      {
+        "id": "msg-1770340208785-3fyb",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T01:10:08.785Z"
+      },
+      {
+        "id": "msg-1770340209594-q0bu",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-06T01:10:09.594Z"
+      },
+      {
+        "id": "msg-1770340210396-02qh",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "BONK 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $0.00003020",
+        "timestamp": "2026-02-06T01:10:10.396Z"
+      },
+      {
+        "id": "msg-1770340210556-rbu4",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.001 USDC → magos",
+        "timestamp": "2026-02-06T01:10:10.556Z"
+      }
+    ],
+    "metadata": {
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "token": "BONK",
+        "currentPrice": 0.000028,
+        "predictedPrice": 0.000030196097854550387,
+        "timeHorizon": "4h",
+        "confidence": 0.8042526052185066,
+        "direction": "bullish",
+        "reasoning": "BONK 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $0.00003020"
+      },
+      "confidence": 0.8042526052185066,
+      "timestamp": "2026-02-06T01:10:10.396Z",
+      "executionTimeMs": 1
+    }
+  },
+  "76dcf1ae-c4c9-4da4-8f1c-a2acdbc4d46b": {
+    "id": "76dcf1ae-c4c9-4da4-8f1c-a2acdbc4d46b",
+    "prompt": "WIF sentiment analysis",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-06T01:10:35.917Z",
+    "updatedAt": "2026-02-06T01:10:41.237Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-06T01:10:41.236Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770340236522-e0jc",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"WIF sentiment analysis...\"",
+        "timestamp": "2026-02-06T01:10:36.522Z"
+      },
+      {
+        "id": "msg-1770340236523-2lbr",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T01:10:36.523Z"
+      },
+      {
+        "id": "msg-1770340237356-rzyx",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-06T01:10:37.356Z"
+      },
+      {
+        "id": "msg-1770340241126-60w2",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "Sentiment for **WIF**: NEUTRAL (0 bullish signals, 0 bearish). Mixed signals, wait for confirmation.",
+        "timestamp": "2026-02-06T01:10:41.126Z"
+      },
+      {
+        "id": "msg-1770340241237-fbgg",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.001 USDC → magos",
+        "timestamp": "2026-02-06T01:10:41.237Z"
+      }
+    ],
+    "metadata": {
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "insight": "Sentiment for **WIF**: NEUTRAL (0 bullish signals, 0 bearish). Mixed signals, wait for confirmation.",
+        "confidence": 0.5,
+        "sentiment": "neutral",
+        "score": 0,
+        "relatedTokens": [
+          "WIF"
+        ]
+      },
+      "confidence": 0.5,
+      "timestamp": "2026-02-06T01:10:41.126Z",
+      "executionTimeMs": 2969
+    }
   }
 }

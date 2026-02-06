@@ -11,6 +11,7 @@ interface AgentDetailModalProps {
   onClose: () => void;
   isHired?: boolean;
   isProcessing?: boolean;
+  isCoreAgent?: boolean;  // Core agents cannot be removed
   customInstructions?: string;
   onUpdateInstructions?: (instructions: string) => void;
   onRemove?: () => void;
@@ -187,6 +188,7 @@ export function AgentDetailModal({
   onClose, 
   isHired, 
   isProcessing,
+  isCoreAgent = false,
   customInstructions = '',
   onUpdateInstructions,
   onRemove,
@@ -317,7 +319,7 @@ export function AgentDetailModal({
 
           {/* Action Buttons */}
           <div className="flex flex-col gap-3">
-            {isHired && !isProcessing && (
+            {isHired && !isProcessing && !isCoreAgent && (
               <button
                 onClick={onRemove}
                 onMouseEnter={() => setIsHoveredRemove(true)}
@@ -330,6 +332,11 @@ export function AgentDetailModal({
               >
                 {isHoveredRemove ? 'Confirm Remove from Swarm' : 'Remove from Swarm'}
               </button>
+            )}
+            {isCoreAgent && isHired && (
+              <div className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm text-gray-500 border border-gray-700/30 bg-gray-800/20">
+                <span>🔒 Core Agent (cannot be removed)</span>
+              </div>
             )}
           </div>
         </motion.div>

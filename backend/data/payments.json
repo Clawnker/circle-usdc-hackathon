@@ -563,5 +563,21 @@
     "recipient": "magos",
     "status": "pending",
     "timestamp": "2026-02-06T01:08:18.189Z"
+  },
+  {
+    "amount": "0.001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "magos",
+    "status": "pending",
+    "timestamp": "2026-02-06T01:10:10.556Z"
+  },
+  {
+    "amount": "0.001",
+    "currency": "USDC",
+    "network": "solana",
+    "recipient": "magos",
+    "status": "pending",
+    "timestamp": "2026-02-06T01:10:41.236Z"
   }
 ]
