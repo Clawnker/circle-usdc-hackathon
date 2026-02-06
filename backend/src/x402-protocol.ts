@@ -63,7 +63,7 @@ export async function executeDemoPayment(
         url: specialistEndpoint,
         method: 'POST',
         body: requestBody,
-        preferredChain: 'solana',  // Base Sepolia for testnet
+        preferredChain: 'base',  // Use Base - we have USDC there
       },
       {
         headers: {
