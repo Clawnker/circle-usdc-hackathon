@@ -160,7 +160,7 @@ app.get('/status', async (req: Request, res: Response) => {
  */
 app.post('/dispatch', async (req: Request, res: Response) => {
   try {
-    const { prompt, userId, preferredSpecialist, dryRun, callbackUrl } = req.body as DispatchRequest;
+    const { prompt, userId, preferredSpecialist, dryRun, callbackUrl, hiredAgents, approvedAgent, previewOnly } = req.body as DispatchRequest;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -172,6 +172,9 @@ app.post('/dispatch', async (req: Request, res: Response) => {
       preferredSpecialist,
       dryRun,
       callbackUrl,
+      hiredAgents,
+      approvedAgent,
+      previewOnly,
     });
 
     res.status(202).json(result);

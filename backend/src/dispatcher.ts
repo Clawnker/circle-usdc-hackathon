@@ -189,6 +189,14 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   // If not in swarm and not approved, check if we need approval
   const requiresApproval = !isInSwarm && !isApproved && bestSpecialist !== 'general' && bestSpecialist !== 'scribe';
   
+  console.log(`[Dispatcher] Routing decision:`, {
+    bestSpecialist,
+    hiredAgents: request.hiredAgents,
+    isInSwarm,
+    isApproved,
+    requiresApproval,
+  });
+  
   // If preview only or requires approval, return info without executing
   if (request.previewOnly || requiresApproval) {
     const pricing = SPECIALIST_PRICING[bestSpecialist] || { fee: '0', description: 'Unknown' };
