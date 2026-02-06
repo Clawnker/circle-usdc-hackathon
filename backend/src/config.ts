@@ -61,9 +61,13 @@ export const config = {
 
   // Helius RPC
   helius: {
-    apiKey: heliusConfig?.apiKey || process.env.HELIUS_API_KEY || '',
-    mainnet: heliusConfig?.mainnet || `https://mainnet.helius-rpc.com/?api-key=${heliusConfig?.apiKey || ''}`,
-    devnet: heliusConfig?.devnet || `https://devnet.helius-rpc.com/?api-key=${heliusConfig?.apiKey || ''}`,
+    apiKey: process.env.HELIUS_API_KEY || heliusConfig?.apiKey || '',
+    mainnet: process.env.HELIUS_API_KEY 
+      ? `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+      : (heliusConfig?.mainnet || 'https://mainnet.helius-rpc.com'),
+    devnet: process.env.HELIUS_API_KEY
+      ? `https://devnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`
+      : (heliusConfig?.devnet || 'https://devnet.helius-rpc.com'),
     credits: heliusConfig?.credits || 0,
   },
 
