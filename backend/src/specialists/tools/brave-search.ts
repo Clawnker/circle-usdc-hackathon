@@ -1,13 +1,16 @@
 /**
  * Brave Search Tool
  * Provides web search capabilities via Brave Search API
+ * Supports both Web Search and Data for AI endpoints
  */
 
 import axios from 'axios';
 
-// Use environment variable or hardcoded key for demo
+// Use environment variables
 const BRAVE_API_KEY = process.env.BRAVE_API_KEY || '';
-const BRAVE_API_URL = 'https://api.search.brave.com/res/v1/web/search';
+const BRAVE_AI_API_KEY = process.env.BRAVE_AI_API_KEY || '';
+const BRAVE_WEB_URL = 'https://api.search.brave.com/res/v1/web/search';
+const BRAVE_AI_URL = 'https://api.search.brave.com/res/v1/summarizer/search';
 
 export interface SearchResult {
   title: string;
@@ -21,6 +24,59 @@ export interface SearchResponse {
   results: SearchResult[];
   totalResults: number;
   searchTimeMs: number;
+  summary?: string; // AI-generated summary from Data for AI
+}
+
+/**
+ * Search using Brave's Data for AI (summarizer) - best for agents
+ */
+export async function braveAISearch(
+  query: string,
+  options: { count?: number } = {}
+): Promise<SearchResponse> {
+  const startTime = Date.now();
+  const count = options.count || 5;
+  
+  if (!BRAVE_AI_API_KEY) {
+    console.log('[Brave] No AI API key, falling back to web search');
+    return braveSearch(query, options);
+  }
+  
+  try {
+    const response = await axios.get(BRAVE_AI_URL, {
+      headers: {
+        'Accept': 'application/json',
+        'X-Subscription-Token': BRAVE_AI_API_KEY,
+      },
+      params: {
+        q: query,
+        count,
+        summary: 1, // Request AI summary
+      },
+    });
+    
+    const webResults = response.data.web?.results || [];
+    const summary = response.data.summarizer?.summary || response.data.summary;
+    
+    console.log('[Brave] AI search successful, got summary:', !!summary);
+    
+    return {
+      query,
+      results: webResults.slice(0, count).map((r: any) => ({
+        title: r.title,
+        url: r.url,
+        description: r.description,
+        age: r.age,
+      })),
+      totalResults: response.data.web?.count || webResults.length,
+      searchTimeMs: Date.now() - startTime,
+      summary,
+    };
+  } catch (error: any) {
+    console.error('[Brave] AI search error:', error.response?.data || error.message);
+    // Fall back to regular web search
+    return braveSearch(query, options);
+  }
 }
 
 /**
@@ -44,7 +100,7 @@ export async function braveSearch(
   }
   
   try {
-    const response = await axios.get(BRAVE_API_URL, {
+    const response = await axios.get(BRAVE_WEB_URL, {
       headers: {
         'Accept': 'application/json',
         'X-Subscription-Token': BRAVE_API_KEY,

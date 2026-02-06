@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { SpecialistResult } from '../types';
-import braveSearchFallback, { SearchResult } from './tools/brave-search';
+import braveSearchFallback, { SearchResult, braveAISearch } from './tools/brave-search';
 import mcpClient from './tools/mcp-client';
 
 // Load system prompt
@@ -87,28 +87,41 @@ function parseIntent(prompt: string): { type: string; query: string } {
 }
 
 /**
- * Perform search using MCP or fallback
+ * Perform search using Brave AI (best), MCP, or fallback
  */
-async function braveSearch(query: string, count: number = 5): Promise<SearchResult[]> {
-  // Try MCP first (preferred modern protocol)
+async function braveSearch(query: string, count: number = 5): Promise<{ results: SearchResult[]; summary?: string }> {
+  // Try Brave AI Search first (best for agents - includes summary)
+  try {
+    const aiResult = await braveAISearch(query, { count });
+    if (aiResult.results.length > 0) {
+      console.log('[Seeker] Using Brave AI Search');
+      return { results: aiResult.results, summary: aiResult.summary };
+    }
+  } catch (error) {
+    console.log('[Seeker] Brave AI not available, trying MCP');
+  }
+  
+  // Try MCP second
   try {
     const mcpResult = await mcpClient.braveSearch(query, count);
     if (mcpResult && mcpResult.web && mcpResult.web.results) {
       console.log('[Seeker] Using MCP Brave Search');
-      return mcpResult.web.results.map((r: any) => ({
-        title: r.title,
-        url: r.url,
-        description: r.description,
-        age: r.age,
-      }));
+      return {
+        results: mcpResult.web.results.map((r: any) => ({
+          title: r.title,
+          url: r.url,
+          description: r.description,
+          age: r.age,
+        })),
+      };
     }
   } catch (error) {
     console.log('[Seeker] MCP not available, using fallback');
   }
   
-  // Fallback to direct implementation
+  // Fallback to direct web search
   const fallbackResult = await braveSearchFallback.search(query, { count });
-  return fallbackResult.results;
+  return { results: fallbackResult.results };
 }
 
 /**
@@ -123,20 +136,32 @@ async function performSearch(query: string): Promise<{
 }> {
   console.log(`[Seeker] Searching: "${query}"`);
   
-  const results = await braveSearch(query, 5);
+  const searchResult = await braveSearch(query, 5);
+  const results = searchResult.results;
   
   // Generate summary from results
   let summary = '';
   let insight = '';
   
   if (results.length > 0) {
-    // Create insight from top result
-    const topResult = results[0];
-    insight = topResult.description;
+    // Use AI summary if available, otherwise use top result
+    if (searchResult.summary) {
+      insight = searchResult.summary;
+    } else {
+      const topResult = results[0];
+      insight = topResult.description;
+    }
     
     // Create structured summary
     summary = `🔍 **Research: ${query}**\n\n`;
-    summary += `**Summary**: Found ${results.length} relevant results.\n\n`;
+    
+    // Include AI summary if available
+    if (searchResult.summary) {
+      summary += `**Summary**: ${searchResult.summary}\n\n`;
+    } else {
+      summary += `**Summary**: Found ${results.length} relevant results.\n\n`;
+    }
+    
     summary += `**Key Findings**:\n`;
     
     results.slice(0, 3).forEach((r, i) => {
@@ -226,7 +251,8 @@ async function factCheck(query: string): Promise<{
   console.log(`[Seeker] Fact checking: "${query}"`);
   
   // Search for the claim + fact check keywords
-  const results = await braveSearch(`${query} fact check`, 5);
+  const searchResult = await braveSearch(`${query} fact check`, 5);
+  const results = searchResult.results;
   
   // Simple heuristic for verdict (in production, use proper fact-checking APIs)
   let verdict: 'true' | 'false' | 'mixed' | 'unverified' = 'unverified';
