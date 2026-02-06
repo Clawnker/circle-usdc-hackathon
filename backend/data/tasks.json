@@ -10909,5 +10909,265 @@
       "timestamp": "2026-02-06T02:36:11.260Z",
       "executionTimeMs": 485
     }
+  },
+  "25055497-efb2-4031-9e12-14144f51634b": {
+    "id": "25055497-efb2-4031-9e12-14144f51634b",
+    "prompt": "who is michael saylor?",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T02:37:15.664Z",
+    "updatedAt": "2026-02-06T02:37:18.433Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "seeker",
+        "status": "pending",
+        "timestamp": "2026-02-06T02:37:18.433Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770345436270-t862",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"who is michael saylor?...\"",
+        "timestamp": "2026-02-06T02:37:16.270Z"
+      },
+      {
+        "id": "msg-1770345436279-hn27",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T02:37:16.279Z"
+      },
+      {
+        "id": "msg-1770345437109-9b23",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T02:37:17.109Z"
+      },
+      {
+        "id": "msg-1770345438280-rd5c",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "Michael J. Saylor (born February 4, 1965) is an American entrepreneur and billionaire business executive. He is the executive chairman and co-founder of MicroStrategy, a company that provides business intelligence, mobile software, and cloud-based services. Saylor was MicroStrategy's chief ... Michael Saylor is an American entrepreneur, executive, inventor, author, and philanthropist. He was born to a military family in Lincoln, Nebraska, in 1965 and spent his childhood living on various U.S. Air Force bases around the world. @Strategy Founder & Chairman | bio http://michael.com | $MSTR $STRC $STRK $STRF $STRD http://strategy.com/offerings\n\n**Headlines:**\n1. Michael J. Saylor - Wikipedia (10 hours ago)\n2. Michael J. Saylor\n3. Michael Saylor (@saylor) / X (January 29, 2011)\n4. Michael J. Saylor\n5. Michael Saylor: AI Is Your Advantage - YouTube (3 days ago)",
+        "timestamp": "2026-02-06T02:37:18.280Z"
+      },
+      {
+        "id": "msg-1770345438433-o6c4",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.0001 USDC → seeker",
+        "timestamp": "2026-02-06T02:37:18.433Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: michael saylor**\n\n**Key Findings:**\n1. **Michael J. Saylor - Wikipedia** _(10 hours ago)_\n   Michael J. Saylor (born February 4, 1965) is an American entrepreneur and billionaire business executive. He is the executive chairman and co-founder of MicroStrategy, a company that provides business intelligence, mobile software, and cloud-based services. Saylor was MicroStrategy's chief ...\n\n2. **Michael J. Saylor**\n   Michael Saylor is an American entrepreneur, executive, inventor, author, and philanthropist. He was born to a military family in Lincoln, Nebraska, in 1965 and spent his childhood living on various U.S. Air Force bases around the world.\n\n3. **Michael Saylor (@saylor) / X** _(January 29, 2011)_\n   @Strategy Founder & Chairman | bio http://michael.com | $MSTR $STRC $STRK $STRF $STRD http://strategy.com/offerings\n\n4. **Michael J. Saylor**\n   Michael Saylor is the Founder & Executive Chairman of Strategy (MSTR), a publicly traded business intelligence firm & holder of ₿649,870 that he founded in 1989. He is also the founder of Alarm.com (ALRM), named inventor on 48+ patents, & ...\n\n5. **Michael Saylor: AI Is Your Advantage - YouTube** _(3 days ago)_\n   Michael Saylor explains why artificial intelligence is the ultimate advantage at Bitcoin 2025 Conference and how using AI first can level the playing field f...\n\n**Sources:**\n[1] https://en.wikipedia.org/wiki/Michael_J._Saylor\n[2] https://www.strategy.com/investor-relations/executive-team/michael-saylor\n[3] https://x.com/saylor?lang=en\n[4] https://www.michael.com/\n[5] https://www.youtube.com/watch?v=fMS-QWoAgkI\n",
+        "insight": "Michael J. Saylor (born February 4, 1965) is an American entrepreneur and billionaire business executive. He is the executive chairman and co-founder of MicroStrategy, a company that provides business intelligence, mobile software, and cloud-based services. Saylor was MicroStrategy's chief ... Michael Saylor is an American entrepreneur, executive, inventor, author, and philanthropist. He was born to a military family in Lincoln, Nebraska, in 1965 and spent his childhood living on various U.S. Air Force bases around the world. @Strategy Founder & Chairman | bio http://michael.com | $MSTR $STRC $STRK $STRF $STRD http://strategy.com/offerings\n\n**Headlines:**\n1. Michael J. Saylor - Wikipedia (10 hours ago)\n2. Michael J. Saylor\n3. Michael Saylor (@saylor) / X (January 29, 2011)\n4. Michael J. Saylor\n5. Michael Saylor: AI Is Your Advantage - YouTube (3 days ago)",
+        "results": [
+          {
+            "title": "Michael J. Saylor - Wikipedia",
+            "url": "https://en.wikipedia.org/wiki/Michael_J._Saylor",
+            "description": "Michael J. Saylor (born February 4, 1965) is an American entrepreneur and billionaire business executive. He is the executive chairman and co-founder of MicroStrategy, a company that provides business intelligence, mobile software, and cloud-based services. Saylor was MicroStrategy's chief ...",
+            "age": "10 hours ago"
+          },
+          {
+            "title": "Michael J. Saylor",
+            "url": "https://www.strategy.com/investor-relations/executive-team/michael-saylor",
+            "description": "Michael Saylor is an American entrepreneur, executive, inventor, author, and philanthropist. He was born to a military family in Lincoln, Nebraska, in 1965 and spent his childhood living on various U.S. Air Force bases around the world."
+          },
+          {
+            "title": "Michael Saylor (@saylor) / X",
+            "url": "https://x.com/saylor?lang=en",
+            "description": "@Strategy Founder & Chairman | bio http://michael.com | $MSTR $STRC $STRK $STRF $STRD http://strategy.com/offerings",
+            "age": "January 29, 2011"
+          },
+          {
+            "title": "Michael J. Saylor",
+            "url": "https://www.michael.com/",
+            "description": "Michael Saylor is the Founder & Executive Chairman of Strategy (MSTR), a publicly traded business intelligence firm & holder of ₿649,870 that he founded in 1989. He is also the founder of Alarm.com (ALRM), named inventor on 48+ patents, & ..."
+          },
+          {
+            "title": "Michael Saylor: AI Is Your Advantage - YouTube",
+            "url": "https://www.youtube.com/watch?v=fMS-QWoAgkI",
+            "description": "Michael Saylor explains why artificial intelligence is the ultimate advantage at Bitcoin 2025 Conference and how using AI first can level the playing field f...",
+            "age": "3 days ago"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "michael saylor",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T02:37:18.280Z",
+      "executionTimeMs": 370
+    }
+  },
+  "f0905345-c5f7-41ee-9170-4e69693ea753": {
+    "id": "f0905345-c5f7-41ee-9170-4e69693ea753",
+    "prompt": "Why is the price of bitcoin down?",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-06T02:39:21.975Z",
+    "updatedAt": "2026-02-06T02:39:23.392Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770345562581-yaf7",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"Why is the price of bitcoin down?...\"",
+        "timestamp": "2026-02-06T02:39:22.581Z"
+      },
+      {
+        "id": "msg-1770345562590-5fjs",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-06T02:39:22.590Z"
+      },
+      {
+        "id": "msg-1770345563392-rr0r",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-06T02:39:23.392Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "token": "SOL",
+          "currentPrice": 127.5,
+          "predictedPrice": 134.2206265556171,
+          "timeHorizon": "4h",
+          "confidence": 0.7072587755114752,
+          "direction": "bullish",
+          "reasoning": "SOL 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $134.22"
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "neutral",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: neutral. Social volume is above average. Standard market conditions.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.6936293877557376,
+      "timestamp": "2026-02-06T02:39:23.392Z",
+      "executionTimeMs": 1
+    }
+  },
+  "6a806e4e-30fe-44ea-b982-b4f72f4c18f9": {
+    "id": "6a806e4e-30fe-44ea-b982-b4f72f4c18f9",
+    "prompt": "Price prediction for BONK",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "magos",
+    "createdAt": "2026-02-06T02:39:35.713Z",
+    "updatedAt": "2026-02-06T02:39:38.051Z",
+    "payments": [
+      {
+        "amount": "0.001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "magos",
+        "status": "pending",
+        "timestamp": "2026-02-06T02:39:38.051Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770345576319-texw",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Routing task: \"Price prediction for BONK...\"",
+        "timestamp": "2026-02-06T02:39:36.319Z"
+      },
+      {
+        "id": "msg-1770345576321-vcmg",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T02:39:36.321Z"
+      },
+      {
+        "id": "msg-1770345577114-7r4h",
+        "from": "dispatcher",
+        "to": "magos",
+        "content": "Processing with magos... (fee: 0.001 USDC)",
+        "timestamp": "2026-02-06T02:39:37.114Z"
+      },
+      {
+        "id": "msg-1770345577915-k6uf",
+        "from": "magos",
+        "to": "dispatcher",
+        "content": "BONK 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $0.00003045",
+        "timestamp": "2026-02-06T02:39:37.915Z"
+      },
+      {
+        "id": "msg-1770345578051-hwog",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.001 USDC → magos",
+        "timestamp": "2026-02-06T02:39:38.051Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": true
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "token": "BONK",
+        "currentPrice": 0.000028,
+        "predictedPrice": 0.00003044575300518038,
+        "timeHorizon": "4h",
+        "confidence": 0.8551882724967408,
+        "direction": "bullish",
+        "reasoning": "BONK 4h outlook: Bullish. Accumulation detected, volume increasing, support holding. Target: $0.00003045"
+      },
+      "confidence": 0.8551882724967408,
+      "timestamp": "2026-02-06T02:39:37.915Z",
+      "executionTimeMs": 0
+    }
   }
 }

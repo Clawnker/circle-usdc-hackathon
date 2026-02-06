@@ -125,6 +125,39 @@ async function braveSearch(query: string, count: number = 5): Promise<{ results:
 }
 
 /**
+ * Check if query is a simple factual question
+ */
+function isSimpleFactualQuery(query: string): boolean {
+  const lower = query.toLowerCase();
+  return /^(who|what|where|when|how tall|how old|how many|how much|which|whose)\s+(is|are|was|were|did|does|do)\b/.test(lower);
+}
+
+/**
+ * Synthesize a direct answer from search results for simple questions
+ */
+function synthesizeAnswer(query: string, results: SearchResult[]): string {
+  if (results.length === 0) return '';
+  
+  // Take the first result's description as the primary answer
+  // It's usually the most relevant snippet
+  const primaryAnswer = results[0].description;
+  
+  // Get additional context from other results if they add info
+  const additionalInfo = results.slice(1, 3)
+    .map(r => r.description)
+    .filter(d => !primaryAnswer.includes(d.substring(0, 50))) // Avoid duplicates
+    .join(' ');
+  
+  // Combine into a coherent answer
+  let answer = primaryAnswer;
+  if (additionalInfo && additionalInfo.length > 50) {
+    answer += '\n\n' + additionalInfo;
+  }
+  
+  return answer;
+}
+
+/**
  * Perform a general web search
  */
 async function performSearch(query: string): Promise<{
@@ -144,29 +177,38 @@ async function performSearch(query: string): Promise<{
   let insight = '';
   
   if (results.length > 0) {
-    // Build a comprehensive insight that includes headlines and sources
-    const headlines = results.slice(0, 5).map((r, i) => 
-      `${i + 1}. ${r.title}${r.age ? ` (${r.age})` : ''}`
-    ).join('\n');
+    const isSimple = isSimpleFactualQuery(query);
     
-    const topDescriptions = results.slice(0, 3).map(r => r.description).join(' ');
-    
-    // Create insight with key info (this is what gets shown in UI)
-    insight = `${topDescriptions}\n\n**Headlines:**\n${headlines}`;
-    
-    // Create full structured summary with sources
-    summary = `🔍 **Research: ${query}**\n\n`;
-    summary += `**Key Findings:**\n`;
-    
-    results.slice(0, 5).forEach((r, i) => {
-      summary += `${i + 1}. **${r.title}**${r.age ? ` _(${r.age})_` : ''}\n`;
-      summary += `   ${r.description}\n\n`;
-    });
-    
-    summary += `**Sources:**\n`;
-    results.forEach((r, i) => {
-      summary += `[${i + 1}] ${r.url}\n`;
-    });
+    if (isSimple) {
+      // For simple questions, synthesize a direct answer
+      const answer = synthesizeAnswer(query, results);
+      
+      summary = `**${query}**\n\n${answer}\n\n`;
+      summary += `**Sources:** `;
+      summary += results.slice(0, 3).map((r, i) => 
+        `[${r.title}](${r.url})`
+      ).join(' • ');
+      
+      insight = answer;
+    } else {
+      // For complex queries, show detailed findings
+      summary = `🔍 **Research: ${query}**\n\n`;
+      summary += `**Key Findings:**\n`;
+      
+      results.slice(0, 5).forEach((r, i) => {
+        summary += `${i + 1}. **${r.title}**${r.age ? ` _(${r.age})_` : ''}\n`;
+        summary += `   ${r.description}\n\n`;
+      });
+      
+      summary += `**Sources:**\n`;
+      results.forEach((r, i) => {
+        // Make links clickable
+        summary += `[${i + 1}. ${r.title}](${r.url})\n`;
+      });
+      
+      // Build insight from top descriptions
+      insight = results.slice(0, 3).map(r => r.description).join(' ');
+    }
   } else {
     summary = `No results found for "${query}". Try rephrasing your search.`;
     insight = 'No relevant information found.';
@@ -216,10 +258,10 @@ async function searchNews(query: string): Promise<{
       summary += `\n`;
     });
     
-    // Add sources section
+    // Add clickable sources section
     summary += `**Sources:**\n`;
     results.forEach((r, i) => {
-      summary += `[${i + 1}] ${r.url}\n`;
+      summary += `[${i + 1}. ${r.title}](${r.url})\n`;
     });
   } else {
     summary += 'No recent news found for this topic.\n';

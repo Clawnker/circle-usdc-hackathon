@@ -1,9 +1,9 @@
 {
   "specialists": {
     "magos": {
-      "successCount": 36,
+      "successCount": 37,
       "failureCount": 2,
-      "upvotes": 36,
+      "upvotes": 37,
       "downvotes": 2,
       "votes": []
     },
@@ -15,9 +15,9 @@
       "votes": []
     },
     "general": {
-      "successCount": 10,
+      "successCount": 11,
       "failureCount": 0,
-      "upvotes": 10,
+      "upvotes": 11,
       "downvotes": 0,
       "votes": []
     },
@@ -37,9 +37,9 @@
       ]
     },
     "seeker": {
-      "successCount": 23,
+      "successCount": 24,
       "failureCount": 0,
-      "upvotes": 23,
+      "upvotes": 24,
       "downvotes": 0,
       "votes": []
     },
