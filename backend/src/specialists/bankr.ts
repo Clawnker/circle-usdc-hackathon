@@ -1,7 +1,7 @@
 /**
- * bankr Specialist - AgentWallet Devnet Integration
+ * bankr Specialist - AgentWallet Devnet Integration with Jupiter Routing
+ * Uses Jupiter API for quotes/routing visualization
  * Uses AgentWallet for devnet Solana transactions
- * Falls back to bankr API mock for complex operations
  */
 
 import axios from 'axios';
@@ -16,6 +16,21 @@ const AGENTWALLET_TOKEN = config.agentWallet.token;
 // AgentWallet Solana address (devnet)
 const SOLANA_ADDRESS = config.agentWallet.solanaAddress || '5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1';
 
+// Jupiter API for quotes (mainnet reference pricing)
+const JUPITER_API = 'https://api.jup.ag/swap/v1';
+
+// Well-known token mints
+const TOKEN_MINTS: Record<string, string> = {
+  'SOL': 'So11111111111111111111111111111111111111112',
+  'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  'USDT': 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+  'BONK': 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263',
+  'WIF': 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm',
+  'JUP': 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+  'RAY': '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R',
+  'PYTH': 'HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3',
+};
+
 // Bankr API for complex operations (dry-run mode)
 const BANKR_CONFIG = (() => {
   try {
@@ -26,6 +41,61 @@ const BANKR_CONFIG = (() => {
     return { apiKey: '', apiUrl: 'https://api.bankr.bot' };
   }
 })();
+
+/**
+ * Get Jupiter quote for swap routing visualization
+ */
+async function getJupiterQuote(
+  inputMint: string,
+  outputMint: string,
+  amount: string,
+  decimals: number = 9
+): Promise<any> {
+  const amountInSmallestUnit = Math.floor(parseFloat(amount) * Math.pow(10, decimals)).toString();
+  
+  console.log(`[bankr] Jupiter quote: ${amount} (${amountInSmallestUnit} lamports) ${inputMint.slice(0,8)}... -> ${outputMint.slice(0,8)}...`);
+  
+  try {
+    const response = await axios.get(`${JUPITER_API}/quote`, {
+      params: {
+        inputMint,
+        outputMint,
+        amount: amountInSmallestUnit,
+        slippageBps: 100, // 1% slippage
+        restrictIntermediateTokens: true,
+      },
+      timeout: 10000,
+    });
+    
+    return response.data;
+  } catch (error: any) {
+    // Jupiter API might require API key or be rate limited
+    console.log(`[bankr] Jupiter API error: ${error.response?.status || error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Format Jupiter route plan for display
+ */
+function formatRoutePlan(quote: any): { route: string; hops: any[] } {
+  if (!quote?.routePlan?.length) {
+    return { route: 'Direct swap', hops: [] };
+  }
+  
+  const hops = quote.routePlan.map((step: any) => ({
+    dex: step.swapInfo?.label || 'Unknown DEX',
+    inputMint: step.swapInfo?.inputMint?.slice(0, 8) + '...',
+    outputMint: step.swapInfo?.outputMint?.slice(0, 8) + '...',
+    inAmount: step.swapInfo?.inAmount,
+    outAmount: step.swapInfo?.outAmount,
+    percent: step.percent,
+  }));
+  
+  const route = hops.map((h: any) => h.dex).join(' → ');
+  
+  return { route, hops };
+}
 
 /**
  * Execute Solana transfer via AgentWallet (devnet)
@@ -98,53 +168,53 @@ async function getAgentWalletBalances(): Promise<any> {
 }
 
 /**
- * Simulate swap via bankr API (dry-run) or mock
+ * Execute swap via Jupiter (simulation with real routing)
  */
-async function simulateSwap(from: string, to: string, amount: string): Promise<BankrAction> {
-  console.log(`[bankr] Simulating swap: ${amount} ${from} -> ${to}`);
+async function executeJupiterSwap(
+  from: string, 
+  to: string, 
+  amount: string
+): Promise<BankrAction> {
+  console.log(`[bankr] Jupiter swap: ${amount} ${from} -> ${to}`);
   
-  // Try bankr API with dry-run
-  if (BANKR_CONFIG.apiKey) {
-    try {
-      const response = await axios.post(
-        `${BANKR_CONFIG.apiUrl}/v1/agent/jobs`,
-        { prompt: `Simulate swapping ${amount} ${from} for ${to} (dry run, do not execute)` },
-        {
-          headers: {
-            'Authorization': `Bearer ${BANKR_CONFIG.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 10000,
-        }
-      );
-      
-      // Poll for result briefly
-      const jobId = response.data.jobId;
-      await new Promise(r => setTimeout(r, 2000));
-      
-      const status = await axios.get(
-        `${BANKR_CONFIG.apiUrl}/v1/agent/jobs/${jobId}`,
-        { headers: { 'Authorization': `Bearer ${BANKR_CONFIG.apiKey}` } }
-      );
-      
-      return {
-        type: 'swap',
-        status: 'simulated',
-        details: {
-          from,
-          to,
-          amount,
-          jobId,
-          response: status.data.response || 'Swap simulated via bankr (dry-run)',
-          estimatedOutput: estimateOutput(from, to, amount),
-        },
-      };
-    } catch (err: any) {
-      console.log('[bankr] Bankr API unavailable, using local mock');
-    }
+  const inputMint = TOKEN_MINTS[from.toUpperCase()] || from;
+  const outputMint = TOKEN_MINTS[to.toUpperCase()] || to;
+  const decimals = from.toUpperCase() === 'SOL' ? 9 : 6;
+  
+  // Get Jupiter quote for routing info
+  const quote = await getJupiterQuote(inputMint, outputMint, amount, decimals);
+  
+  if (quote && quote.outAmount) {
+    const { route, hops } = formatRoutePlan(quote);
+    const outputDecimals = to.toUpperCase() === 'SOL' ? 9 : 6;
+    const outAmount = (parseInt(quote.outAmount) / Math.pow(10, outputDecimals)).toFixed(6);
+    
+    console.log(`[bankr] Jupiter route: ${route}`);
+    console.log(`[bankr] Expected output: ${outAmount} ${to}`);
+    
+    // On devnet, we simulate the swap but show real routing
+    // In production, this would execute the actual swap transaction
+    return {
+      type: 'swap',
+      status: 'simulated',
+      details: {
+        from,
+        to,
+        amount,
+        inputMint,
+        outputMint,
+        estimatedOutput: outAmount,
+        priceImpact: quote.priceImpactPct || '0',
+        slippageBps: quote.slippageBps,
+        route,
+        routePlan: hops,
+        network: 'devnet (simulated with mainnet routing)',
+        note: 'Devnet has no DEX liquidity. Showing mainnet Jupiter routing for demonstration.',
+      },
+    };
   }
   
-  // Local mock fallback
+  // Fallback to mock if Jupiter unavailable
   return {
     type: 'swap',
     status: 'simulated',
@@ -153,23 +223,26 @@ async function simulateSwap(from: string, to: string, amount: string): Promise<B
       to,
       amount,
       estimatedOutput: estimateOutput(from, to, amount),
-      note: 'Simulated swap (demo mode)',
-      estimatedFee: '0.000005 SOL',
+      route: 'Mock routing (Jupiter API unavailable)',
+      network: 'devnet',
+      note: 'Using mock prices. Jupiter API requires authentication.',
     },
   };
 }
 
 /**
- * Estimate swap output based on mock rates
+ * Estimate swap output based on mock rates (fallback)
  */
 function estimateOutput(from: string, to: string, amount: string): string {
   const rates: Record<string, number> = {
-    'SOL_USDC': 125.50,
-    'USDC_SOL': 0.00797,
-    'SOL_BONK': 2500000,
-    'BONK_SOL': 0.0000004,
-    'SOL_WIF': 50,
-    'WIF_SOL': 0.02,
+    'SOL_USDC': 170.00,
+    'USDC_SOL': 0.00588,
+    'SOL_BONK': 3500000,
+    'BONK_SOL': 0.000000286,
+    'SOL_WIF': 85,
+    'WIF_SOL': 0.0118,
+    'SOL_JUP': 200,
+    'JUP_SOL': 0.005,
   };
   
   const key = `${from.toUpperCase()}_${to.toUpperCase()}`;
@@ -190,31 +263,43 @@ function parseIntent(prompt: string): {
   const lower = prompt.toLowerCase();
   
   // Extract amount
-  const amountMatch = prompt.match(/([\d.]+)\s*(SOL|USDC|BONK|WIF)/i);
+  const amountMatch = prompt.match(/([\d.]+)\s*(SOL|USDC|USDT|BONK|WIF|JUP|RAY)/i);
   const amount = amountMatch ? amountMatch[1] : '0.1';
   
   // Detect intent
   // Don't treat "buy" as swap if it's an advice query (e.g., "is it a good buy")
   const isAdvice = lower.includes('good') || lower.includes('should') || lower.includes('recommend');
   
-  if (!isAdvice && (lower.includes('swap') || lower.includes('buy') || lower.includes('sell') || lower.includes('trade'))) {
-    const swapMatch = prompt.match(/(?:swap|buy|trade|sell)\s+(?:([\d.]+)\s+)?(\w+)\s+(?:for|to)\s+(\w+)/i);
+  if (!isAdvice && (lower.includes('swap') || lower.includes('buy') || lower.includes('sell') || lower.includes('trade') || lower.includes('exchange'))) {
+    // Pattern: "swap 0.1 SOL for USDC" or "buy USDC with 0.1 SOL"
+    const swapMatch = prompt.match(/(?:swap|buy|trade|sell|exchange)\s+(?:([\d.]+)\s+)?(\w+)\s+(?:for|to|with)\s+(\w+)/i);
     if (swapMatch) {
-      return {
-        type: 'swap',
-        amount: swapMatch[1] || amount,
-        from: swapMatch[2].toUpperCase(),
-        to: swapMatch[3].toUpperCase(),
-      };
+      let from = swapMatch[2].toUpperCase();
+      let to = swapMatch[3].toUpperCase();
+      let amt = swapMatch[1] || amount;
+      
+      // Handle "buy X with Y" (reverse order)
+      if (lower.includes('with') && lower.indexOf('with') > lower.indexOf(swapMatch[2].toLowerCase())) {
+        [from, to] = [to, from];
+      }
+      
+      return { type: 'swap', amount: amt, from, to };
     }
-    // Try to extract from/to even without the full pattern
-    const words = lower.split(/\s+/);
-    const from = words.includes('for') ? words[words.indexOf('for') - 1] : 'SOL';
-    return { type: 'swap', from: from.toUpperCase(), to: 'USDC', amount };
+    
+    // Simpler pattern: "buy 0.1 SOL"
+    if (amountMatch) {
+      const token = amountMatch[2].toUpperCase();
+      if (lower.includes('sell')) {
+        return { type: 'swap', from: token, to: 'USDC', amount };
+      } else {
+        return { type: 'swap', from: 'SOL', to: token === 'SOL' ? 'USDC' : token, amount };
+      }
+    }
+    
+    return { type: 'swap', from: 'SOL', to: 'USDC', amount };
   }
   
   if (lower.includes('transfer') || lower.includes('send') || lower.includes('pay')) {
-    // Improved address regex to be more robust
     const addressMatch = prompt.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
     return { 
       type: 'transfer', 
@@ -231,7 +316,7 @@ function parseIntent(prompt: string): {
  */
 export const bankr = {
   name: 'bankr',
-  description: 'DeFi specialist using AgentWallet for devnet transactions',
+  description: 'DeFi specialist using Jupiter routing and AgentWallet for transactions',
   
   async handle(prompt: string): Promise<SpecialistResult> {
     const startTime = Date.now();
@@ -245,9 +330,17 @@ export const bankr = {
       
       switch (intent.type) {
         case 'swap':
-          // Swaps are simulated (no devnet DEX liquidity)
-          data = await simulateSwap(intent.from!, intent.to!, intent.amount!);
-          (data as any).summary = `Simulated swap of ${intent.amount} ${intent.from} to ${intent.to}. Estimated output: ${data.details.estimatedOutput} ${intent.to}`;
+          // Use Jupiter for routing visualization
+          data = await executeJupiterSwap(intent.from!, intent.to!, intent.amount!);
+          
+          // Build summary
+          const routeInfo = data.details.route || 'Direct';
+          (data as any).summary = `🔄 **Swap Routed via Jupiter**\n` +
+            `• Input: ${intent.amount} ${intent.from}\n` +
+            `• Output: ~${data.details.estimatedOutput} ${intent.to}\n` +
+            `• Route: ${routeInfo}\n` +
+            `• Price Impact: ${data.details.priceImpact || '<0.01'}%\n` +
+            `• Status: ${data.status} (devnet)`;
           break;
           
         case 'transfer':
@@ -271,7 +364,7 @@ export const bankr = {
                   network: 'devnet',
                 },
               };
-              (data as any).summary = `Successfully sent ${intent.amount} SOL to ${intent.address?.slice(0, 8)}...`;
+              (data as any).summary = `✅ Successfully sent ${intent.amount} SOL to ${intent.address?.slice(0, 8)}...`;
             } catch (transferError: any) {
               console.error('[bankr] Transfer execution failed:', transferError.message);
               data = {
@@ -282,7 +375,7 @@ export const bankr = {
                   note: 'Check if devnet wallet has sufficient SOL for gas'
                 },
               };
-              (data as any).summary = `Transfer failed: ${transferError.message}`;
+              (data as any).summary = `❌ Transfer failed: ${transferError.message}`;
             }
           } else {
             data = {
@@ -290,7 +383,7 @@ export const bankr = {
               status: 'failed',
               details: { error: 'No recipient address provided. Please provide a valid Solana address.' },
             };
-            (data as any).summary = `Transfer failed: No recipient address provided.`;
+            (data as any).summary = `❌ Transfer failed: No recipient address provided.`;
           }
           break;
           
@@ -324,10 +417,9 @@ export const bankr = {
               base: {
                 usdc: baseUsdc,
               },
-              summary: `Your wallet balance is ${devnetSol.toFixed(4)} SOL on Solana (devnet) and ${baseUsdc} USDC on Base.`,
+              summary: `💰 **Wallet Balance**\n• Solana (devnet): ${devnetSol.toFixed(4)} SOL\n• Base: ${baseUsdc} USDC`,
             },
           };
-          // Set top-level summary for the dispatcher to pick up easily
           (data as any).summary = data.details.summary;
           break;
       }
