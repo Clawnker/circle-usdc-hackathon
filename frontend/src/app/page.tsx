@@ -160,8 +160,9 @@ export default function CommandCenter() {
                 return `[${sName}]\n${s.summary}`;
               }).join('\n\n');
             } else {
-              if (r.data?.insight) content = r.data.insight;
-              else if (r.data?.summary) content = r.data.summary;
+              // Prefer summary (full context) over insight (brief) for search results
+              if (r.data?.summary) content = r.data.summary;
+              else if (r.data?.insight) content = r.data.insight;
               else if (r.data?.details?.response) content = typeof r.data.details.response === 'string' ? r.data.details.response : JSON.stringify(r.data.details.response);
             }
             

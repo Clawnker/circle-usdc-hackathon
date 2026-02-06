@@ -44,59 +44,16 @@ export interface SearchResponse {
 
 /**
  * Search using Brave's Data for AI (summarizer) - best for agents
+ * Note: Summarizer requires a two-step process, falling back to web search
  */
 export async function braveAISearch(
   query: string,
   options: { count?: number } = {}
 ): Promise<SearchResponse> {
-  const startTime = Date.now();
-  const count = options.count || 5;
-  
-  if (!BRAVE_AI_API_KEY) {
-    console.log('[Brave] No AI API key, falling back to web search');
-    return braveSearch(query, options);
-  }
-  
-  try {
-    const response = await axios.get(BRAVE_AI_URL, {
-      headers: {
-        'Accept': 'application/json',
-        'X-Subscription-Token': BRAVE_AI_API_KEY,
-      },
-      params: {
-        q: query,
-        count,
-        summary: 1, // Request AI summary
-      },
-    });
-    
-    const webResults = response.data.web?.results || [];
-    let summary = response.data.summarizer?.summary || response.data.summary;
-    
-    // Strip HTML tags from summary
-    if (summary) {
-      summary = stripHtml(summary);
-    }
-    
-    console.log('[Brave] AI search successful, got summary:', !!summary);
-    
-    return {
-      query,
-      results: webResults.slice(0, count).map((r: any) => ({
-        title: stripHtml(r.title || ''),
-        url: r.url,
-        description: stripHtml(r.description || ''),
-        age: r.age,
-      })),
-      totalResults: response.data.web?.count || webResults.length,
-      searchTimeMs: Date.now() - startTime,
-      summary,
-    };
-  } catch (error: any) {
-    console.error('[Brave] AI search error:', error.response?.data || error.message);
-    // Fall back to regular web search
-    return braveSearch(query, options);
-  }
+  // The summarizer API requires a key from web search first
+  // For simplicity, use web search directly which gives good results
+  console.log('[Brave] Using web search (summarizer requires 2-step flow)');
+  return braveSearch(query, options);
 }
 
 /**

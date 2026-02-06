@@ -10367,5 +10367,298 @@
       "timestamp": "2026-02-06T02:27:41.149Z",
       "executionTimeMs": 840
     }
+  },
+  "b26e8ea4-9df7-4b5b-b6db-1be82d0eb74a": {
+    "id": "b26e8ea4-9df7-4b5b-b6db-1be82d0eb74a",
+    "prompt": "What happened in crypto news today?",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T02:30:59.472Z",
+    "updatedAt": "2026-02-06T02:31:03.195Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "seeker",
+        "status": "pending",
+        "timestamp": "2026-02-06T02:31:03.195Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770345060079-n7z2",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"What happened in crypto news today?...\"",
+        "timestamp": "2026-02-06T02:31:00.079Z"
+      },
+      {
+        "id": "msg-1770345060090-qki4",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T02:31:00.090Z"
+      },
+      {
+        "id": "msg-1770345061007-2887",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T02:31:01.007Z"
+      },
+      {
+        "id": "msg-1770345063015-4mka",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "Shares of Strategy, the largest corporate holder of bitcoin, fell over 17% on Thursday, as bitcoin sank to levels below what the company paid on average for its massive crypto stockpile.",
+        "timestamp": "2026-02-06T02:31:03.015Z"
+      },
+      {
+        "id": "msg-1770345063195-jorg",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.0001 USDC → seeker",
+        "timestamp": "2026-02-06T02:31:03.195Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "📰 **Latest News: What happened in crypto news today**\n\n1. **Crypto crash accelerates as investors flee risky assets**\n   Shares of Strategy, the largest corporate holder of bitcoin, fell over 17% on Thursday, as bitcoin sank to levels below what the company paid on average for its massive crypto stockpile.\n   _3 hours ago_\n\n2. **Bitcoin drops 15%, briefly breaking below $61,000 as sell-off intensifies, doubts about crypto grow**\n   At one point, the token slid to $60,062.00, as the crypto sell-off intensified in overnight trading. Bitcoin was last down about 15% at 7:37 p.m. ET, trading at $62,448.00. Digital assets, including bitcoin, have fallen deeper into the red as ...\n   _2 hours ago_\n\n3. **Bitcoin price under $70,000: Seriously, what’s going on? | CNN Business**\n   Bitcoin is acting weird. The world’s most famous cryptocurrency has tumbled 44% from its October peak, falling below $70,000 Thursday for the first time in 15 months.\n   _9 hours ago_\n\n4. **Bitcoin price hits lowest level since Trump took office**\n   With Thursday&#x27;s drop, Bitcoin prices are down 32% in the last 12 months and are trending toward prices seen in early 2024 and 2021. Bitcoin is the world&#x27;s largest and generally most well-known cryptocurrency, a form of digital-only money that ...\n   _4 hours ago_\n\n5. **BTC price news: Bitcoin spirals toward $60,000, headed for worst drawdown since FTX crash**\n   Bitcoin tumbled more than 10% over the past 24 hours, dropping to $63,000 and heading for its steepest one-day decline since the FTX-driven crash in November 2022. The sell-off extended beyond crypto, with silver plunging 15% and gold sliding ...\n   _6 hours ago_\n\n",
+        "insight": "Shares of Strategy, the largest corporate holder of bitcoin, fell over 17% on Thursday, as bitcoin sank to levels below what the company paid on average for its massive crypto stockpile.",
+        "results": [
+          {
+            "title": "Crypto crash accelerates as investors flee risky assets",
+            "url": "https://www.nbcnews.com/business/markets/crypto-crash-bitcoin-gold-rcna257556",
+            "description": "Shares of Strategy, the largest corporate holder of bitcoin, fell over 17% on Thursday, as bitcoin sank to levels below what the company paid on average for its massive crypto stockpile.",
+            "age": "3 hours ago"
+          },
+          {
+            "title": "Bitcoin drops 15%, briefly breaking below $61,000 as sell-off intensifies, doubts about crypto grow",
+            "url": "https://www.cnbc.com/2026/02/05/bitcoin-price-today-70000-in-focus.html",
+            "description": "At one point, the token slid to $60,062.00, as the crypto sell-off intensified in overnight trading. Bitcoin was last down about 15% at 7:37 p.m. ET, trading at $62,448.00. Digital assets, including bitcoin, have fallen deeper into the red as ...",
+            "age": "2 hours ago"
+          },
+          {
+            "title": "Bitcoin price under $70,000: Seriously, what’s going on? | CNN Business",
+            "url": "https://www.cnn.com/2026/02/05/investing/bitcoin-price",
+            "description": "Bitcoin is acting weird. The world’s most famous cryptocurrency has tumbled 44% from its October peak, falling below $70,000 Thursday for the first time in 15 months.",
+            "age": "9 hours ago"
+          },
+          {
+            "title": "Bitcoin price hits lowest level since Trump took office",
+            "url": "https://www.bbc.com/news/articles/cy09x24q0pro",
+            "description": "With Thursday&#x27;s drop, Bitcoin prices are down 32% in the last 12 months and are trending toward prices seen in early 2024 and 2021. Bitcoin is the world&#x27;s largest and generally most well-known cryptocurrency, a form of digital-only money that ...",
+            "age": "4 hours ago"
+          },
+          {
+            "title": "BTC price news: Bitcoin spirals toward $60,000, headed for worst drawdown since FTX crash",
+            "url": "https://www.coindesk.com/markets/2026/02/05/bitcoin-drops-below-usd65-000-heading-to-worst-one-day-drawdown-since-ftx-blowup",
+            "description": "Bitcoin tumbled more than 10% over the past 24 hours, dropping to $63,000 and heading for its steepest one-day decline since the FTX-driven crash in November 2022. The sell-off extended beyond crypto, with silver plunging 15% and gold sliding ...",
+            "age": "6 hours ago"
+          }
+        ],
+        "confidence": 0.8,
+        "details": {
+          "type": "news",
+          "query": "What happened in crypto news today",
+          "count": 5
+        }
+      },
+      "confidence": 0.8,
+      "timestamp": "2026-02-06T02:31:03.015Z",
+      "executionTimeMs": 1207
+    }
+  },
+  "fe665144-cfbf-4b56-b2e8-f8d1808757dc": {
+    "id": "fe665144-cfbf-4b56-b2e8-f8d1808757dc",
+    "prompt": "Why is the price of bitcoin down?",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "general",
+    "createdAt": "2026-02-06T02:31:19.297Z",
+    "updatedAt": "2026-02-06T02:31:20.714Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770345079903-w20n",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Routing task: \"Why is the price of bitcoin down?...\"",
+        "timestamp": "2026-02-06T02:31:19.903Z"
+      },
+      {
+        "id": "msg-1770345079913-4o83",
+        "from": "dispatcher",
+        "to": "general",
+        "content": "Processing with general... (fee: 0 USDC)",
+        "timestamp": "2026-02-06T02:31:19.913Z"
+      },
+      {
+        "id": "msg-1770345080714-6dl1",
+        "from": "general",
+        "to": "dispatcher",
+        "content": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
+        "timestamp": "2026-02-06T02:31:20.714Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "magos": {
+          "token": "SOL",
+          "currentPrice": 127.5,
+          "predictedPrice": 123.21339859690815,
+          "timeHorizon": "4h",
+          "confidence": 0.6867647218646555,
+          "direction": "bearish",
+          "reasoning": "SOL 4h outlook: Bearish. Distribution pattern, resistance rejection, take profits. Target: $123.21"
+        },
+        "aura": {
+          "market": "crypto",
+          "mood": "euphoric",
+          "topMentions": [
+            "SOL",
+            "BTC",
+            "memecoins",
+            "DeFi"
+          ],
+          "summary": "Current market vibes: euphoric. Social volume is above average. Exercise caution - tops often form here.",
+          "confidence": 0.68
+        },
+        "combined": "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment."
+      },
+      "confidence": 0.6833823609323277,
+      "timestamp": "2026-02-06T02:31:20.714Z",
+      "executionTimeMs": 1
+    }
+  },
+  "379df95e-00c1-4f6d-8de0-5958c6c74e63": {
+    "id": "379df95e-00c1-4f6d-8de0-5958c6c74e63",
+    "prompt": "Who is Michael Saylor?",
+    "userId": "demo-user",
+    "status": "completed",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T02:31:31.381Z",
+    "updatedAt": "2026-02-06T02:31:34.370Z",
+    "payments": [
+      {
+        "amount": "0.0001",
+        "currency": "USDC",
+        "network": "solana",
+        "recipient": "seeker",
+        "status": "pending",
+        "timestamp": "2026-02-06T02:31:34.369Z"
+      }
+    ],
+    "messages": [
+      {
+        "id": "msg-1770345091995-zn98",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Who is Michael Saylor?...\"",
+        "timestamp": "2026-02-06T02:31:31.995Z"
+      },
+      {
+        "id": "msg-1770345092006-ev2w",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Checking x402 payment...",
+        "timestamp": "2026-02-06T02:31:32.007Z"
+      },
+      {
+        "id": "msg-1770345092823-ct2z",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Processing with seeker... (fee: 0.0001 USDC)",
+        "timestamp": "2026-02-06T02:31:32.823Z"
+      },
+      {
+        "id": "msg-1770345094237-fgs3",
+        "from": "seeker",
+        "to": "dispatcher",
+        "content": "Michael J. Saylor (born February 4, 1965) is an American entrepreneur and billionaire business executive. He is the executive chairman and co-founder of MicroStrategy, a company that provides business intelligence, mobile software, and cloud-based services. Saylor was MicroStrategy&#x27;s chief ...",
+        "timestamp": "2026-02-06T02:31:34.237Z"
+      },
+      {
+        "id": "msg-1770345094370-13ma",
+        "from": "x402",
+        "to": "dispatcher",
+        "content": "💰 x402 Fee (Mock): 0.0001 USDC → seeker",
+        "timestamp": "2026-02-06T02:31:34.370Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    },
+    "result": {
+      "success": true,
+      "data": {
+        "summary": "🔍 **Research: Michael Saylor**\n\n**Summary**: Found 5 relevant results.\n\n**Key Findings**:\n1. **Michael J. Saylor - Wikipedia**\n   Michael J. Saylor (born February 4, 1965) is an American entrepreneur and billionaire business executive. He is the executive chairman and co-founder of MicroStrategy, a company that provides business intelligence, mobile software, and cloud-based services. Saylor was MicroStrategy&#x27;s chief ...\n\n2. **Michael J. Saylor**\n   Michael Saylor is an American entrepreneur, executive, inventor, author, and philanthropist. He was born to a military family in Lincoln, Nebraska, in 1965 and spent his childhood living on various U.S. Air Force bases around the world.\n\n3. **Michael Saylor (@saylor) / X**\n   @Strategy Founder & Chairman | bio http://michael.com | $MSTR $STRC $STRK $STRF $STRD http://strategy.com/offerings\n\n**Sources**:\n• [Michael J. Saylor - Wikipedia](https://en.wikipedia.org/wiki/Michael_J._Saylor)\n• [Michael J. Saylor](https://www.strategy.com/investor-relations/executive-team/michael-saylor)\n• [Michael Saylor (@saylor) / X](https://x.com/saylor?lang=en)\n• [Michael J. Saylor](https://www.michael.com/)\n• [Michael Saylor: AI Is Your Advantage - YouTube](https://www.youtube.com/watch?v=fMS-QWoAgkI)\n",
+        "insight": "Michael J. Saylor (born February 4, 1965) is an American entrepreneur and billionaire business executive. He is the executive chairman and co-founder of MicroStrategy, a company that provides business intelligence, mobile software, and cloud-based services. Saylor was MicroStrategy&#x27;s chief ...",
+        "results": [
+          {
+            "title": "Michael J. Saylor - Wikipedia",
+            "url": "https://en.wikipedia.org/wiki/Michael_J._Saylor",
+            "description": "Michael J. Saylor (born February 4, 1965) is an American entrepreneur and billionaire business executive. He is the executive chairman and co-founder of MicroStrategy, a company that provides business intelligence, mobile software, and cloud-based services. Saylor was MicroStrategy&#x27;s chief ...",
+            "age": "10 hours ago"
+          },
+          {
+            "title": "Michael J. Saylor",
+            "url": "https://www.strategy.com/investor-relations/executive-team/michael-saylor",
+            "description": "Michael Saylor is an American entrepreneur, executive, inventor, author, and philanthropist. He was born to a military family in Lincoln, Nebraska, in 1965 and spent his childhood living on various U.S. Air Force bases around the world."
+          },
+          {
+            "title": "Michael Saylor (@saylor) / X",
+            "url": "https://x.com/saylor?lang=en",
+            "description": "@Strategy Founder & Chairman | bio http://michael.com | $MSTR $STRC $STRK $STRF $STRD http://strategy.com/offerings",
+            "age": "January 29, 2011"
+          },
+          {
+            "title": "Michael J. Saylor",
+            "url": "https://www.michael.com/",
+            "description": "Michael Saylor is the Founder & Executive Chairman of Strategy (MSTR), a publicly traded business intelligence firm & holder of ₿649,870 that he founded in 1989. He is also the founder of Alarm.com (ALRM), named inventor on 48+ patents, & ..."
+          },
+          {
+            "title": "Michael Saylor: AI Is Your Advantage - YouTube",
+            "url": "https://www.youtube.com/watch?v=fMS-QWoAgkI",
+            "description": "Michael Saylor explains why artificial intelligence is the ultimate advantage at Bitcoin 2025 Conference and how using AI first can level the playing field f...",
+            "age": "3 days ago"
+          }
+        ],
+        "confidence": 0.85,
+        "details": {
+          "type": "search",
+          "query": "Michael Saylor",
+          "count": 5
+        }
+      },
+      "confidence": 0.85,
+      "timestamp": "2026-02-06T02:31:34.237Z",
+      "executionTimeMs": 613
+    }
   }
 }

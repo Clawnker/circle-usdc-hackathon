@@ -15,9 +15,9 @@
       "votes": []
     },
     "general": {
-      "successCount": 9,
+      "successCount": 10,
       "failureCount": 0,
-      "upvotes": 9,
+      "upvotes": 10,
       "downvotes": 0,
       "votes": []
     },
@@ -37,9 +37,9 @@
       ]
     },
     "seeker": {
-      "successCount": 19,
+      "successCount": 21,
       "failureCount": 0,
-      "upvotes": 19,
+      "upvotes": 21,
       "downvotes": 0,
       "votes": []
     },

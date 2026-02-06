@@ -144,33 +144,28 @@ async function performSearch(query: string): Promise<{
   let insight = '';
   
   if (results.length > 0) {
-    // Use AI summary if available, otherwise use top result
-    if (searchResult.summary) {
-      insight = searchResult.summary;
-    } else {
-      const topResult = results[0];
-      insight = topResult.description;
-    }
+    // Build a comprehensive insight that includes headlines and sources
+    const headlines = results.slice(0, 5).map((r, i) => 
+      `${i + 1}. ${r.title}${r.age ? ` (${r.age})` : ''}`
+    ).join('\n');
     
-    // Create structured summary
+    const topDescriptions = results.slice(0, 3).map(r => r.description).join(' ');
+    
+    // Create insight with key info (this is what gets shown in UI)
+    insight = `${topDescriptions}\n\n**Headlines:**\n${headlines}`;
+    
+    // Create full structured summary with sources
     summary = `🔍 **Research: ${query}**\n\n`;
+    summary += `**Key Findings:**\n`;
     
-    // Include AI summary if available
-    if (searchResult.summary) {
-      summary += `**Summary**: ${searchResult.summary}\n\n`;
-    } else {
-      summary += `**Summary**: Found ${results.length} relevant results.\n\n`;
-    }
-    
-    summary += `**Key Findings**:\n`;
-    
-    results.slice(0, 3).forEach((r, i) => {
-      summary += `${i + 1}. **${r.title}**\n   ${r.description}\n\n`;
+    results.slice(0, 5).forEach((r, i) => {
+      summary += `${i + 1}. **${r.title}**${r.age ? ` _(${r.age})_` : ''}\n`;
+      summary += `   ${r.description}\n\n`;
     });
     
-    summary += `**Sources**:\n`;
-    results.forEach(r => {
-      summary += `• [${r.title}](${r.url})\n`;
+    summary += `**Sources:**\n`;
+    results.forEach((r, i) => {
+      summary += `[${i + 1}] ${r.url}\n`;
     });
   } else {
     summary = `No results found for "${query}". Try rephrasing your search.`;
