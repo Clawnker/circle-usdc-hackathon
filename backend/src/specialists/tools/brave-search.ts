@@ -13,7 +13,7 @@ const BRAVE_WEB_URL = 'https://api.search.brave.com/res/v1/web/search';
 const BRAVE_AI_URL = 'https://api.search.brave.com/res/v1/summarizer/search';
 
 /**
- * Strip HTML tags from text
+ * Strip HTML tags and decode entities from text
  */
 function stripHtml(html: string): string {
   return html
@@ -24,6 +24,10 @@ function stripHtml(html: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
     .trim();
 }
 

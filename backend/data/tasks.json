@@ -10660,5 +10660,32 @@
       "timestamp": "2026-02-06T02:31:34.237Z",
       "executionTimeMs": 613
     }
+  },
+  "1ebccb93-af8a-41f6-8177-5ddae959502c": {
+    "id": "1ebccb93-af8a-41f6-8177-5ddae959502c",
+    "prompt": "Who is Michael Saylor?",
+    "userId": "demo-user",
+    "status": "awaiting_payment",
+    "specialist": "seeker",
+    "createdAt": "2026-02-06T02:33:58.319Z",
+    "updatedAt": "2026-02-06T02:33:58.926Z",
+    "payments": [],
+    "messages": [
+      {
+        "id": "msg-1770345238926-n6y7",
+        "from": "dispatcher",
+        "to": "seeker",
+        "content": "Routing task: \"Who is Michael Saylor?...\"",
+        "timestamp": "2026-02-06T02:33:58.926Z"
+      }
+    ],
+    "metadata": {
+      "hiredAgents": [
+        "bankr",
+        "scribe",
+        "seeker"
+      ],
+      "wasApproved": false
+    }
   }
 }
