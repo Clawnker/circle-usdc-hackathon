@@ -6,7 +6,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { SpecialistResult } from '../types';
-import braveSearch, { SearchResult } from './tools/brave-search';
+import braveSearchFallback, { SearchResult } from './tools/brave-search';
+import mcpClient from './tools/mcp-client';
 
 // Load system prompt
 const PROMPT_PATH = path.join(__dirname, 'prompts', 'seeker.md');
@@ -86,6 +87,31 @@ function parseIntent(prompt: string): { type: string; query: string } {
 }
 
 /**
+ * Perform search using MCP or fallback
+ */
+async function braveSearch(query: string, count: number = 5): Promise<SearchResult[]> {
+  // Try MCP first (preferred modern protocol)
+  try {
+    const mcpResult = await mcpClient.braveSearch(query, count);
+    if (mcpResult && mcpResult.web && mcpResult.web.results) {
+      console.log('[Seeker] Using MCP Brave Search');
+      return mcpResult.web.results.map((r: any) => ({
+        title: r.title,
+        url: r.url,
+        description: r.description,
+        age: r.age,
+      }));
+    }
+  } catch (error) {
+    console.log('[Seeker] MCP not available, using fallback');
+  }
+  
+  // Fallback to direct implementation
+  const fallbackResult = await braveSearchFallback.search(query, { count });
+  return fallbackResult.results;
+}
+
+/**
  * Perform a general web search
  */
 async function performSearch(query: string): Promise<{
@@ -97,8 +123,7 @@ async function performSearch(query: string): Promise<{
 }> {
   console.log(`[Seeker] Searching: "${query}"`);
   
-  const searchResponse = await braveSearch.search(query, { count: 5 });
-  const results = searchResponse.results;
+  const results = await braveSearch(query, 5);
   
   // Generate summary from results
   let summary = '';
@@ -152,13 +177,14 @@ async function searchNews(query: string): Promise<{
 }> {
   console.log(`[Seeker] Searching news: "${query}"`);
   
-  // Use freshness filter for recent results
-  const searchResponse = await braveSearch.search(query, { 
+  // Use freshness filter for recent results via fallback
+  // (MCP doesn't support freshness filter yet)
+  const fallbackResult = await braveSearchFallback.search(query, { 
     count: 5,
     freshness: 'pw', // Past week
   });
   
-  const results = searchResponse.results;
+  const results = fallbackResult.results;
   
   let summary = `📰 **Latest News: ${query}**\n\n`;
   
@@ -200,8 +226,7 @@ async function factCheck(query: string): Promise<{
   console.log(`[Seeker] Fact checking: "${query}"`);
   
   // Search for the claim + fact check keywords
-  const searchResponse = await braveSearch.search(`${query} fact check`, { count: 5 });
-  const results = searchResponse.results;
+  const results = await braveSearch(`${query} fact check`, 5);
   
   // Simple heuristic for verdict (in production, use proper fact-checking APIs)
   let verdict: 'true' | 'false' | 'mixed' | 'unverified' = 'unverified';

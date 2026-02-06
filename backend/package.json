@@ -12,6 +12,7 @@
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@solana/web3.js": "^1.87.6",
     "@x402/core": "^2.2.0",
     "@x402/evm": "^2.2.0",
