@@ -22,6 +22,7 @@ import config from './config';
 import { getBalances, logTransaction, createPaymentRecord } from './x402';
 import { executeDemoPayment } from './x402-protocol';
 import { recordSuccess, recordFailure, getSuccessRate } from './reputation';
+import { planWithLLM } from './llm-planner';
 import magos from './specialists/magos';
 import aura from './specialists/aura';
 import bankr from './specialists/bankr';
@@ -663,10 +664,40 @@ function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<string,
 }
 
 /**
- * Route prompt to appropriate specialist using keyword analysis
+ * Route prompt to appropriate specialist
+ * Supports both RegExp-based (fast) and LLM-based (smart) routing
  * Only routes to specialists in the hiredAgents list if provided
  */
-export function routePrompt(prompt: string, hiredAgents?: SpecialistType[]): SpecialistType {
+export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]): Promise<SpecialistType> {
+  const planningMode = process.env.PLANNING_MODE || 'regexp';
+  
+  if (planningMode === 'llm') {
+    try {
+      const plan = await planWithLLM(prompt);
+      console.log(`[LLM Planner] ${plan.specialist} (confidence: ${plan.confidence.toFixed(2)}) - ${plan.reasoning}`);
+      
+      // If specialist is not in hiredAgents, use fallback routing
+      if (hiredAgents && !hiredAgents.includes(plan.specialist)) {
+        console.log(`[LLM Planner] Specialist ${plan.specialist} not in swarm, falling back to regexp routing`);
+        return routeWithRegExp(prompt, hiredAgents);
+      }
+      
+      return plan.specialist;
+    } catch (error: any) {
+      console.error(`[LLM Planner] Error:`, error.message, '- falling back to regexp');
+      return routeWithRegExp(prompt, hiredAgents);
+    }
+  }
+  
+  // Default: RegExp routing
+  return routeWithRegExp(prompt, hiredAgents);
+}
+
+/**
+ * Route prompt using RegExp pattern matching (fast, deterministic)
+ * Only routes to specialists in the hiredAgents list if provided
+ */
+function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): SpecialistType {
   const lower = prompt.toLowerCase();
   
   // Specific intent detection for common mis-routings
