@@ -189,7 +189,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   const hops = detectMultiHop(request.prompt);
   
   // Determine the best specialist for this prompt (ignoring swarm filter for routing decision)
-  const bestSpecialist = request.preferredSpecialist || (hops ? 'multi-hop' : routePrompt(request.prompt));
+  const bestSpecialist = request.preferredSpecialist || (hops ? 'multi-hop' : await routePrompt(request.prompt));
   
   // Check if user approved this specific agent
   const isApproved = request.approvedAgent === bestSpecialist;
