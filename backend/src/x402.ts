@@ -44,22 +44,78 @@ export async function getBalances(): Promise<{
     const ethBalance = evmBalances.find((b: any) => b.chain === 'base' && b.asset === 'eth');
     const evmUsdcBalance = evmBalances.find((b: any) => b.chain === 'base' && b.asset === 'usdc');
     
+    let evmUsdc = evmUsdcBalance ? parseFloat(evmUsdcBalance.rawValue) / Math.pow(10, evmUsdcBalance.decimals) : 0;
+    let evmEth = ethBalance ? parseFloat(ethBalance.rawValue) / Math.pow(10, ethBalance.decimals) : 0;
+    
+    // If AgentWallet reports 0, check on-chain directly via Base RPC
+    if (evmUsdc === 0) {
+      try {
+        const treasuryAddress = process.env.TREASURY_WALLET_EVM || '0x676fF3d546932dE6558a267887E58e39f405B135';
+        const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+        const paddedAddr = treasuryAddress.replace('0x', '').toLowerCase().padStart(64, '0');
+        
+        const [ethRes, usdcRes] = await Promise.all([
+          axios.post('https://mainnet.base.org', {
+            jsonrpc: '2.0', method: 'eth_getBalance',
+            params: [treasuryAddress, 'latest'], id: 1
+          }),
+          axios.post('https://mainnet.base.org', {
+            jsonrpc: '2.0', method: 'eth_call',
+            params: [{ to: usdcAddress, data: `0x70a08231${paddedAddr}` }, 'latest'], id: 2
+          })
+        ]);
+        
+        evmEth = parseInt(ethRes.data?.result || '0x0', 16) / 1e18;
+        evmUsdc = parseInt(usdcRes.data?.result || '0x0', 16) / 1e6;
+        console.log(`[Wallet] On-chain Base balance: ${evmEth} ETH, ${evmUsdc} USDC`);
+      } catch (rpcErr: any) {
+        console.error('[Wallet] Base RPC fallback failed:', rpcErr.message);
+      }
+    }
+    
     return {
       solana: {
         sol: solBalance ? parseFloat(solBalance.rawValue) / Math.pow(10, solBalance.decimals) : 0,
         usdc: solUsdcBalance ? parseFloat(solUsdcBalance.rawValue) / Math.pow(10, solUsdcBalance.decimals) : 0,
       },
       evm: {
-        eth: ethBalance ? parseFloat(ethBalance.rawValue) / Math.pow(10, ethBalance.decimals) : 0,
-        usdc: evmUsdcBalance ? parseFloat(evmUsdcBalance.rawValue) / Math.pow(10, evmUsdcBalance.decimals) : 0,
+        eth: evmEth,
+        usdc: evmUsdc,
       },
     };
   } catch (error: any) {
     console.error('Failed to get balances:', error.message);
-    return {
-      solana: { sol: 0, usdc: 0 },
-      evm: { eth: 0, usdc: 0 },
-    };
+    
+    // Even if AgentWallet fails, try on-chain check
+    try {
+      const treasuryAddress = process.env.TREASURY_WALLET_EVM || '0x676fF3d546932dE6558a267887E58e39f405B135';
+      const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+      const paddedAddr = treasuryAddress.replace('0x', '').toLowerCase().padStart(64, '0');
+      
+      const [ethRes, usdcRes] = await Promise.all([
+        axios.post('https://mainnet.base.org', {
+          jsonrpc: '2.0', method: 'eth_getBalance',
+          params: [treasuryAddress, 'latest'], id: 1
+        }),
+        axios.post('https://mainnet.base.org', {
+          jsonrpc: '2.0', method: 'eth_call',
+          params: [{ to: usdcAddress, data: `0x70a08231${paddedAddr}` }, 'latest'], id: 2
+        })
+      ]);
+      
+      return {
+        solana: { sol: 0, usdc: 0 },
+        evm: {
+          eth: parseInt(ethRes.data?.result || '0x0', 16) / 1e18,
+          usdc: parseInt(usdcRes.data?.result || '0x0', 16) / 1e6,
+        },
+      };
+    } catch {
+      return {
+        solana: { sol: 0, usdc: 0 },
+        evm: { eth: 0, usdc: 0 },
+      };
+    }
   }
 }
 

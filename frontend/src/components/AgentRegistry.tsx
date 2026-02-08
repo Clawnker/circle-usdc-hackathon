@@ -42,7 +42,20 @@ export function AgentRegistry() {
       const response = await fetch(`${API_URL}/api/agents`);
       if (response.ok) {
         const data = await response.json();
-        setAgents(data);
+        const agentList = data.agents || data;
+        // Map backend format to frontend interface
+        const mapped = (Array.isArray(agentList) ? agentList : []).map((a: any) => ({
+          id: String(a.agentId || a.id || ''),
+          name: a.name || 'Unknown',
+          description: a.description || '',
+          owner: a.owner || '0x676fF3d546932dE6558a267887E58e39f405B135',
+          reputation: a.reputation ?? (a.active ? 95 : 50),
+          tags: a.supportedTrust || a.tags || ['x402'],
+          registrationUrl: a.registrationUrl || `https://basescan.org/address/0x676fF3d546932dE6558a267887E58e39f405B135`,
+          chain: a.chain || 'Base (EIP-155:8453)',
+          trustLayer: a.trustLayer || (a.supportedTrust?.includes('reputation') ? 'ERC-8004' : 'none'),
+        }));
+        setAgents(mapped);
       }
     } catch (error) {
       console.error('Failed to fetch agents:', error);
