@@ -351,7 +351,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
             const feeRecord = createPaymentRecord(
               String(specialistFee),
               'USDC',
-              'solana',
+              'base',
               specialist,
               paymentResult.txSignature
             );
@@ -360,7 +360,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
           }
         } else {
           console.warn(`[Dispatcher] Payment failed for ${specialist}, logging mock record`);
-          const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'solana', specialist);
+          const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist);
           task.payments.push(feeRecord);
           logTransaction(feeRecord);
           addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Mock): ${specialistFee} USDC → ${specialist}`);
@@ -424,7 +424,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
     
     // Enforce payment if config flag is set
     const fee = (config.fees as any)[task.specialist] || 0;
-    const usdcBalance = balances.solana.usdc; // Magos is on Solana
+    const usdcBalance = balances.evm?.usdc || balances.solana?.usdc; // Primary: Base
 
     if (config.enforcePayments && usdcBalance < fee) {
       const errorMsg = `Insufficient balance: ${usdcBalance} USDC < ${fee} USDC required for ${task.specialist}`;
@@ -471,7 +471,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
         const feeRecord = createPaymentRecord(
           String(fee),
           'USDC',
-          'solana',
+          'base',
           task.specialist,
           paymentResult.txSignature
         );
@@ -483,7 +483,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       const feeRecord = createPaymentRecord(
         String(fee),
         'USDC',
-        'solana',
+        'base',
         task.specialist
       );
       task.payments.push(feeRecord);

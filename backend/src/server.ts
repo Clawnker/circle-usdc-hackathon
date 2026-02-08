@@ -174,7 +174,7 @@ app.get('/api/pricing', (req: Request, res: Response) => {
   const pricing = dispatcher.getSpecialistPricing();
   res.json({ 
     pricing,
-    note: 'Fees in USDC, paid via x402 protocol on Solana'
+    note: 'Fees in USDC, paid via x402 protocol on Base'
   });
 });
 
@@ -327,7 +327,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
             payTo: TREASURY_WALLET_SOLANA,
             extra: {
               name: `${id} specialist`,
-              description: `Query the ${id} AI specialist (Solana fallback)`,
+              description: `Query the ${id} AI specialist (fallback)`,
               feePayer: TREASURY_WALLET_SOLANA,
             }
           }
@@ -344,7 +344,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
         error: 'Payment required',
         fee: `${fee} USDC`,
         network: 'Base (EIP-155:8453)',
-        fallback: 'Solana Devnet'
+        fallback: 'Solana (legacy)'
       });
     }
 
