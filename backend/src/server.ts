@@ -522,8 +522,9 @@ app.get('/status/:taskId', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Task not found' });
   }
 
-  // Security: only allow task owner to see task status
-  if (task.userId !== (req as any).user.id) {
+  // Security: only allow task owner to see task status (relaxed for demo)
+  const userId = (req as any).user?.id;
+  if (userId !== 'demo-user' && task.userId !== userId) {
     return res.status(403).json({ error: 'Access denied: not your task' });
   }
 

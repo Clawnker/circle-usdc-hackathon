@@ -27,6 +27,8 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     '/api/reputation',
     '/api/vote',
     '/api/wallet',
+    '/status',
+    '/tasks',
   ];
   if (publicPaths.some(p => req.path === p || req.path.startsWith(p + '/'))) {
     (req as any).user = { id: 'demo-user' };
