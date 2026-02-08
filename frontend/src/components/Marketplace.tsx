@@ -12,172 +12,119 @@ import {
   Eye, 
   Compass,
   Sparkles,
-  TrendingUp,
   Newspaper,
-  FileText
+  FileText,
+  Cpu
 } from 'lucide-react';
 import { AgentCard } from './AgentCard';
 
-const CORE_AGENTS = [
-  {
+// Metadata for registered agents (visuals only)
+const AGENT_METADATA: Record<string, any> = {
+  'Bankr': {
     id: 'bankr',
-    name: 'Bankr',
     tagline: 'Execution Engine',
-    description: 'High-speed trade execution and wallet management on Base. Securely handles complex DeFi interactions.',
     icon: Coins,
     price: 0.0001,
     successRate: 99,
     responseTime: '0.8s',
     tasksCompleted: 89000,
-    isVerified: true,
     color: 'cyan',
     capabilities: ['trading', 'execution', 'wallet'],
-    tier: 'core' as const,
-    erc8004Id: 'agent:base:0x62c...a2d',
-    reputation: 100
+    tier: 'core',
+    erc8004Id: 'agent:base:0x62c...a2d'
   },
-  {
+  'Scribe': {
     id: 'scribe',
-    name: 'Scribe',
     tagline: 'General Assistant',
-    description: 'General purpose assistant for summarization, Q&A, and documentation tasks.',
     icon: FileText,
     price: 0.0001,
     successRate: 95,
     responseTime: '1.5s',
     tasksCompleted: 12500,
-    isVerified: true,
     color: 'gray',
     capabilities: ['summary', 'qa', 'writing'],
-    tier: 'core' as const,
-    erc8004Id: 'agent:base:0x88b...e11',
-    reputation: 97
+    tier: 'core',
+    erc8004Id: 'agent:base:0x88b...e11'
   },
-  {
+  'Seeker': {
     id: 'seeker',
-    name: 'Seeker',
     tagline: 'Web Research',
-    description: 'Web search and information retrieval specialist for deep fact lookup.',
     icon: Search,
     price: 0.0001,
     successRate: 92,
     responseTime: '2.5s',
     tasksCompleted: 8400,
-    isVerified: true,
     color: 'cyan',
     capabilities: ['search', 'research', 'lookup'],
-    tier: 'core' as const,
-    erc8004Id: 'agent:base:0x99a...c55',
-    reputation: 94
-  }
-];
-
-const MARKETPLACE_AGENTS = [
-  {
+    tier: 'core',
+    erc8004Id: 'agent:base:0x99a...c55'
+  },
+  'Market Oracle': { // Magos
     id: 'magos',
-    name: 'Market Oracle',
     tagline: 'Predictive Oracle',
-    description: 'Expert in technical analysis and market prediction. Uses advanced heuristics to forecast price action.',
     icon: Compass,
     price: 0.001,
     successRate: 94,
     responseTime: '2.4s',
     tasksCompleted: 15420,
-    isVerified: true,
     color: 'gold',
     capabilities: ['analysis', 'prediction', 'trading'],
-    tier: 'marketplace' as const,
-    erc8004Id: 'agent:base:0x72a...f42',
-    reputation: 96
+    tier: 'marketplace',
+    erc8004Id: 'agent:base:0x72a...f42'
   },
-  {
+  'Magos': { // Magos alias
+    id: 'magos',
+    tagline: 'Predictive Oracle',
+    icon: Compass,
+    price: 0.001,
+    successRate: 94,
+    responseTime: '2.4s',
+    tasksCompleted: 15420,
+    color: 'gold',
+    capabilities: ['analysis', 'prediction', 'trading'],
+    tier: 'marketplace',
+    erc8004Id: 'agent:base:0x72a...f42'
+  },
+  'Social Analyst': { // Aura
     id: 'aura',
-    name: 'Social Analyst',
     tagline: 'Social Sentinel',
-    description: 'Specializes in real-time sentiment analysis across X, Telegram, and news feeds.',
     icon: Eye,
     price: 0.0005,
     successRate: 89,
     responseTime: '1.2s',
     tasksCompleted: 42100,
-    isVerified: true,
     color: 'purple',
     capabilities: ['sentiment', 'social', 'monitoring'],
-    tier: 'marketplace' as const,
-    erc8004Id: 'agent:base:0x31b...a12',
-    reputation: 91
+    tier: 'marketplace',
+    erc8004Id: 'agent:base:0x31b...a12'
   },
-  {
-    id: 'alphahunter',
-    name: 'AlphaHunter',
-    tagline: 'Early Gem Finder',
-    description: 'Scans new pool creations and dev activity to find the next 100x early tokens.',
-    icon: Sparkles,
-    price: 0.005,
-    successRate: 72,
-    responseTime: '3.5s',
-    tasksCompleted: 850,
-    isVerified: false,
-    color: 'green',
-    capabilities: ['discovery', 'trading', 'alpha'],
-    tier: 'marketplace' as const,
-    erc8004Id: 'agent:base:0x91e...c88',
-    reputation: 75
-  },
-  {
-    id: 'riskbot',
-    name: 'RiskBot',
-    tagline: 'Safety First',
-    description: 'Deep contract analysis and portfolio risk assessment to prevent rugs.',
-    icon: Shield,
-    price: 0.002,
-    successRate: 98,
-    responseTime: '5.0s',
-    tasksCompleted: 3200,
-    isVerified: true,
-    color: 'orange',
-    capabilities: ['security', 'audit', 'risk'],
-    tier: 'marketplace' as const,
-    erc8004Id: 'agent:base:0x11d...b22',
-    reputation: 99
-  },
-  {
-    id: 'newsdigest',
-    name: 'NewsDigest',
-    tagline: 'Instant Information',
-    description: 'Summarizes critical crypto news and governance proposals into actionable insights.',
-    icon: Newspaper,
-    price: 0.001,
-    successRate: 95,
-    responseTime: '2.1s',
-    tasksCompleted: 12400,
-    isVerified: false,
-    color: 'cyan',
-    capabilities: ['news', 'summary', 'info'],
-    tier: 'marketplace' as const,
-    erc8004Id: 'agent:base:0x22f...d33',
-    reputation: 93
-  },
-  {
-    id: 'whalespy',
-    name: 'WhaleSpy',
-    tagline: 'Follow the Money',
-    description: 'Tracks institutional and whale wallet movements in real-time.',
-    icon: TrendingUp,
-    price: 0.003,
-    successRate: 92,
-    responseTime: '1.5s',
-    tasksCompleted: 5600,
-    isVerified: false,
+  'Aura': { // Aura alias
+    id: 'aura',
+    tagline: 'Social Sentinel',
+    icon: Eye,
+    price: 0.0005,
+    successRate: 89,
+    responseTime: '1.2s',
+    tasksCompleted: 42100,
     color: 'purple',
-    capabilities: ['tracking', 'whale', 'onchain'],
-    tier: 'marketplace' as const,
-    erc8004Id: 'agent:base:0x55a...e99',
-    reputation: 90
+    capabilities: ['sentiment', 'social', 'monitoring'],
+    tier: 'marketplace',
+    erc8004Id: 'agent:base:0x31b...a12'
+  },
+  'Hivemind Dispatcher': {
+    id: 'dispatcher',
+    tagline: 'System Core',
+    icon: Cpu,
+    price: 0,
+    successRate: 100,
+    responseTime: '0.1s',
+    tasksCompleted: 1000000,
+    color: 'blue',
+    capabilities: ['orchestration', 'routing'],
+    tier: 'system',
+    erc8004Id: 'agent:base:0x000...000'
   }
-];
-
-const ALL_AGENTS = [...CORE_AGENTS, ...MARKETPLACE_AGENTS];
+};
 
 interface MarketplaceProps {
   hiredAgents: string[];
@@ -189,31 +136,78 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
   const [sortBy, setSortBy] = useState<'popularity' | 'price' | 'reputation'>('popularity');
   const [filterType, setFilterType] = useState<string>('all');
   const [reputationData, setReputationData] = useState<Record<string, { successRate: number; upvotes: number; downvotes: number }>>({});
+  const [agents, setAgents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch live reputation data
+  // Fetch registered agents and reputation
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    fetch(`${apiUrl}/api/reputation`)
-      .then(res => res.json())
-      .then(data => setReputationData(data))
-      .catch(() => {});
+    
+    const fetchData = async () => {
+      try {
+        const [repRes, agentsRes] = await Promise.all([
+          fetch(`${apiUrl}/api/reputation`),
+          fetch(`${apiUrl}/api/agents`)
+        ]);
+
+        const repData = await repRes.json();
+        setReputationData(repData);
+
+        const agentsData = await agentsRes.json();
+        
+        // Map API agents to card format using metadata
+        const mappedAgents = agentsData.agents
+          .filter((a: any) => a.name !== 'Hivemind Dispatcher') // Hide system agent
+          .map((a: any) => {
+            const meta = AGENT_METADATA[a.name] || {
+              id: a.name.toLowerCase().replace(/\s+/g, ''),
+              tagline: 'New Specialist',
+              icon: Sparkles,
+              price: 0.001,
+              successRate: 0,
+              responseTime: '?',
+              tasksCompleted: 0,
+              color: 'gray',
+              capabilities: ['general'],
+              tier: 'marketplace',
+              erc8004Id: `agent:base:unknown`
+            };
+
+            return {
+              ...meta,
+              name: a.name,
+              description: a.description,
+              isVerified: true, // All API agents are registered
+              capabilities: meta.capabilities || ['general'],
+            };
+          });
+
+        setAgents(mappedAgents);
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Failed to fetch marketplace data:', err);
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  // Merge reputation data with static agent data
+  // Merge reputation data with agent data
   const agentsWithReputation = useMemo(() => {
-    return MARKETPLACE_AGENTS.map(agent => ({
+    return agents.map(agent => ({
       ...agent,
       successRate: reputationData[agent.id]?.successRate ?? agent.successRate,
       upvotes: reputationData[agent.id]?.upvotes ?? 0,
       downvotes: reputationData[agent.id]?.downvotes ?? 0,
     }));
-  }, [reputationData]);
+  }, [reputationData, agents]);
 
   const filteredAndSortedAgents = useMemo(() => {
     let result = agentsWithReputation.filter(agent => {
       const matchesSearch = agent.name.toLowerCase().includes(search.toLowerCase()) || 
                             agent.description.toLowerCase().includes(search.toLowerCase()) ||
-                            agent.capabilities.some(c => c.includes(search.toLowerCase()));
+                            agent.capabilities.some((c: string) => c.includes(search.toLowerCase()));
       
       const matchesFilter = filterType === 'all' || agent.capabilities.includes(filterType);
       
@@ -229,7 +223,16 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
     return result;
   }, [search, sortBy, filterType, agentsWithReputation]);
 
-  const allCapabilities = Array.from(new Set(MARKETPLACE_AGENTS.flatMap(a => a.capabilities)));
+  const allCapabilities = Array.from(new Set(agents.flatMap(a => a.capabilities)));
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--accent-gold)]"></div>
+        <p className="mt-4 text-[var(--text-muted)]">Loading registry...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
