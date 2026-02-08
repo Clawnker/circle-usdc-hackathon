@@ -85,7 +85,7 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
             animate={{ scale: 1 }}
             className="text-sm font-semibold"
             style={{ 
-              color: payment.token === 'SOL' ? '#14F195' : '#2775CA' 
+              color: payment.token === 'ETH' ? '#627EEA' : '#2775CA' 
             }}
           >
             {payment.amount < 0.01 

@@ -72,16 +72,16 @@ const SPECIALIST_INFO: Record<SpecialistType, {
   bankr: {
     name: 'bankr',
     description: 'DeFi Execution Engine',
-    fullDescription: 'bankr executes on-chain transactions on Solana. Handles swaps, transfers, and complex DeFi operations through Jupiter aggregator for best execution.',
+    fullDescription: 'bankr executes on-chain transactions on Base. Handles swaps, transfers, and complex DeFi operations with Circle USDC integration.',
     icon: Wallet,
     color: '#22c55e',
     capabilities: [
-      'Token swaps via Jupiter',
-      'SOL/SPL transfers',
+      'Token swaps on Base',
+      'USDC transfers',
       'Portfolio management',
       'Transaction monitoring',
     ],
-    defaultPrompt: 'You are bankr, a Solana execution specialist. Execute trades and transfers on devnet. Use Jupiter for best swap rates. Always confirm before large transactions.',
+    defaultPrompt: 'You are bankr, a Base execution specialist. Execute trades and transfers on Base Sepolia. Use USDC for payments. Always confirm before large transactions.',
   },
   general: {
     name: 'General Assistant',
@@ -301,7 +301,7 @@ export function AgentDetailModal({
                 className="w-full h-24 p-3 rounded-lg bg-black/30 border border-[var(--accent-gold)]/20 
                   text-sm text-[var(--text-primary)] resize-none focus:outline-none 
                   focus:border-[var(--accent-gold)] transition-colors"
-                placeholder="Add instructions like 'Focus on Solana ecosystem' or 'Be concise'"
+                placeholder="Add instructions like 'Focus on Base ecosystem' or 'Be concise'"
               />
               <button
                 onClick={handleSaveInstructions}

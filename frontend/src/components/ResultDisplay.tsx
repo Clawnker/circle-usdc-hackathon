@@ -128,33 +128,30 @@ export function ResultDisplay({ taskStatus, result, error, className = '' }: Res
             <div className="flex-1">
               <h4 className="text-lg font-bold text-[#22c55e] mb-2">💰 Wallet Balance</h4>
               <div className="grid grid-cols-2 gap-4">
-                {/* Solana Balance */}
+                {/* Base Balance */}
                 <div className="glass-panel-subtle p-4 rounded-xl">
                   <div className="text-xs text-[var(--text-muted)] mb-1">
-                    Solana {details.solana?.network && `(${details.solana.network})`}
+                    Base {details.base?.network && `(${details.base.network})`}
                   </div>
                   <div className="text-2xl font-bold text-[var(--text-primary)]">
-                    {details.solana?.sol || '0'} <span className="text-sm text-[var(--text-secondary)]">SOL</span>
+                    {details.base?.eth || '0'} <span className="text-sm text-[var(--text-secondary)]">ETH</span>
                   </div>
-                  {details.solana?.usdc && details.solana.usdc !== '0.00' && (
+                  {details.base?.usdc && details.base.usdc !== '0.00' && (
                     <div className="text-sm text-[var(--text-secondary)] mt-1">
-                      + {details.solana.usdc} USDC
+                      + {details.base.usdc} USDC
                     </div>
                   )}
                 </div>
-                {/* Base Balance */}
-                {details.base && (
-                  <div className="glass-panel-subtle p-4 rounded-xl">
-                    <div className="text-xs text-[var(--text-muted)] mb-1">Base (L2)</div>
-                    <div className="text-2xl font-bold text-[var(--text-primary)]">
-                      {details.base.usdc || '0'} <span className="text-sm text-[var(--text-secondary)]">USDC</span>
-                    </div>
-                  </div>
-                )}
+                {/* ERC-8004 Registry */}
+                <div className="glass-panel-subtle p-4 rounded-xl border border-[var(--accent-cyan)]/20">
+                  <div className="text-xs text-[var(--accent-cyan)] mb-1">Trust Layer</div>
+                  <div className="text-lg font-bold text-[var(--text-primary)]">ERC-8004</div>
+                  <div className="text-xs text-[var(--text-muted)] mt-1">Verified on Base</div>
+                </div>
               </div>
-              {details.solanaAddress && (
+              {details.baseAddress && (
                 <div className="mt-3 text-xs text-[var(--text-muted)] font-mono truncate">
-                  {details.solanaAddress}
+                  {details.baseAddress}
                 </div>
               )}
             </div>

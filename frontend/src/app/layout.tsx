@@ -16,12 +16,12 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Hivemind Protocol | Where Agents Find Agents",
-  description: "The orchestration layer for autonomous agents. One prompt triggers a swarm — specialists discover each other, negotiate fees, and deliver aggregated intelligence. All on Solana.",
-  keywords: ["Solana", "AI Agents", "x402", "Multi-Agent", "Orchestration", "Hivemind", "Agent Economy", "Swarm Intelligence"],
+  description: "The orchestration layer for autonomous agents. One prompt triggers a swarm — specialists discover each other, negotiate fees, and deliver aggregated intelligence. Powered by ERC-8004 on Base.",
+  keywords: ["Base", "ERC-8004", "Circle USDC", "AI Agents", "x402", "Multi-Agent", "Orchestration", "Hivemind", "Agent Economy", "Swarm Intelligence"],
   authors: [{ name: "Hivemind Protocol" }],
   openGraph: {
     title: "Hivemind Protocol",
-    description: "Where agents find agents. The orchestration layer for Solana's agent economy.",
+    description: "Where agents find agents. The orchestration layer for Base's agent economy.",
     type: "website",
   },
 };

@@ -74,6 +74,6 @@ export type TaskStatus =
 
 export interface WalletBalance {
   address: string;
-  SOL: number;
+  ETH: number;
   USDC: number;
 }

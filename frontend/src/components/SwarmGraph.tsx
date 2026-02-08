@@ -117,6 +117,8 @@ function AgentNode({ data }: { data: {
   isCenter: boolean;
   status?: 'ready' | 'active' | 'complete' | 'idle';
   currentAction?: string;
+  reputation?: number;
+  erc8004Id?: string;
 }}) {
   const config = SPECIALISTS[data.specialist];
   const Icon = config.icon;
@@ -191,11 +193,19 @@ function AgentNode({ data }: { data: {
       
       {/* Name */}
       <span 
-        className="mt-1 text-xs font-semibold"
+        className="mt-1 text-[10px] font-bold uppercase tracking-wider"
         style={{ color: config.color }}
       >
         {config.name}
       </span>
+
+      {/* ERC-8004 ID Badge (if available) */}
+      {!data.isCenter && (
+        <div className="mt-0.5 px-1.5 py-0.5 rounded-full bg-black/40 border border-white/5 flex items-center gap-1">
+          <Shield size={8} className="text-[var(--accent-cyan)]" />
+          <span className="text-[8px] font-mono text-white/70">8004</span>
+        </div>
+      )}
       
       {/* Status indicator */}
       <div 
@@ -203,7 +213,11 @@ function AgentNode({ data }: { data: {
           isActive ? 'bg-green-500' : isReady ? 'bg-blue-500' : isComplete ? 'bg-green-600' : 'bg-gray-500'
         }`}
       >
-        {isComplete && <span className="text-[8px] text-white">✓</span>}
+        {isComplete ? (
+          <span className="text-[8px] text-white">✓</span>
+        ) : data.reputation ? (
+          <span className="text-[8px] text-white font-bold">{data.reputation}</span>
+        ) : null}
       </div>
 
       {/* Current action tooltip */}

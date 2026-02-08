@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hexagon, Activity, History } from 'lucide-react';
+import { Hexagon, Activity, History, ShieldCheck } from 'lucide-react';
 import {
   TaskInput,
   SwarmGraph,
@@ -11,6 +11,7 @@ import {
   MessageLog,
   ResultDisplay,
   Marketplace,
+  AgentRegistry,
   ResultCard,
   QueryHistory,
   ApprovalPopup,
@@ -49,7 +50,7 @@ const SPECIALIST_FEES: Record<string, number> = {
 };
 
 export default function CommandCenter() {
-  const [activeView, setActiveView] = useState<'dispatch' | 'marketplace' | 'history'>('dispatch');
+  const [activeView, setActiveView] = useState<'dispatch' | 'marketplace' | 'registry' | 'history'>('dispatch');
   const [isLoading, setIsLoading] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -290,7 +291,7 @@ export default function CommandCenter() {
           specialist: latestPayment.to,
           timestamp: new Date(),
           link: latestPayment.txSignature 
-            ? `https://solscan.io/tx/${latestPayment.txSignature}?cluster=devnet`
+            ? `https://sepolia.basescan.org/tx/${latestPayment.txSignature}`
             : undefined,
         }];
       });
@@ -553,6 +554,17 @@ export default function CommandCenter() {
                 <span>Marketplace</span>
               </button>
               <button
+                onClick={() => setActiveView('registry')}
+                className={`flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 cursor-pointer ${
+                  activeView === 'registry' 
+                    ? 'bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-[#0D0D0D] shadow-[0_0_20px_rgba(0,240,255,0.3)] scale-105' 
+                    : 'text-white/50 hover:text-white/90 hover:bg-white/10'
+                }`}
+              >
+                <ShieldCheck size={16} />
+                <span>Registry</span>
+              </button>
+              <button
                 onClick={() => setActiveView('history')}
                 className={`flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 cursor-pointer ${
                   activeView === 'history' 
@@ -720,6 +732,17 @@ export default function CommandCenter() {
                 hiredAgents={hiredAgents} 
                 onHire={handleAddAgentToSwarm} 
               />
+            </motion.div>
+          ) : activeView === 'registry' ? (
+            <motion.div
+              key="registry"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+              className="flex-1"
+            >
+              <AgentRegistry />
             </motion.div>
           ) : (
             <motion.div

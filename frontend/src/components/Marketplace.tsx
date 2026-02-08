@@ -23,7 +23,7 @@ const CORE_AGENTS = [
     id: 'bankr',
     name: 'Bankr',
     tagline: 'Execution Engine',
-    description: 'High-speed trade execution and wallet management. Securely handles complex DeFi interactions.',
+    description: 'High-speed trade execution and wallet management on Base. Securely handles complex DeFi interactions.',
     icon: Coins,
     price: 0.0001,
     successRate: 99,
@@ -32,7 +32,9 @@ const CORE_AGENTS = [
     isVerified: true,
     color: 'cyan',
     capabilities: ['trading', 'execution', 'wallet'],
-    tier: 'core' as const
+    tier: 'core' as const,
+    erc8004Id: 'agent:base:0x62c...a2d',
+    reputation: 100
   },
   {
     id: 'scribe',
@@ -47,7 +49,9 @@ const CORE_AGENTS = [
     isVerified: true,
     color: 'gray',
     capabilities: ['summary', 'qa', 'writing'],
-    tier: 'core' as const
+    tier: 'core' as const,
+    erc8004Id: 'agent:base:0x88b...e11',
+    reputation: 97
   },
   {
     id: 'seeker',
@@ -62,7 +66,9 @@ const CORE_AGENTS = [
     isVerified: true,
     color: 'cyan',
     capabilities: ['search', 'research', 'lookup'],
-    tier: 'core' as const
+    tier: 'core' as const,
+    erc8004Id: 'agent:base:0x99a...c55',
+    reputation: 94
   }
 ];
 
@@ -80,7 +86,9 @@ const MARKETPLACE_AGENTS = [
     isVerified: true,
     color: 'gold',
     capabilities: ['analysis', 'prediction', 'trading'],
-    tier: 'marketplace' as const
+    tier: 'marketplace' as const,
+    erc8004Id: 'agent:base:0x72a...f42',
+    reputation: 96
   },
   {
     id: 'aura',
@@ -95,7 +103,9 @@ const MARKETPLACE_AGENTS = [
     isVerified: true,
     color: 'purple',
     capabilities: ['sentiment', 'social', 'monitoring'],
-    tier: 'marketplace' as const
+    tier: 'marketplace' as const,
+    erc8004Id: 'agent:base:0x31b...a12',
+    reputation: 91
   },
   {
     id: 'alphahunter',
@@ -110,7 +120,9 @@ const MARKETPLACE_AGENTS = [
     isVerified: false,
     color: 'green',
     capabilities: ['discovery', 'trading', 'alpha'],
-    tier: 'marketplace' as const
+    tier: 'marketplace' as const,
+    erc8004Id: 'agent:base:0x91e...c88',
+    reputation: 75
   },
   {
     id: 'riskbot',
@@ -125,7 +137,9 @@ const MARKETPLACE_AGENTS = [
     isVerified: true,
     color: 'orange',
     capabilities: ['security', 'audit', 'risk'],
-    tier: 'marketplace' as const
+    tier: 'marketplace' as const,
+    erc8004Id: 'agent:base:0x11d...b22',
+    reputation: 99
   },
   {
     id: 'newsdigest',
@@ -140,7 +154,9 @@ const MARKETPLACE_AGENTS = [
     isVerified: false,
     color: 'cyan',
     capabilities: ['news', 'summary', 'info'],
-    tier: 'marketplace' as const
+    tier: 'marketplace' as const,
+    erc8004Id: 'agent:base:0x22f...d33',
+    reputation: 93
   },
   {
     id: 'whalespy',
@@ -155,7 +171,9 @@ const MARKETPLACE_AGENTS = [
     isVerified: false,
     color: 'purple',
     capabilities: ['tracking', 'whale', 'onchain'],
-    tier: 'marketplace' as const
+    tier: 'marketplace' as const,
+    erc8004Id: 'agent:base:0x55a...e99',
+    reputation: 90
   }
 ];
 

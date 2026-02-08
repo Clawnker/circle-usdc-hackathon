@@ -119,7 +119,7 @@ export function useWebSocket(): UseWebSocketReturn {
                       from: 'dispatcher',
                       to: task.specialist || 'unknown',
                       amount: parseFloat(p.amount) || 0,
-                      token: p.currency || 'SOL',
+                      token: p.currency || 'ETH',
                       txSignature: p.txHash || '',
                       timestamp: p.timestamp || new Date().toISOString(),
                     })));

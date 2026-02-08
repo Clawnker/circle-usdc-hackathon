@@ -17,10 +17,10 @@ interface TaskInputProps {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 const SUGGESTED_PROMPTS = [
-  { icon: TrendingUp, text: "Find trending meme coins", color: "cyan" },
-  { icon: Zap, text: "Price prediction for BONK", color: "purple" },
-  { icon: Coins, text: "Buy 0.1 SOL of top token", color: "pink" },
-  { icon: Sparkles, text: "WIF sentiment analysis", color: "green" },
+  { icon: TrendingUp, text: "Find trending meme coins on Base", color: "cyan" },
+  { icon: Zap, text: "Predict price for USDC/ETH", color: "purple" },
+  { icon: Coins, text: "Send 5 USDC to 0x72a...", color: "pink" },
+  { icon: Sparkles, text: "Base sentiment analysis", color: "green" },
 ];
 
 const SPECIALIST_NAMES: Record<string, string> = {
