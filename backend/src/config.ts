@@ -118,7 +118,23 @@ export const config = {
 
   x402: {
     facilitator: 'https://x402.org/facilitator',
-    network: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+    network: 'eip155:8453',  // Base mainnet
+    solanaNetwork: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',  // Kept for fallback
+  },
+
+  // ERC-8004 Agent Trust Layer
+  erc8004: {
+    identityRegistry: process.env.ERC8004_IDENTITY_REGISTRY || '',
+    reputationRegistry: process.env.ERC8004_REPUTATION_REGISTRY || '',
+    chainId: 8453,  // Base mainnet
+    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+  },
+
+  // Base chain config
+  base: {
+    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+    usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    chainId: 8453,
   }
 };
 

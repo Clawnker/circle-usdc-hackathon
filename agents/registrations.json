@@ -1,0 +1,87 @@
+[
+  {
+    "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    "name": "Hivemind Dispatcher",
+    "description": "Central orchestrator for the Hivemind Protocol. Routes complex prompts to specialist agents, handles multi-hop workflows, and settles USDC micropayments via x402 on Base.",
+    "image": "https://csn-hackathon.vercel.app/hivemind-logo.png",
+    "services": [
+      {
+        "name": "web",
+        "endpoint": "https://csn-hackathon.vercel.app/"
+      },
+      {
+        "name": "MCP",
+        "endpoint": "https://csn-hackathon.onrender.com/mcp",
+        "version": "2025-06-18"
+      }
+    ],
+    "x402Support": true,
+    "active": true,
+    "registrations": [],
+    "supportedTrust": ["reputation"]
+  },
+  {
+    "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    "name": "Magos",
+    "description": "Market analysis specialist. Provides real-time crypto market data, price predictions, and sentiment analysis. Fees: 0.10 USDC per query via x402 on Base.",
+    "image": "https://csn-hackathon.vercel.app/agents/magos.png",
+    "services": [
+      {
+        "name": "x402-endpoint",
+        "endpoint": "https://csn-hackathon.onrender.com/api/specialist/magos"
+      }
+    ],
+    "x402Support": true,
+    "active": true,
+    "registrations": [],
+    "supportedTrust": ["reputation"]
+  },
+  {
+    "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    "name": "Aura",
+    "description": "Social sentiment specialist. Monitors X/Twitter, Moltbook, and other platforms for crypto sentiment and trending narratives. Fees: 0.10 USDC via x402 on Base.",
+    "image": "https://csn-hackathon.vercel.app/agents/aura.png",
+    "services": [
+      {
+        "name": "x402-endpoint",
+        "endpoint": "https://csn-hackathon.onrender.com/api/specialist/aura"
+      }
+    ],
+    "x402Support": true,
+    "active": true,
+    "registrations": [],
+    "supportedTrust": ["reputation"]
+  },
+  {
+    "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    "name": "Bankr",
+    "description": "DeFi execution specialist. Handles token swaps, balance checks, and portfolio operations on Solana and Base. Fees: 0.10 USDC via x402 on Base.",
+    "image": "https://csn-hackathon.vercel.app/agents/bankr.png",
+    "services": [
+      {
+        "name": "x402-endpoint",
+        "endpoint": "https://csn-hackathon.onrender.com/api/specialist/bankr"
+      }
+    ],
+    "x402Support": true,
+    "active": true,
+    "registrations": [],
+    "supportedTrust": ["reputation"]
+  },
+  {
+    "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    "name": "Scribe",
+    "description": "Content and documentation specialist. Generates reports, summaries, and technical documentation. Fees: 0.10 USDC via x402 on Base.",
+    "image": "https://csn-hackathon.vercel.app/agents/scribe.png",
+    "services": [
+      {
+        "name": "x402-endpoint",
+        "endpoint": "https://csn-hackathon.onrender.com/api/specialist/scribe"
+      }
+    ],
+    "x402Support": true,
+    "active": true,
+    "registrations": [],
+    "supportedTrust": ["reputation"]
+  }
+]

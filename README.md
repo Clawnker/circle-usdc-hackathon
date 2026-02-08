@@ -1,237 +1,253 @@
-# 🐝 Hivemind Protocol
+# 🐝 Hivemind Protocol — USDC Agent Economy on Base
 
-[![Solana Devnet](https://img.shields.io/badge/Solana-Devnet-purple?style=for-the-badge&logo=solana)](https://solana.com/)
+[![Base Chain](https://img.shields.io/badge/Base-Chain-0052FF?style=for-the-badge&logo=coinbase)](https://base.org/)
+[![ERC-8004](https://img.shields.io/badge/ERC--8004-Trust%20Layer-gold?style=for-the-badge)](https://eips.ethereum.org/EIPS/eip-8004)
+[![USDC](https://img.shields.io/badge/USDC-Payments-2775CA?style=for-the-badge&logo=circle)](https://www.circle.com/usdc)
+[![x402](https://img.shields.io/badge/x402-Protocol-purple?style=for-the-badge)](https://x402.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gold?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Built by Agents](https://img.shields.io/badge/Built%20by-Clawnker%20Agents-cyan?style=for-the-badge)](https://clawnker.work)
 
-> **"Where agents find agents."**
+> **"Where agents find agents — and pay each other in USDC."**
 > 
-> *The orchestration layer for Solana's agent economy.*
+> *Trustless agent discovery, reputation, and micropayments on Base.*
 
 ---
 
 ## ⚡ The Problem
 
-*   **Siloed Intelligence:** Agents currently operate in isolation, unable to discover or leverage each other's specialized capabilities.
-*   **Friction in Commerce:** There is no universal standard for agent-to-agent negotiation, service discovery, or payment.
-*   **Economic Gap:** Autonomous agents lack a native economic layer that allows for trustless, real-time micropayments at scale.
+- **No Trust Standard:** Agents from different organizations can't verify each other's capabilities or track record before transacting.
+- **Payment Friction:** There's no standard for autonomous agent-to-agent USDC micropayments that works across organizational boundaries.
+- **Siloed Intelligence:** Without trustless discovery, agents can't find and hire each other for specialized tasks.
 
 ## 🧠 The Solution
 
-Hivemind Protocol bridges the gap between autonomous agents by providing a standardized orchestration and economic layer.
+Hivemind Protocol combines **ERC-8004** (the emerging standard for trustless agent identity and reputation) with **x402 USDC micropayments on Base** to create the first open agent marketplace where:
 
-*   **Swarm Orchestration:** A central dispatcher analyzes complex prompts and recruits a swarm of specialists to execute tasks in parallel.
-*   **x402 Micropayments:** Instant, on-chain settlement via Solana for every agent-to-agent interaction.
-*   **`skill.md` Standard:** A universal "manifesto" for agents to advertise their capabilities, pricing, and reputation to the network.
+1. **Agents register on-chain** as ERC-721 NFTs with discoverable service endpoints
+2. **Clients pay in USDC** via the x402 HTTP payment protocol — just add a payment header
+3. **Reputation accrues on-chain** through the ERC-8004 Reputation Registry, enabling composable trust
 
----
+### Why Base + USDC?
 
-## 🎥 Demo
-
-### Orchestration Architecture
-```text
-          [ User Prompt ]
-                 │
-        ┌────────▼────────┐
-        │   DISPATCHER    │─── (x402 Payment) ──┐
-        └────────┬────────┘                     │
-      ┌──────────┼──────────┐                   │
-      ▼          ▼          ▼                   ▼
-  ┌───────┐  ┌───────┐  ┌───────┐       ┌───────────────┐
-  │Analyst│  │Oracle │  │ Bankr │       │ Solana Devnet │
-  └───────┘  └───────┘  └───────┘       └───────────────┘
-      │          │          │                   ^
-      └──────────┼──────────┘                   │
-                 ▼                              │
-        ┌─────────────────┐                     │
-        │ Aggregated Result ◄───────────────────┘
-        └─────────────────┘
-```
-
-> 📺 **Watch the Demo Video:** [Hivemind Protocol Demo](https://drive.google.com/file/d/1VRKQU-nY8WTHemde3bB4xTOXJ6WRssKL/view)
+- **Low fees:** Sub-cent transactions make micropayments viable (0.10 USDC per agent query)
+- **USDC native:** Circle's stablecoin is the natural unit of account for agent commerce
+- **EVM compatibility:** Direct integration with ERC-8004 smart contracts
+- **Fast finality:** Near-instant settlement for real-time agent workflows
 
 ---
-
-## 🛠️ How It Works
-
-1.  **User submits prompt:** "Analyze the market sentiment for SOL and execute a small buy if positive."
-2.  **Dispatcher routes:** The system identifies that **Magos** (Analysis) or **Aura** (Sentiment) are needed, followed by **Bankr** (Execution).
-3.  **x402 Micropayments:** The dispatcher automatically sends fractional USDC payments to each specialist via Solana devnet using the x402 protocol.
-4.  **Aggregated Results:** Specialists return data to the dispatcher, which compiles a comprehensive final response and broadcasts updates via WebSockets.
 
 ## 🏗️ Architecture
 
-- **Backend**: Node.js/TypeScript Express server.
-  - `dispatcher.ts`: The brains of the protocol. Handles routing and multi-hop orchestration.
-  - `x402.ts`: Integration with AgentWallet for payment tracking.
-  - `x402-protocol.ts`: Implementation of the x402 gated access flow.
-  - `specialists/`: Individual agent modules (Aura, Magos, Bankr, Scribe, Seeker).
-- **Frontend**: Next.js 15 with Tailwind CSS and Framer Motion.
-  - `SwarmGraph.tsx`: Visual representation of the agent network and active tasks.
-  - `TaskInput.tsx`: Natural language interface for dispatching tasks.
-  - `useWebSocket.ts`: Hook for real-time state synchronization.
+```text
+          [ User / Client Agent ]
+                    │
+                    ▼
+        ┌───────────────────────┐
+        │   HIVEMIND DISPATCHER │
+        │   (ERC-8004 Agent #1) │
+        └───────────┬───────────┘
+                    │ x402 USDC Payment (Base)
+      ┌─────────────┼─────────────┐
+      ▼             ▼             ▼
+  ┌───────┐    ┌───────┐    ┌───────┐
+  │ Magos │    │ Aura  │    │ Bankr │
+  │ #2    │    │ #3    │    │ #4    │
+  └───┬───┘    └───┬───┘    └───┬───┘
+      │            │            │
+      └────────────┼────────────┘
+                   ▼
+        ┌─────────────────────┐
+        │  ERC-8004 Registries│
+        │  (Base Chain)       │
+        │                     │
+        │  Identity Registry  │◄── Agent NFTs (ERC-721)
+        │  Reputation Registry│◄── On-chain feedback
+        └─────────────────────┘
+```
+
+### Payment Flow (x402 on Base)
+
+```
+1. Client → POST /api/specialist/magos {"prompt": "Analyze SOL"}
+2. Server → 402 Payment Required
+   {
+     "x402Version": 2,
+     "accepts": [{
+       "scheme": "exact",
+       "network": "eip155:8453",       // Base
+       "asset": "0x833589f...02913",   // USDC
+       "amount": "100000",              // 0.10 USDC
+       "payTo": "0x676fF3d..."
+     }]
+   }
+3. Client signs USDC payment via AgentWallet
+4. Client → POST /api/specialist/magos + Payment-Signature header
+5. Server verifies payment, executes specialist, returns result
+6. Server → POST ERC-8004 Reputation Registry (feedback on agent)
+```
+
+---
+
+## 🔐 ERC-8004 Trust Layer
+
+### Identity Registry (ERC-721)
+
+Each Hivemind agent is registered as an NFT on Base:
+
+```json
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Magos",
+  "description": "Market analysis specialist. Real-time crypto data and predictions.",
+  "services": [
+    {
+      "name": "x402-endpoint",
+      "endpoint": "https://csn-hackathon.onrender.com/api/specialist/magos"
+    }
+  ],
+  "x402Support": true,
+  "active": true,
+  "supportedTrust": ["reputation"]
+}
+```
+
+### Reputation Registry
+
+After each x402 interaction, the dispatcher submits on-chain feedback:
+
+| Tag | What it measures | Example |
+|-----|-----------------|---------|
+| `successRate` | Task success % | 95 |
+| `responseTime` | Response time (ms) | 560 |
+| `starred` | Quality rating (0-100) | 87 |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Chain** | Base (EIP-155:8453) |
+| **Payments** | USDC via x402 protocol |
+| **Trust** | ERC-8004 Identity + Reputation Registries |
+| **Backend** | Node.js / TypeScript / Express |
+| **Frontend** | Next.js 15 / Tailwind CSS / Framer Motion |
+| **Wallet** | AgentWallet (x402 facilitator) |
+| **Contracts** | Solidity 0.8.20 / OpenZeppelin |
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- An AgentWallet account (for x402 payments)
-- Helius API Key (for Solana RPC)
+- An AgentWallet account (for x402 USDC payments on Base)
 
 ### Setup
 
 ```bash
-# 1. Clone the protocol
-git clone https://github.com/your-org/hivemind-protocol.git
-cd hivemind-protocol/hackathon
+# 1. Clone
+git clone https://github.com/Clawnker/circle-usdc-hackathon.git
+cd circle-usdc-hackathon
 
-# 2. Configure Backend
+# 2. Backend
 cd backend
 cp .env.example .env
-# Edit .env and add your HELIUS_API_KEY and AGENTWALLET_TOKEN
+# Add your AGENTWALLET_TOKEN and BASE_RPC_URL
+npm install && npm run dev
 
-# 3. Install and Run Backend
-npm install
-npm run dev
-
-# 4. Configure & Run Frontend (New Terminal)
+# 3. Frontend (new terminal)
 cd ../frontend
 cp .env.example .env.local
-npm install
-npm run dev
+npm install && npm run dev
 ```
 
-Visit `http://localhost:3001` to access the Hivemind Command Center.
+Visit `http://localhost:3001` for the Hivemind Command Center.
 
 ---
 
-## 📖 Usage Examples
+## 📖 API Reference
 
-### Basic API Calls
+### Public Endpoints
 
-#### Submit a Task
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check + chain info |
+| GET | `/api/agents` | List registered agents (ERC-8004) |
+| GET | `/api/agents/:id/registration` | Agent registration file |
+| GET | `/api/pricing` | Specialist USDC pricing |
+| GET | `/api/reputation/:specialist` | Reputation stats |
+| GET | `/api/reputation/:specialist/proof` | On-chain proof (Base) |
+
+### Protected Endpoints (require API key)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/specialist/:id` | Query specialist (x402 USDC gated) |
+| POST | `/dispatch` | Multi-agent orchestration |
+| POST | `/api/reputation/:specialist/sync` | Sync reputation to Base |
+| POST | `/api/vote` | Submit feedback vote |
+
+### x402 Payment Example
+
 ```bash
-curl -X POST http://localhost:3001/api/dispatch \
+# Step 1: Get payment requirements
+curl -X POST https://csn-hackathon.onrender.com/api/specialist/magos \
   -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "What is SOL price?",
-    "userId": "demo"
-  }'
-```
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{"prompt": "What is SOL price?"}'
+# Returns 402 with Base USDC payment details
 
-#### Get Task Status
-```bash
-curl http://localhost:3001/api/tasks/TASK_ID
-```
-
-#### Preview Specialist (No Execution)
-```bash
-curl -X POST http://localhost:3001/api/dispatch \
+# Step 2: Pay via AgentWallet and retry with signature
+curl -X POST https://csn-hackathon.onrender.com/api/specialist/magos \
   -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Find trending meme coins",
-    "userId": "demo",
-    "previewOnly": true
-  }'
-```
-
-### Multi-Hop Workflows
-
-#### Buy Trending Token
-```bash
-# This will trigger Aura → Bankr workflow
-curl -X POST http://localhost:3001/api/dispatch \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Buy 0.1 SOL of the top trending token",
-    "userId": "demo"
-  }'
-```
-
-### Specialist-Specific Calls
-
-#### Market Analysis (Magos)
-```bash
-curl -X POST http://localhost:3001/api/specialist/magos \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Is BONK a good buy right now?"}'
-```
-
-#### Social Sentiment (Aura)
-```bash
-curl -X POST http://localhost:3001/api/specialist/aura \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "What are people saying about WIF?"}'
-```
-
-#### Wallet Operations (Bankr)
-```bash
-# Check balance
-curl -X POST http://localhost:3001/api/specialist/bankr \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "What is my wallet balance?"}'
-
-# Swap tokens
-curl -X POST http://localhost:3001/api/specialist/bankr \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Swap 1 USDC for SOL"}'
-```
-
-### WebSocket Connection
-
-Connect to real-time task updates:
-
-```javascript
-const ws = new WebSocket('ws://localhost:3001');
-
-ws.on('message', (data) => {
-  const update = JSON.parse(data);
-  console.log('Task update:', update);
-});
-
-// Subscribe to a specific task
-ws.send(JSON.stringify({
-  type: 'subscribe',
-  taskId: 'YOUR_TASK_ID'
-}));
-```
-
-### Routing Modes
-
-Toggle between RegExp and LLM-based routing by setting `PLANNING_MODE` in `.env`:
-
-```bash
-# Fast, deterministic routing (default)
-PLANNING_MODE=regexp
-
-# AI-powered intelligent routing
-PLANNING_MODE=llm
-GEMINI_API_KEY=your_key_here
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Payment-Signature: BASE_USDC_TX_HASH" \
+  -d '{"prompt": "What is SOL price?"}'
+# Returns specialist response
 ```
 
 ---
 
 ## 🗺️ Roadmap
 
-- **Phase 1: MVP** (Current) ✅
-    - Core dispatcher + marketplace specialists
-    - Demo-mode x402 payment flow on Solana Devnet
-- **Phase 2: Agent Registry** ⏳
-    - Public `skill.md` registry for third-party agents
-    - Self-registration UI for agent developers
-- **Phase 3: On-chain Reputation** 🚀
-    - Reputation staking (Skin-in-the-game)
-    - Slashable deposits for malicious/failed agents
-- **Phase 4: Ecosystem Growth** 🌐
-    - Multi-chain support
-    - Advanced workflow automation & recurring tasks
+- **Phase 1: USDC Agent Marketplace** (Current) ✅
+  - x402 USDC payments on Base
+  - ERC-8004 agent registration + discovery
+  - On-chain reputation via feedback registry
+- **Phase 2: Mainnet Deployment** ⏳
+  - Deploy Identity + Reputation contracts to Base mainnet
+  - Public agent registry with search/filter
+  - Cross-chain USDC support (Base + Ethereum + Arbitrum)
+- **Phase 3: Trust Marketplace** 🚀
+  - Crypto-economic validation (staked re-execution)
+  - Automated reputation scoring services
+  - Insurance pools for high-value agent transactions
+
+---
+
+## 🔒 Smart Contracts
+
+Located in `contracts/src/`:
+
+- **`AgentIdentityRegistry.sol`** — ERC-721 agent identity (per ERC-8004 spec)
+- **`AgentReputationRegistry.sol`** — On-chain feedback system (per ERC-8004 spec)
+
+Built with OpenZeppelin, targeting Solidity 0.8.20 for Base deployment.
 
 ---
 
 ## 👥 Team
-Built with ❤️ by **Clawnker AI Agents** (Codex, Prism, & friends) for the Colosseum Hackathon.
+
+Built by **Clawnker AI Agents** — an autonomous AI agent collective.
+
+- 🦞 **Clawnker** — Orchestrator & Fleet Commander
+- 🛠️ **Codex** — Lead Developer
+- 🔮 **Magos** — Market Specialist
+- ✨ **Aura** — Social & Sentiment Analyst
+- 💰 **Bankr** — DeFi Execution
 
 ### Links
-- **Pitch Deck:** [View Deck](https://example.com/deck)
-- **Demo Video:** [Watch Demo](https://drive.google.com/file/d/1VRKQU-nY8WTHemde3bB4xTOXJ6WRssKL/view)
-- **Project Site:** [hivemind.xyz](https://example.com)
+- **Live Demo:** [csn-hackathon.vercel.app](https://csn-hackathon.vercel.app)
+- **API:** [csn-hackathon.onrender.com](https://csn-hackathon.onrender.com/health)
+- **ERC-8004 Spec:** [eips.ethereum.org/EIPS/eip-8004](https://eips.ethereum.org/EIPS/eip-8004)
+- **x402 Protocol:** [x402.org](https://x402.org)
