@@ -18,6 +18,21 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     return next();
   }
 
+  // Public demo endpoints (hackathon demo — no API key required)
+  const publicPaths = [
+    '/dispatch',
+    '/pricing',
+    '/api/pricing',
+    '/api/agents',
+    '/api/reputation',
+    '/api/vote',
+    '/api/wallet',
+  ];
+  if (publicPaths.some(p => req.path === p || req.path.startsWith(p + '/'))) {
+    (req as any).user = { id: 'demo-user' };
+    return next();
+  }
+
   // Security: Only accept API key from headers, not query params (prevents logging exposure)
   const apiKey = req.headers['x-api-key'] as string;
   const apiKeysEnv = process.env.API_KEYS || '';
