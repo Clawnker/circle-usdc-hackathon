@@ -192,10 +192,64 @@ export function useWebSocket(): UseWebSocketReturn {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: 'subscribe', taskId }));
     }
+    
+    // HTTP polling fallback — polls /status/:taskId every 2s until completed/failed
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/status/${taskId}`);
+        if (!res.ok) return;
+        const task = await res.json();
+        
+        if (task.status) setTaskStatus(task.status);
+        if (task.specialist) {
+          const activeSpecialist = task.metadata?.activeSpecialist || task.specialist;
+          setCurrentStep({ specialist: activeSpecialist, action: task.status });
+        }
+        if (task.messages?.length > 0) {
+          setMessages(task.messages.map((m: any) => ({
+            id: m.id || `${Date.now()}-${Math.random()}`,
+            from: m.from || 'unknown',
+            to: m.to || 'unknown',
+            content: m.content || '',
+            timestamp: m.timestamp || new Date().toISOString(),
+          })));
+        }
+        if (task.payments?.length > 0) {
+          setPayments(task.payments.map((p: any, i: number) => ({
+            id: `${Date.now()}-${i}`,
+            from: 'dispatcher',
+            to: task.specialist || 'unknown',
+            amount: parseFloat(p.amount) || 0,
+            token: p.currency || 'USDC',
+            txSignature: p.txHash || '',
+            timestamp: p.timestamp || new Date().toISOString(),
+          })));
+        }
+        if (task.status === 'completed' && task.result) {
+          setResult(task.result);
+          clearInterval(pollInterval);
+        }
+        if (task.status === 'failed') {
+          clearInterval(pollInterval);
+        }
+      } catch (err) {
+        console.error('Poll fallback error:', err);
+      }
+    }, 2000);
+    
+    // Clean up polling after 60s max
+    setTimeout(() => clearInterval(pollInterval), 60000);
+    
+    // Store interval for cleanup
+    (subscribedTaskRef as any)._pollInterval = pollInterval;
   }, []);
 
   const unsubscribe = useCallback((taskId: string) => {
     subscribedTaskRef.current = null;
+    if ((subscribedTaskRef as any)._pollInterval) {
+      clearInterval((subscribedTaskRef as any)._pollInterval);
+    }
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: 'unsubscribe', taskId }));
     }
