@@ -392,18 +392,45 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
 // Uses simulated devnet balances from bankr specialist
 app.get('/api/wallet/balances', async (req: Request, res: Response) => {
   try {
-    const simulated = await getSimulatedBalances();
+    // Fetch real on-chain balances from Base Sepolia
+    const treasuryAddress = process.env.TREASURY_WALLET_EVM || '0x676fF3d546932dE6558a267887E58e39f405B135';
+    const usdcAddress = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia USDC
+    const paddedAddr = treasuryAddress.replace('0x', '').toLowerCase().padStart(64, '0');
+
+    let evmEth = 0;
+    let evmUsdc = 0;
+
+    try {
+      const axios = require('axios');
+      const [ethRes, usdcRes] = await Promise.all([
+        axios.post('https://sepolia.base.org', {
+          jsonrpc: '2.0', method: 'eth_getBalance',
+          params: [treasuryAddress, 'latest'], id: 1
+        }),
+        axios.post('https://sepolia.base.org', {
+          jsonrpc: '2.0', method: 'eth_call',
+          params: [{ to: usdcAddress, data: `0x70a08231${paddedAddr}` }, 'latest'], id: 2
+        })
+      ]);
+
+      evmEth = parseInt(ethRes.data?.result || '0x0', 16) / 1e18;
+      evmUsdc = parseInt(usdcRes.data?.result || '0x0', 16) / 1e6;
+      console.log(`[Wallet API] Base Sepolia balance: ${evmEth} ETH, ${evmUsdc} USDC`);
+    } catch (rpcErr: any) {
+      console.error('[Wallet API] Base Sepolia RPC failed:', rpcErr.message);
+    }
+
     res.json({
-      solana: {
-        sol: simulated.sol,
-        usdc: simulated.usdc,
-        bonk: simulated.bonk,
+      base: {
+        eth: evmEth,
+        usdc: evmUsdc,
       },
-      evm: { eth: 0, usdc: 0 },
-      transactions: simulated.transactions.slice(-10), // Last 10 transactions
+      chain: 'Base Sepolia (EIP-155:84532)',
+      treasury: treasuryAddress,
+      explorer: `https://sepolia.basescan.org/address/${treasuryAddress}`,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message, solana: { sol: 0, usdc: 0 }, evm: { eth: 0, usdc: 0 } });
+    res.status(500).json({ error: error.message, base: { eth: 0, usdc: 0 } });
   }
 });
 
