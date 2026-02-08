@@ -15,7 +15,7 @@ interface TokenBalance {
   color: string;
 }
 
-const TREASURY_ADDRESS = '0xc7a0445d4149999666b2a2d7G8GuMaH5TnGNWdCQ'; // Placeholder EVM address
+const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135'; // AgentWallet EVM treasury on Base
 const AGENTWALLET_USERNAME = 'claw';
 
 // Token display config
@@ -105,7 +105,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
 
   const openBasescan = () => {
     window.open(
-      `https://sepolia.basescan.org/address/${TREASURY_ADDRESS}`,
+      `https://basescan.org/address/${TREASURY_ADDRESS}`,
       '_blank'
     );
   };

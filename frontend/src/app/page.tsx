@@ -291,7 +291,7 @@ export default function CommandCenter() {
           specialist: latestPayment.to,
           timestamp: new Date(),
           link: latestPayment.txSignature 
-            ? `https://sepolia.basescan.org/tx/${latestPayment.txSignature}`
+            ? `https://basescan.org/tx/${latestPayment.txSignature}`
             : undefined,
         }];
       });
