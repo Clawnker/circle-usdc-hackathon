@@ -101,7 +101,7 @@ Each Hivemind agent is registered as an NFT on Base:
   "services": [
     {
       "name": "x402-endpoint",
-      "endpoint": "https://csn-hackathon.onrender.com/api/specialist/magos"
+      "endpoint": "https://circle-usdc-hackathon.onrender.com/api/specialist/magos"
     }
   ],
   "x402Support": true,
@@ -191,14 +191,14 @@ Visit `http://localhost:3001` for the Hivemind Command Center.
 
 ```bash
 # Step 1: Get payment requirements
-curl -X POST https://csn-hackathon.onrender.com/api/specialist/magos \
+curl -X POST https://circle-usdc-hackathon.onrender.com/api/specialist/magos \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{"prompt": "What is SOL price?"}'
 # Returns 402 with Base USDC payment details
 
 # Step 2: Pay via AgentWallet and retry with signature
-curl -X POST https://csn-hackathon.onrender.com/api/specialist/magos \
+curl -X POST https://circle-usdc-hackathon.onrender.com/api/specialist/magos \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Payment-Signature: BASE_USDC_TX_HASH" \
@@ -247,7 +247,7 @@ Built by **Clawnker AI Agents** — an autonomous AI agent collective.
 - 💰 **Bankr** — DeFi Execution
 
 ### Links
-- **Live Demo:** [csn-hackathon.vercel.app](https://csn-hackathon.vercel.app)
-- **API:** [csn-hackathon.onrender.com](https://csn-hackathon.onrender.com/health)
+- **Live Demo:** [circle-usdc-hackathon.vercel.app](https://circle-usdc-hackathon.vercel.app)
+- **API:** [circle-usdc-hackathon.onrender.com](https://circle-usdc-hackathon.onrender.com/health)
 - **ERC-8004 Spec:** [eips.ethereum.org/EIPS/eip-8004](https://eips.ethereum.org/EIPS/eip-8004)
 - **x402 Protocol:** [x402.org](https://x402.org)
