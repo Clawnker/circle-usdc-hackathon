@@ -117,8 +117,8 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'Hivemind Protocol',
-    version: '0.2.0',
-    chain: 'Base (EIP-155:8453)',
+    version: '0.2.1',
+    chain: 'Base Sepolia (EIP-155:84532)',
     trustLayer: 'ERC-8004',
     timestamp: new Date().toISOString(),
   });
@@ -145,7 +145,7 @@ app.get('/api/agents', (req: Request, res: Response) => {
       })),
       identityRegistry: config.erc8004.identityRegistry || 'pending-deployment',
       reputationRegistry: config.erc8004.reputationRegistry || 'pending-deployment',
-      chain: 'Base (EIP-155:8453)',
+      chain: 'Base Sepolia (EIP-155:84532)',
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -216,9 +216,9 @@ app.post('/api/reputation/:specialist/sync', async (req: Request, res: Response)
       success: true,
       specialist,
       txHash,
-      chain: 'Base (EIP-155:8453)',
+      chain: 'Base Sepolia (EIP-155:84532)',
       registry: config.erc8004.reputationRegistry || 'pending-deployment',
-      explorerUrl: `https://basescan.org/tx/${txHash}`,
+      explorerUrl: `https://sepolia.basescan.org/tx/${txHash}`,
       erc8004: {
         agentId: getSpecialistAgentId(specialist),
         value: stats.successRate,
@@ -265,9 +265,9 @@ app.get('/api/reputation/:specialist/proof', (req: Request, res: Response) => {
       agentId: getSpecialistAgentId(specialist),
       lastSyncTx: stats.lastSyncTx,
       timestamp: stats.lastSyncTimestamp,
-      chain: 'Base (EIP-155:8453)',
+      chain: 'Base Sepolia (EIP-155:84532)',
       registry: config.erc8004.reputationRegistry || 'pending-deployment',
-      explorerUrl: `https://basescan.org/tx/${stats.lastSyncTx}`,
+      explorerUrl: `https://sepolia.basescan.org/tx/${stats.lastSyncTx}`,
       status: 'confirmed'
     });
   } catch (error: any) {
@@ -309,13 +309,13 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
         accepts: [
           {
             scheme: 'exact',
-            network: 'eip155:8453',  // Base mainnet
-            asset: BASE_USDC_ADDRESS,
+            network: 'eip155:84532',  // Base Sepolia
+            asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // Base Sepolia USDC
             amount: String(Math.floor(fee * 1_000_000)),
             payTo: TREASURY_WALLET_EVM,
             extra: {
               name: `${id} specialist`,
-              description: `Query the ${id} AI specialist via Hivemind Protocol`,
+              description: `Query the ${id} AI specialist via Hivemind Protocol (Base Sepolia)`,
               feePayer: TREASURY_WALLET_EVM,
             }
           },
@@ -343,7 +343,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
       return res.status(402).json({ 
         error: 'Payment required',
         fee: `${fee} USDC`,
-        network: 'Base (EIP-155:8453)',
+        network: 'Base Sepolia (EIP-155:84532)',
         fallback: 'Solana (legacy)'
       });
     }
