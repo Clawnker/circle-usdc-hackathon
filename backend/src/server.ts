@@ -106,7 +106,7 @@ setInterval(() => {
 const TREASURY_WALLET_SOLANA = '5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1';
 const TREASURY_WALLET_EVM = '0x676fF3d546932dE6558a267887E58e39f405B135';
 const DEVNET_USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
-const BASE_USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const BASE_USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia USDC
 
 // --- PUBLIC ROUTES ---
 
@@ -371,7 +371,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
       // - The facilitator's signature against known public keys
       // - The payment amount >= specialist fee
       // - The recipient matches our treasury address
-      // - The chain is Base (EIP-155:8453)
+      // - The chain is Base Sepolia (EIP-155:84532)
       // For hackathon demo, we validate format + replay protection
       
       // Mark signature as used and persist (replay protection)

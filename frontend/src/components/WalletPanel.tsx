@@ -105,7 +105,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
 
   const openBasescan = () => {
     window.open(
-      `https://basescan.org/address/${TREASURY_ADDRESS}`,
+      `https://sepolia.basescan.org/address/${TREASURY_ADDRESS}`,
       '_blank'
     );
   };

@@ -51,8 +51,8 @@ export function AgentRegistry() {
           owner: a.owner || '0x676fF3d546932dE6558a267887E58e39f405B135',
           reputation: a.reputation ?? (a.active ? 95 : 50),
           tags: a.supportedTrust || a.tags || ['x402'],
-          registrationUrl: a.registrationUrl || `https://basescan.org/address/0x676fF3d546932dE6558a267887E58e39f405B135`,
-          chain: a.chain || 'Base (EIP-155:8453)',
+          registrationUrl: a.registrationUrl || `https://sepolia.basescan.org/address/0x676fF3d546932dE6558a267887E58e39f405B135`,
+          chain: a.chain || 'Base Sepolia (EIP-155:84532)',
           trustLayer: a.trustLayer || (a.supportedTrust?.includes('reputation') ? 'ERC-8004' : 'none'),
         }));
         setAgents(mapped);

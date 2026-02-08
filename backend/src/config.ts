@@ -118,7 +118,7 @@ export const config = {
 
   x402: {
     facilitator: 'https://x402.org/facilitator',
-    network: 'eip155:8453',  // Base mainnet
+    network: 'eip155:84532',  // Base Sepolia testnet
     solanaNetwork: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',  // Kept for fallback
   },
 
@@ -126,15 +126,15 @@ export const config = {
   erc8004: {
     identityRegistry: process.env.ERC8004_IDENTITY_REGISTRY || '',
     reputationRegistry: process.env.ERC8004_REPUTATION_REGISTRY || '',
-    chainId: 8453,  // Base mainnet
-    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
+    chainId: 84532,  // Base Sepolia testnet
+    rpcUrl: process.env.BASE_RPC_URL || 'https://sepolia.base.org',
   },
 
   // Base chain config
   base: {
-    rpcUrl: process.env.BASE_RPC_URL || 'https://mainnet.base.org',
-    usdcAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-    chainId: 8453,
+    rpcUrl: process.env.BASE_RPC_URL || 'https://sepolia.base.org',
+    usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+    chainId: 84532,
   }
 };
 

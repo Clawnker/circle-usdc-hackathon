@@ -88,15 +88,15 @@ export async function getBalances(): Promise<{
     // Even if AgentWallet fails, try on-chain check
     try {
       const treasuryAddress = process.env.TREASURY_WALLET_EVM || '0x676fF3d546932dE6558a267887E58e39f405B135';
-      const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+      const usdcAddress = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia USDC
       const paddedAddr = treasuryAddress.replace('0x', '').toLowerCase().padStart(64, '0');
       
       const [ethRes, usdcRes] = await Promise.all([
-        axios.post('https://mainnet.base.org', {
+        axios.post('https://sepolia.base.org', {
           jsonrpc: '2.0', method: 'eth_getBalance',
           params: [treasuryAddress, 'latest'], id: 1
         }),
-        axios.post('https://mainnet.base.org', {
+        axios.post('https://sepolia.base.org', {
           jsonrpc: '2.0', method: 'eth_call',
           params: [{ to: usdcAddress, data: `0x70a08231${paddedAddr}` }, 'latest'], id: 2
         })
