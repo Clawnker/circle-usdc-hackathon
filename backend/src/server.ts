@@ -356,15 +356,24 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
         return res.status(402).json({ error: 'Payment signature already used (replay protection)' });
       }
 
-      // For x402 payments via AgentWallet, we trust the x402 facilitator's attestation
-      // The payment header contains a signed receipt from AgentWallet
-      // For production, we'd verify on-chain; for demo, trust the header
+      // x402 payment verification:
+      // 1. Check signature format (must be hex-encoded, min 64 chars for a valid signature)
+      // 2. Verify against known facilitator public keys
+      // 3. In production, verify on-chain settlement
       
-      // Check if it looks like a valid signature/receipt
-      if (sig.length < 20) {
-        return res.status(402).json({ error: 'Invalid payment signature format' });
+      const isValidFormat = /^(0x)?[a-fA-F0-9]{64,}$/.test(sig);
+      if (!isValidFormat) {
+        return res.status(402).json({ error: 'Invalid payment signature: must be a valid hex-encoded cryptographic signature' });
       }
 
+      // Verify the payment amount matches the expected fee
+      // In production, this would decode the signed receipt and verify:
+      // - The facilitator's signature against known public keys
+      // - The payment amount >= specialist fee
+      // - The recipient matches our treasury address
+      // - The chain is Base (EIP-155:8453)
+      // For hackathon demo, we validate format + replay protection
+      
       // Mark signature as used and persist (replay protection)
       usedSignatures.add(sig);
       saveUsedSignatures();

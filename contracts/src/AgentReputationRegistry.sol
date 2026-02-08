@@ -8,6 +8,7 @@ pragma solidity ^0.8.20;
  */
 contract AgentReputationRegistry {
     address public identityRegistry;
+    address public immutable owner;
     bool private _initialized;
 
     struct Feedback {
@@ -57,11 +58,17 @@ contract AgentReputationRegistry {
         _;
     }
 
+    constructor() {
+        owner = msg.sender;
+    }
+
     /**
      * @notice Initialize with the Identity Registry address
+     * @dev Can only be called by the contract deployer (owner)
      */
     function initialize(address identityRegistry_) external {
         require(!_initialized, "Already initialized");
+        require(msg.sender == owner, "Only owner can initialize");
         require(identityRegistry_ != address(0), "Zero address");
         identityRegistry = identityRegistry_;
         _initialized = true;
