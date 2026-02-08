@@ -361,9 +361,9 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
       // 2. Verify against known facilitator public keys
       // 3. In production, verify on-chain settlement
       
-      const isValidFormat = /^(0x)?[a-fA-F0-9]{64,}$/.test(sig);
+      const isValidFormat = sig.length >= 20 && /^[a-zA-Z0-9_\-.:=+/]+$/.test(sig);
       if (!isValidFormat) {
-        return res.status(402).json({ error: 'Invalid payment signature: must be a valid hex-encoded cryptographic signature' });
+        return res.status(402).json({ error: 'Invalid payment signature format' });
       }
 
       // Verify the payment amount matches the expected fee

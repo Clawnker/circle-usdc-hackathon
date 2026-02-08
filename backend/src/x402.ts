@@ -47,30 +47,29 @@ export async function getBalances(): Promise<{
     let evmUsdc = evmUsdcBalance ? parseFloat(evmUsdcBalance.rawValue) / Math.pow(10, evmUsdcBalance.decimals) : 0;
     let evmEth = ethBalance ? parseFloat(ethBalance.rawValue) / Math.pow(10, ethBalance.decimals) : 0;
     
-    // If AgentWallet reports 0, check on-chain directly via Base RPC
-    if (evmUsdc === 0) {
-      try {
-        const treasuryAddress = process.env.TREASURY_WALLET_EVM || '0x676fF3d546932dE6558a267887E58e39f405B135';
-        const usdcAddress = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-        const paddedAddr = treasuryAddress.replace('0x', '').toLowerCase().padStart(64, '0');
-        
-        const [ethRes, usdcRes] = await Promise.all([
-          axios.post('https://mainnet.base.org', {
-            jsonrpc: '2.0', method: 'eth_getBalance',
-            params: [treasuryAddress, 'latest'], id: 1
-          }),
-          axios.post('https://mainnet.base.org', {
-            jsonrpc: '2.0', method: 'eth_call',
-            params: [{ to: usdcAddress, data: `0x70a08231${paddedAddr}` }, 'latest'], id: 2
-          })
-        ]);
-        
-        evmEth = parseInt(ethRes.data?.result || '0x0', 16) / 1e18;
-        evmUsdc = parseInt(usdcRes.data?.result || '0x0', 16) / 1e6;
-        console.log(`[Wallet] On-chain Base balance: ${evmEth} ETH, ${evmUsdc} USDC`);
-      } catch (rpcErr: any) {
-        console.error('[Wallet] Base RPC fallback failed:', rpcErr.message);
-      }
+    // Check on-chain via Base Sepolia testnet RPC
+    try {
+      const treasuryAddress = process.env.TREASURY_WALLET_EVM || '0x676fF3d546932dE6558a267887E58e39f405B135';
+      // Base Sepolia USDC testnet address
+      const usdcAddress = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+      const paddedAddr = treasuryAddress.replace('0x', '').toLowerCase().padStart(64, '0');
+      
+      const [ethRes, usdcRes] = await Promise.all([
+        axios.post('https://sepolia.base.org', {
+          jsonrpc: '2.0', method: 'eth_getBalance',
+          params: [treasuryAddress, 'latest'], id: 1
+        }),
+        axios.post('https://sepolia.base.org', {
+          jsonrpc: '2.0', method: 'eth_call',
+          params: [{ to: usdcAddress, data: `0x70a08231${paddedAddr}` }, 'latest'], id: 2
+        })
+      ]);
+      
+      evmEth = parseInt(ethRes.data?.result || '0x0', 16) / 1e18;
+      evmUsdc = parseInt(usdcRes.data?.result || '0x0', 16) / 1e6;
+      console.log(`[Wallet] On-chain Base Sepolia balance: ${evmEth} ETH, ${evmUsdc} USDC`);
+    } catch (rpcErr: any) {
+      console.error('[Wallet] Base Sepolia RPC fallback failed:', rpcErr.message);
     }
     
     return {

@@ -317,7 +317,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
         <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
           <div className="flex items-center gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            <span>Base Mainnet</span>
+            <span>Base Sepolia</span>
           </div>
           {lastUpdated && (
             <span>Updated {lastUpdated.toLocaleTimeString()}</span>
