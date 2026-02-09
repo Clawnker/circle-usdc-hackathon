@@ -54,7 +54,9 @@ export type SpecialistType =
   | 'alphahunter' 
   | 'riskbot' 
   | 'newsdigest' 
-  | 'whalespy';
+  | 'whalespy'
+  | 'sentinel'
+  | (string & {}); // Allow external agent IDs
 
 export interface SpecialistPricing {
   fee: string;

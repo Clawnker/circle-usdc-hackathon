@@ -181,6 +181,20 @@ const SPECIALIST_INFO: Record<SpecialistType, {
     ],
     defaultPrompt: 'You are Seeker, a web research specialist. Use search results to provide accurate and detailed information to the user.',
   },
+  sentinel: {
+    name: 'Sentinel',
+    description: 'Smart Contract Security Auditor',
+    fullDescription: 'An autonomous external agent hosted on Google Cloud Run. Analyzes smart contracts for vulnerabilities using Gemini AI. Fetches contract source from block explorers and provides detailed security reports with severity ratings.',
+    icon: Search,
+    color: '#ef4444',
+    capabilities: [
+      'Smart contract security audits',
+      'Vulnerability scanning',
+      'Compliance checks',
+      'Gas optimization analysis',
+    ],
+    defaultPrompt: 'Audit the smart contract at [address] on [chain] for security vulnerabilities.',
+  },
 };
 
 export function AgentDetailModal({ 

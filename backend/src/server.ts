@@ -350,6 +350,7 @@ function getSpecialistAgentId(specialist: string): number {
     'bankr': 4,
     'scribe': 5,
     'seeker': 5,
+    'sentinel': 6,
   };
   return mapping[specialist] || 0;
 }

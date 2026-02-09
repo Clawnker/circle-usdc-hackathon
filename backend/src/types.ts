@@ -3,7 +3,7 @@
  * Core type definitions for the Hivemind Protocol
  */
 
-export type SpecialistType = 'magos' | 'aura' | 'bankr' | 'general' | 'scribe' | 'seeker' | 'multi-hop';
+export type SpecialistType = 'magos' | 'aura' | 'bankr' | 'general' | 'scribe' | 'seeker' | 'multi-hop' | 'sentinel' | (string & {});
 
 export interface Task {
   id: string;

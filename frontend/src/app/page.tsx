@@ -36,6 +36,7 @@ const SPECIALIST_NAMES: Record<string, string> = {
   whalespy: 'WhaleSpy',
   scribe: 'Scribe',
   seeker: 'Seeker',
+  sentinel: 'Sentinel',
   dispatcher: 'Dispatcher',
   'multi-hop': 'Multi-hop Orchestrator',
 };
@@ -46,6 +47,7 @@ const SPECIALIST_FEES: Record<string, number> = {
   seeker: 0.0001,
   magos: 0.001,
   aura: 0.0005,
+  sentinel: 2.50,
   general: 0,
 };
 

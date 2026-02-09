@@ -108,6 +108,13 @@ const SPECIALISTS: Record<SpecialistType, {
     color: '#00F5FF',
     glowColor: 'rgba(0, 245, 255, 0.6)',
   },
+  sentinel: {
+    name: 'Sentinel',
+    description: 'Security Audit',
+    icon: Shield,
+    color: '#ef4444',
+    glowColor: 'rgba(239, 68, 68, 0.6)',
+  },
 };
 
 // Custom Agent Node Component

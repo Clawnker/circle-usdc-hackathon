@@ -94,6 +94,7 @@ const SPECIALIST_DESCRIPTIONS: Record<SpecialistType, string> = {
   scribe: 'General assistant & fallback',
   seeker: 'Web research & search',
   general: 'General queries',
+  sentinel: 'Smart contract security audits',
   'multi-hop': 'Orchestrated multi-agent workflow',
 };
 
@@ -105,6 +106,7 @@ const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: str
   scribe: { fee: '0.0001', description: 'General assistant & fallback' },
   seeker: { fee: '0.0001', description: 'Web research & search' },
   general: { fee: '0', description: 'General queries' },
+  sentinel: { fee: '2.50', description: 'Smart contract security audits (external)' },
   'multi-hop': { fee: '0', description: 'Orchestrated multi-agent workflow' },
 };
 
@@ -282,12 +284,13 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
  * Get display name for a specialist
  */
 function getSpecialistDisplayName(specialist: SpecialistType): string {
-  const names: Record<SpecialistType, string> = {
+  const names: Record<string, string> = {
     magos: 'Market Oracle',
     aura: 'Social Analyst',
     bankr: 'DeFi Executor',
     scribe: 'General Assistant',
     seeker: 'Web Researcher',
+    sentinel: 'Security Auditor',
     general: 'General',
     'multi-hop': 'Multi-Agent Workflow',
   };
@@ -706,6 +709,16 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
   // Define routing rules with weights
   const rules: Array<{ specialist: SpecialistType; patterns: RegExp[]; weight: number }> = [
     {
+      specialist: 'sentinel',
+      patterns: [
+        /audit|security|vulnerabilit|exploit|hack|reentrancy|overflow|access.control/,
+        /smart\s*contract.*(?:check|review|scan|inspect|analyz)/,
+        /contract.*(?:safe|secure|risk|danger)/,
+        /0x[a-fA-F0-9]{40}/, // Contract address pattern
+      ],
+      weight: 1.5, // Higher weight — specific capability
+    },
+    {
       specialist: 'magos',
       patterns: [
         /predict|forecast|price\s+target|will\s+\w+\s+(go|reach|hit)/,
@@ -762,6 +775,7 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
     bankr: 0,
     scribe: 0,
     seeker: 0,
+    sentinel: 0,
     general: 0,
     'multi-hop': 0,
   };
