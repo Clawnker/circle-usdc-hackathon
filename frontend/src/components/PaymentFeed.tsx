@@ -39,15 +39,8 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
   
   const isX402 = payment.method === 'x402' || (payment.txSignature && !payment.txSignature.startsWith('0x'));
 
-  const openExplorer = () => {
-    // If txSignature looks like a hash, link to basescan; otherwise AgentWallet
-    const sig = payment.txSignature || '';
-    if (!isX402 && sig.startsWith('0x') && sig.length > 20) {
-      window.open(`https://sepolia.basescan.org/tx/${sig}`, '_blank');
-    } else {
-      window.open(`https://agentwallet.mcpay.tech/u/claw`, '_blank');
-    }
-  };
+  const sig = payment.txSignature || '';
+  const hasOnChainTx = sig.startsWith('0x') && sig.length > 20;
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -116,19 +109,36 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
       {/* Transaction details */}
       <div className="flex items-center justify-between mt-2 text-xs text-[var(--text-muted)]">
         <span>{formatTime(payment.createdAt || payment.timestamp || new Date().toISOString())}</span>
-        {payment.txSignature && (
-          <motion.button
-            onClick={openExplorer}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="flex items-center gap-1 hover:text-[var(--accent-cyan)] transition-colors"
-          >
-            <code className="font-mono">
-              {payment.txSignature.slice(0, 8)}...
-            </code>
-            <ExternalLink size={10} />
-          </motion.button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Always show AgentWallet link */}
+          {payment.txSignature && (
+            <motion.button
+              onClick={() => window.open('https://agentwallet.mcpay.tech/u/claw', '_blank')}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="flex items-center gap-1 hover:text-[#00F0FF] transition-colors"
+              title="View on AgentWallet"
+            >
+              <code className="font-mono">
+                {payment.txSignature.slice(0, 8)}...
+              </code>
+              <ExternalLink size={10} />
+            </motion.button>
+          )}
+          {/* Also show Basescan link for on-chain txs */}
+          {hasOnChainTx && (
+            <motion.button
+              onClick={() => window.open(`https://sepolia.basescan.org/tx/${sig}`, '_blank')}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="flex items-center gap-1 hover:text-orange-400 transition-colors"
+              title="View on Basescan"
+            >
+              <span className="text-[10px]">⛓</span>
+              <ExternalLink size={10} />
+            </motion.button>
+          )}
+        </div>
       </div>
     </motion.div>
   );
