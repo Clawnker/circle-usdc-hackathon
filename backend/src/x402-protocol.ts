@@ -50,12 +50,6 @@ export async function executeDemoPayment(
 
   console.log(`[x402] Calling x402/fetch for: ${specialistEndpoint}`);
   
-  // Localhost bypass for development
-  if (specialistEndpoint.includes('localhost') || specialistEndpoint.includes('127.0.0.1')) {
-    console.log('[x402] Localhost detected, bypassing real x402/fetch proxy');
-    return { success: true };
-  }
-  
   try {
     const response = await axios.post(
       `${AGENTWALLET_API}/wallets/${username}/actions/x402/fetch`,

@@ -328,32 +328,32 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       const responseContent = extractResponseContent(result);
       addMessage(task, specialist, 'dispatcher', responseContent);
       
-      // Execute on-chain USDC payment for this hop
+      // Execute x402 payment for this hop (primary), on-chain fallback
       const specialistFee = (config.fees as any)[specialist] || 0;
       if (specialistFee > 0 && !dryRun) {
-        const onChainResult = await sendOnChainPayment(specialist, String(specialistFee));
+        const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
+        const specialistUrl = `${baseUrl}/api/specialist/${specialist}`;
         
-        if (onChainResult) {
-          const feeRecord = createPaymentRecord(
-            onChainResult.amount,
-            'USDC',
-            'base-sepolia' as any,
-            specialist,
-            onChainResult.txHash
-          );
-          task.payments.push(feeRecord);
-          addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${specialistFee} USDC → ${specialist} (tx: ${onChainResult.txHash.slice(0, 10)}...)`);
-        } else {
-          // Fallback to AgentWallet
-          const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-          const specialistUrl = `${baseUrl}/api/specialist/${specialist}`;
-          
-          const paymentResult = await executeDemoPayment(specialistUrl, { prompt: currentContext }, specialistFee);
+        const paymentResult = await executeDemoPayment(specialistUrl, { prompt: currentContext }, specialistFee);
 
-          if (paymentResult.success && paymentResult.txSignature) {
-            const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist, paymentResult.txSignature);
+        if (paymentResult.success && paymentResult.txSignature) {
+          const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist, paymentResult.txSignature);
+          task.payments.push(feeRecord);
+          addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${specialistFee} USDC → ${specialist}`);
+          
+          // Use the response from x402/fetch if available
+          if (paymentResult.response) {
+            multiResults[multiResults.length - 1].result = paymentResult.response;
+          }
+        } else {
+          // Fallback: on-chain transfer
+          const onChainResult = await sendOnChainPayment(specialist, String(specialistFee));
+          if (onChainResult) {
+            const feeRecord = createPaymentRecord(
+              onChainResult.amount, 'USDC', 'base-sepolia' as any, specialist, onChainResult.txHash
+            );
             task.payments.push(feeRecord);
-            addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee: ${specialistFee} USDC → ${specialist}`);
+            addMessage(task, 'x402', 'dispatcher', `💰 On-chain Payment: ${specialistFee} USDC → ${specialist} (tx: ${onChainResult.txHash.slice(0, 10)}...)`);
           } else {
             const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist);
             task.payments.push(feeRecord);
@@ -445,34 +445,31 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   const responseContent = extractResponseContent(result);
   addMessage(task, task.specialist, 'dispatcher', responseContent);
   
-  // Execute real on-chain USDC payment on Base Sepolia
+  // Execute x402 payment via AgentWallet (primary), fallback to on-chain
   if (fee > 0 && !dryRun) {
-    addMessage(task, 'x402', 'dispatcher', `⏳ Sending ${fee} USDC on Base Sepolia...`);
+    addMessage(task, 'x402', 'dispatcher', `⏳ Processing ${fee} USDC payment via x402...`);
     
-    const onChainResult = await sendOnChainPayment(task.specialist, String(fee));
+    // Use the live public URL so x402/fetch can reach the 402 endpoint
+    const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
+    const specialistUrl = `${baseUrl}/api/specialist/${task.specialist}`;
     
-    if (onChainResult) {
-      const feeRecord = createPaymentRecord(
-        onChainResult.amount,
-        'USDC',
-        'base-sepolia' as any,
-        task.specialist,
-        onChainResult.txHash
-      );
-      task.payments.push(feeRecord);
-      addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${fee} USDC → ${task.specialist} (tx: ${onChainResult.txHash.slice(0, 10)}...)`);
-    } else {
-      // Fallback: try AgentWallet x402 proxy
-      console.warn(`[Dispatcher] On-chain payment failed, trying AgentWallet fallback...`);
-      const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-      const specialistUrl = `${baseUrl}/api/specialist/${task.specialist}`;
-      
-      const paymentResult = await executeDemoPayment(specialistUrl, { prompt: task.prompt }, fee);
+    const paymentResult = await executeDemoPayment(specialistUrl, { prompt: task.prompt }, fee);
 
-      if (paymentResult.success && paymentResult.txSignature) {
-        const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist, paymentResult.txSignature);
+    if (paymentResult.success && paymentResult.txSignature) {
+      const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist, paymentResult.txSignature);
+      task.payments.push(feeRecord);
+      addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${fee} USDC → ${task.specialist}`);
+    } else {
+      // Fallback: real on-chain USDC transfer
+      console.warn(`[Dispatcher] x402 payment failed, falling back to on-chain transfer...`);
+      const onChainResult = await sendOnChainPayment(task.specialist, String(fee));
+      
+      if (onChainResult) {
+        const feeRecord = createPaymentRecord(
+          onChainResult.amount, 'USDC', 'base-sepolia' as any, task.specialist, onChainResult.txHash
+        );
         task.payments.push(feeRecord);
-        addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee: ${fee} USDC → ${task.specialist}`);
+        addMessage(task, 'x402', 'dispatcher', `💰 On-chain Payment: ${fee} USDC → ${task.specialist} (tx: ${onChainResult.txHash.slice(0, 10)}...)`);
       } else {
         const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist);
         task.payments.push(feeRecord);
