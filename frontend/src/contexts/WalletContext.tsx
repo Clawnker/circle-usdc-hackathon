@@ -31,6 +31,7 @@ export function useWallet() {
 
 const STORAGE_KEY = 'hivemind_wallet';
 const AGENTWALLET_API = 'https://agentwallet.mcpay.tech/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
@@ -52,8 +53,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      // Verify username exists via AgentWallet public API
-      const res = await fetch(`${AGENTWALLET_API}/wallets/${encodeURIComponent(username)}`);
+      // Verify username exists via our backend proxy to avoid CORS issues
+      const res = await fetch(`${API_URL}/api/wallet/lookup/${encodeURIComponent(username)}`);
       
       if (!res.ok) {
         setError(`Wallet "${username}" not found. Create one at agentwallet.mcpay.tech`);

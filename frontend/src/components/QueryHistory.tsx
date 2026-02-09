@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, RotateCcw, CheckCircle2, XCircle, Search, Clock, ChevronDown, ChevronUp, Coins, ArrowRightLeft, Send, ExternalLink } from 'lucide-react';
+import { History, RotateCcw, CheckCircle2, XCircle, Search, Clock, ChevronDown, ChevronUp, Coins, ArrowRightLeft, Send, ExternalLink, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { QueryHistoryItem, Payment, TransactionDetails } from '@/types';
 
@@ -51,6 +51,39 @@ export function QueryHistory({ history, onReRun, className = '' }: QueryHistoryP
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
+  };
+
+  const handleDownload = (item: QueryHistoryItem) => {
+    const timestamp = new Date(item.timestamp).toISOString().replace(/[:.]/g, '-');
+    const filename = `hivemind-report-${item.specialist.toLowerCase().replace(/\s+/g, '-')}-${timestamp}.md`;
+    
+    const content = `# Hivemind Protocol Report
+
+## Query
+${item.prompt}
+
+## Specialist
+${SPECIALIST_NAMES[item.specialist] || item.specialist}
+
+## Result
+${item.result}
+
+## Cost
+${item.cost.toFixed(4)} USDC
+
+## Timestamp
+${new Date(item.timestamp).toLocaleString()}
+`;
+
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -134,6 +167,18 @@ export function QueryHistory({ history, onReRun, className = '' }: QueryHistoryP
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {item.result && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownload(item);
+                              }}
+                              className="p-2 rounded-lg bg-white/5 hover:bg-[var(--accent-gold)] hover:text-black transition-all text-[var(--text-muted)]"
+                              title="Download Report"
+                            >
+                              <Download size={14} />
+                            </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

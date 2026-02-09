@@ -639,20 +639,6 @@ export default function CommandCenter() {
               transition={{ duration: 0.2 }}
               className="lg:flex-1 flex flex-col"
             >
-              {/* Message Log - Moved above ResultCard/TaskInput to avoid scroll blocking */}
-              <AnimatePresence>
-                {messages.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    className="mb-6"
-                  >
-                    <MessageLog messages={messages} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
               {/* Task Input or Result Card */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -692,15 +678,29 @@ export default function CommandCenter() {
                 </AnimatePresence>
               </motion.div>
 
+              {/* Message Log - BELOW TaskInput/ResultCard but ABOVE the grid */}
+              <AnimatePresence>
+                {messages.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="mb-6"
+                  >
+                    <MessageLog messages={messages} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Main Grid */}
               <div className="lg:flex-1 grid grid-cols-12 gap-4 lg:min-h-0">
                 {/* Left Column - Swarm Graph + Activity */}
-                <div className="col-span-12 lg:col-span-5 flex flex-col gap-4">
+                <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 lg:max-h-[calc(100vh-250px)]">
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 }}
-                    className="min-h-[300px]"
+                    className="min-h-[300px] flex-shrink-0"
                   >
                     <SwarmGraph 
                       activeSpecialist={currentStep?.specialist || null}

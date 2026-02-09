@@ -384,6 +384,23 @@ app.get('/api/reputation/:specialist/proof', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/wallet/lookup/:username - Lookup AgentWallet by username (Proxy for CORS)
+ */
+app.get('/api/wallet/lookup/:username', async (req: Request, res: Response) => {
+  try {
+    const { username } = req.params;
+    const response = await fetch(`https://agentwallet.mcpay.tech/api/wallets/${encodeURIComponent(username)}`);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: 'Wallet not found' });
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to lookup wallet', message: err.message });
+  }
+});
+
 // --- PROTECTED ROUTES ---
 
 app.use(authMiddleware);
