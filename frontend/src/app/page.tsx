@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon, Activity, History, ShieldCheck } from 'lucide-react';
+import { useWallet } from '@/contexts/WalletContext';
 import {
   TaskInput,
   SwarmGraph,
@@ -56,6 +57,7 @@ export default function CommandCenter() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { wallet: connectedWallet } = useWallet();
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
@@ -406,6 +408,7 @@ export default function CommandCenter() {
         body: JSON.stringify({
           prompt,
           userId: process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
+          walletUsername: connectedWallet?.username || undefined,
           customInstructions,
           hiredAgents,
           approvedAgent,  // Pass the approved agent if user approved
@@ -473,8 +476,8 @@ export default function CommandCenter() {
     setLastResult(null);
     setCurrentTaskId(null);
     setReRunPrompt('');
-    reset();
-  }, [reset]);
+    // reset(); // Don't clear messages yet so user can reference them
+  }, []);
 
   const handleAddAgentToSwarm = useCallback((agentId: string) => {
     setPreSelectedAgent(agentId);
@@ -636,6 +639,20 @@ export default function CommandCenter() {
               transition={{ duration: 0.2 }}
               className="lg:flex-1 flex flex-col"
             >
+              {/* Message Log - Moved above ResultCard/TaskInput to avoid scroll blocking */}
+              <AnimatePresence>
+                {messages.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="mb-6"
+                  >
+                    <MessageLog messages={messages} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Task Input or Result Card */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -723,15 +740,6 @@ export default function CommandCenter() {
                     transition={{ delay: 0.4 }}
                   >
                     <PaymentFeed payments={payments} />
-                  </motion.div>
-
-                  {/* Message Log */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5 }}
-                  >
-                    <MessageLog messages={messages} />
                   </motion.div>
                 </div>
               </div>

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, Copy, Check, ExternalLink, RefreshCw, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { Wallet, Copy, Check, ExternalLink, RefreshCw, Activity, ChevronDown, ChevronUp, LogIn, LogOut, User, Loader2 } from 'lucide-react';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface WalletPanelProps {
   className?: string;
@@ -15,10 +16,9 @@ interface TokenBalance {
   color: string;
 }
 
-const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135'; // AgentWallet EVM treasury on Base
+const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135';
 const AGENTWALLET_USERNAME = 'claw';
 
-// Token display config
 const TOKEN_CONFIG: Record<string, { icon: string; color: string; decimals: number }> = {
   ETH: { icon: 'Ξ', color: 'from-[#627EEA] to-[#627EEA]', decimals: 4 },
   USDC: { icon: '$', color: 'from-[#2775CA] to-[#2775CA]', decimals: 4 },
@@ -27,6 +27,7 @@ const TOKEN_CONFIG: Record<string, { icon: string; color: string; decimals: numb
 };
 
 export function WalletPanel({ className = '' }: WalletPanelProps) {
+  const { wallet: userWallet, isConnecting, error: walletError, connect, disconnect } = useWallet();
   const [tokens, setTokens] = useState<TokenBalance[]>([
     { symbol: 'ETH', amount: 0, icon: 'Ξ', color: 'from-[#627EEA] to-[#627EEA]' },
     { symbol: 'USDC', amount: 0, icon: '$', color: 'from-[#2775CA] to-[#2775CA]' },
@@ -35,62 +36,47 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showAllTokens, setShowAllTokens] = useState(false);
+  const [showConnect, setShowConnect] = useState(false);
+  const [connectInput, setConnectInput] = useState('');
+
+  const displayAddress = userWallet?.evmAddress || TREASURY_ADDRESS;
+  const displayUsername = userWallet?.username || AGENTWALLET_USERNAME;
+  const isUserConnected = !!userWallet;
 
   const truncateAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
   const copyAddress = async () => {
-    await navigator.clipboard.writeText(TREASURY_ADDRESS);
+    await navigator.clipboard.writeText(displayAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const fetchBalance = async () => {
+  const fetchBalance = useCallback(async () => {
     setIsRefreshing(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
       const response = await fetch(`${apiUrl}/api/wallet/balances`);
       if (response.ok) {
         const data = await response.json();
-        
-        // Build token list from response
         const newTokens: TokenBalance[] = [];
         const base = data.base || {};
         
-        // Always show ETH and USDC first
-        const eth = base.eth || 0;
-        const usdc = base.usdc || 0;
-        
         newTokens.push({
-          symbol: 'ETH',
-          amount: eth,
-          icon: TOKEN_CONFIG.ETH.icon,
-          color: TOKEN_CONFIG.ETH.color,
+          symbol: 'ETH', amount: base.eth || 0,
+          icon: TOKEN_CONFIG.ETH.icon, color: TOKEN_CONFIG.ETH.color,
+        });
+        newTokens.push({
+          symbol: 'USDC', amount: base.usdc || 0,
+          icon: TOKEN_CONFIG.USDC.icon, color: TOKEN_CONFIG.USDC.color,
         });
         
-        newTokens.push({
-          symbol: 'USDC',
-          amount: usdc,
-          icon: TOKEN_CONFIG.USDC.icon,
-          color: TOKEN_CONFIG.USDC.color,
-        });
-        
-        // Add other tokens with non-zero balances
         Object.entries(base).forEach(([key, value]) => {
           const symbol = key.toUpperCase();
           if (symbol !== 'ETH' && symbol !== 'USDC' && (value as number) > 0) {
-            const config = TOKEN_CONFIG[symbol] || { 
-              icon: '🪙', 
-              color: 'from-gray-500 to-gray-600',
-              decimals: 4 
-            };
-            newTokens.push({
-              symbol,
-              amount: value as number,
-              icon: config.icon,
-              color: config.color,
-            });
+            const config = TOKEN_CONFIG[symbol] || { icon: '🪙', color: 'from-gray-500 to-gray-600', decimals: 4 };
+            newTokens.push({ symbol, amount: value as number, icon: config.icon, color: config.color });
           }
         });
         
@@ -101,45 +87,39 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
       console.error('Failed to fetch balance:', error);
     }
     setIsRefreshing(false);
-  };
+  }, []);
 
   const openBasescan = () => {
-    window.open(
-      `https://sepolia.basescan.org/address/${TREASURY_ADDRESS}`,
-      '_blank'
-    );
+    window.open(`https://sepolia.basescan.org/address/${displayAddress}`, '_blank');
   };
 
   const openAgentWallet = () => {
-    window.open(
-      `https://agentwallet.mcpay.tech/u/${AGENTWALLET_USERNAME}`,
-      '_blank'
-    );
+    window.open(`https://agentwallet.mcpay.tech/u/${displayUsername}`, '_blank');
   };
 
-  // Format balance for display
   const formatBalance = (symbol: string, amount: number): string => {
     const config = TOKEN_CONFIG[symbol] || { decimals: 4 };
-    if (symbol === 'BONK' || amount > 10000) {
-      // Use compact notation for large numbers
-      if (amount >= 1000000) {
-        return (amount / 1000000).toFixed(2) + 'M';
-      } else if (amount >= 1000) {
-        return (amount / 1000).toFixed(1) + 'K';
-      }
-    }
+    if (amount >= 1000000) return (amount / 1000000).toFixed(2) + 'M';
+    if (amount >= 1000) return (amount / 1000).toFixed(1) + 'K';
     return amount.toFixed(config.decimals);
   };
 
-  // Fetch on mount and every 15 seconds
+  const handleConnect = async () => {
+    if (!connectInput.trim()) return;
+    const success = await connect(connectInput.trim());
+    if (success) {
+      setShowConnect(false);
+      setConnectInput('');
+    }
+  };
+
   useEffect(() => {
     fetchBalance();
     const interval = setInterval(fetchBalance, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchBalance]);
 
-  // Determine which tokens to show
-  const primaryTokens = tokens.slice(0, 2); // ETH and USDC
+  const primaryTokens = tokens.slice(0, 2);
   const additionalTokens = tokens.slice(2);
   const hasAdditionalTokens = additionalTokens.length > 0;
 
@@ -148,34 +128,132 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--glass-border)]">
         <div className="flex items-center gap-2">
-          <Wallet size={16} className="text-[var(--accent-green)]" />
-          <span className="text-sm font-medium text-[var(--text-primary)]">Agent Wallet</span>
+          <Wallet size={16} className={isUserConnected ? 'text-[var(--accent-green)]' : 'text-[var(--accent-orange)]'} />
+          <span className="text-sm font-medium text-[var(--text-primary)]">
+            {isUserConnected ? 'Your Wallet' : 'Protocol Treasury'}
+          </span>
+          {isUserConnected && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">
+              Connected
+            </span>
+          )}
         </div>
-        <motion.button
-          onClick={fetchBalance}
-          disabled={isRefreshing}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] 
-            transition-colors disabled:opacity-50"
-        >
-          <motion.div
-            animate={{ rotate: isRefreshing ? 360 : 0 }}
-            transition={{ duration: 1, repeat: isRefreshing ? Infinity : 0, ease: 'linear' }}
+        <div className="flex items-center gap-1">
+          {isUserConnected ? (
+            <motion.button
+              onClick={disconnect}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="p-1 text-[var(--text-muted)] hover:text-red-400 transition-colors"
+              title="Disconnect wallet"
+            >
+              <LogOut size={14} />
+            </motion.button>
+          ) : (
+            <motion.button
+              onClick={() => setShowConnect(!showConnect)}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="p-1 text-[var(--accent-cyan)] hover:text-[var(--accent-cyan-bright)] transition-colors"
+              title="Connect your AgentWallet"
+            >
+              <LogIn size={14} />
+            </motion.button>
+          )}
+          <motion.button
+            onClick={fetchBalance}
+            disabled={isRefreshing}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
           >
-            <RefreshCw size={14} />
-          </motion.div>
-        </motion.button>
+            <motion.div
+              animate={{ rotate: isRefreshing ? 360 : 0 }}
+              transition={{ duration: 1, repeat: isRefreshing ? Infinity : 0, ease: 'linear' }}
+            >
+              <RefreshCw size={14} />
+            </motion.div>
+          </motion.button>
+        </div>
       </div>
+
+      {/* Connect Wallet Form */}
+      <AnimatePresence>
+        {showConnect && !isUserConnected && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden border-b border-[var(--glass-border)]"
+          >
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <User size={14} className="text-[var(--accent-cyan)]" />
+                <span className="text-xs font-medium text-[var(--text-secondary)]">
+                  Connect your AgentWallet
+                </span>
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)]">
+                No extension needed. Enter your AgentWallet username to connect.
+                {' '}
+                <a 
+                  href="https://agentwallet.mcpay.tech/onboarding" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[var(--accent-cyan)] hover:underline"
+                >
+                  Don&apos;t have one? Create free →
+                </a>
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={connectInput}
+                  onChange={(e) => setConnectInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
+                  placeholder="your-username"
+                  className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-cyan)] transition-colors"
+                  disabled={isConnecting}
+                />
+                <motion.button
+                  onClick={handleConnect}
+                  disabled={isConnecting || !connectInput.trim()}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-4 py-2 rounded-lg bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] text-sm font-medium border border-[var(--accent-cyan)]/30 hover:bg-[var(--accent-cyan)]/30 transition-colors disabled:opacity-50"
+                >
+                  {isConnecting ? <Loader2 size={14} className="animate-spin" /> : 'Connect'}
+                </motion.button>
+              </div>
+              {walletError && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-xs text-red-400"
+                >
+                  {walletError}
+                </motion.p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Content */}
       <div className="p-4 space-y-4">
         {/* Address */}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-[var(--text-muted)]">Treasury</span>
+          <span className="text-xs text-[var(--text-muted)]">
+            {isUserConnected ? (
+              <span className="flex items-center gap-1">
+                <User size={10} />
+                {displayUsername}
+              </span>
+            ) : 'Treasury'}
+          </span>
           <div className="flex items-center gap-2">
             <code className="text-xs text-[var(--text-secondary)] font-mono">
-              {truncateAddress(TREASURY_ADDRESS)}
+              {truncateAddress(displayAddress)}
             </code>
             <motion.button
               onClick={copyAddress}
@@ -185,21 +263,11 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
             >
               <AnimatePresence mode="wait">
                 {copied ? (
-                  <motion.div
-                    key="check"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                  >
+                  <motion.div key="check" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
                     <Check size={12} className="text-[var(--accent-green)]" />
                   </motion.div>
                 ) : (
-                  <motion.div
-                    key="copy"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                  >
+                  <motion.div key="copy" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
                     <Copy size={12} />
                   </motion.div>
                 )}
@@ -217,7 +285,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
           </div>
         </div>
 
-        {/* Primary Balances (ETH + USDC) */}
+        {/* Primary Balances */}
         <div className="grid grid-cols-2 gap-3">
           {primaryTokens.map((token) => (
             <motion.div
@@ -243,7 +311,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
           ))}
         </div>
 
-        {/* Additional Tokens (expandable) */}
+        {/* Additional Tokens */}
         {hasAdditionalTokens && (
           <>
             <motion.button
@@ -277,10 +345,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
                           </div>
                           <span className="text-xs text-[var(--text-muted)]">{token.symbol}</span>
                         </div>
-                        <motion.span
-                          key={token.amount}
-                          className="text-lg font-semibold text-[var(--text-primary)]"
-                        >
+                        <motion.span key={token.amount} className="text-lg font-semibold text-[var(--text-primary)]">
                           {formatBalance(token.symbol, token.amount)}
                         </motion.span>
                       </motion.div>

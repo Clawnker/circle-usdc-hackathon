@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle2, XCircle, ArrowRight, RotateCcw, Coins, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowRight, RotateCcw, Coins, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface ResultCardProps {
@@ -94,6 +94,39 @@ export function ResultCard({
       console.error('Vote failed:', error);
     }
     setIsVoting(false);
+  };
+
+  const handleDownload = () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `hivemind-report-${specialist.toLowerCase().replace(/\s+/g, '-')}-${timestamp}.md`;
+    
+    const content = `# Hivemind Protocol Report
+
+## Query
+${query}
+
+## Specialist
+${specialist}
+
+## Result
+${result}
+
+## Cost
+${cost.toFixed(4)} USDC
+
+## Timestamp
+${new Date().toLocaleString()}
+`;
+
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -239,6 +272,16 @@ export function ResultCard({
         >
           <RotateCcw size={18} />
           <span>Ask Another</span>
+        </motion.button>
+
+        <motion.button
+          onClick={handleDownload}
+          whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.1)' }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full sm:w-auto py-3 px-8 rounded-xl bg-white/5 border border-white/10 text-[var(--text-primary)] font-bold flex items-center justify-center gap-2 transition-colors"
+        >
+          <Download size={18} />
+          <span>Download Report</span>
         </motion.button>
         
         {result.length > 200 && (
