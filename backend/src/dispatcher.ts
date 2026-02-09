@@ -492,7 +492,9 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
     } else {
       // Fallback: real on-chain USDC transfer
       console.warn(`[Dispatcher] x402 payment failed, falling back to on-chain transfer...`);
-      const onChainResult = await sendOnChainPayment(task.specialist, String(fee));
+      // For external agents, send to their wallet; for built-in, send to treasury
+      const recipientWallet = externalAgent?.wallet || undefined;
+      const onChainResult = await sendOnChainPayment(task.specialist, String(fee), recipientWallet);
       
       if (onChainResult) {
         const feeRecord = createPaymentRecord(
@@ -625,38 +627,41 @@ function extractResponseContent(result: SpecialistResult): string {
   if (data?.reasoning) return data.reasoning;
   
   // External agent results (e.g., Sentinel audit)
-  if (data?.externalAgent && data?.result) {
-    const agentResult = data.result;
-    // Sentinel audit format
-    if (agentResult.analysis) {
-      const a = agentResult.analysis;
+  if (data?.externalAgent) {
+    // External agent responses are nested: data.data contains the agent's actual response
+    const agentData = data?.data || data;
+    const analysis = agentData?.analysis;
+    if (analysis) {
       let content = `**${data.externalAgent} Security Audit**\n\n`;
-      if (a.overview) content += `${a.overview}\n\n`;
-      if (a.riskLevel) content += `**Risk Level:** ${a.riskLevel}\n`;
-      if (a.score !== undefined) content += `**Score:** ${a.score}/100\n\n`;
-      if (a.vulnerabilities && a.vulnerabilities.length > 0) {
-        content += `**Vulnerabilities Found:**\n`;
-        a.vulnerabilities.forEach((v: any) => {
-          content += `• **[${v.severity || 'Unknown'}]** ${v.title || v.description || JSON.stringify(v)}\n`;
+      if (analysis.summary) content += `${analysis.summary}\n\n`;
+      if (analysis.score !== undefined) content += `**Score:** ${analysis.score}/100\n\n`;
+      if (analysis.findings && analysis.findings.length > 0) {
+        content += `**Findings:**\n`;
+        analysis.findings.forEach((f: any) => {
+          content += `• **[${f.severity || 'Unknown'}]** ${f.title || f.description || JSON.stringify(f)}\n`;
+          if (f.recommendation) content += `  → ${f.recommendation}\n`;
         });
         content += '\n';
       }
-      if (a.recommendations && a.recommendations.length > 0) {
-        content += `**Recommendations:**\n`;
-        a.recommendations.forEach((r: string) => {
-          content += `• ${r}\n`;
-        });
+      if (analysis.gasOptimizations && analysis.gasOptimizations.length > 0) {
+        content += `**Gas Optimizations:**\n`;
+        analysis.gasOptimizations.forEach((g: string) => content += `• ${g}\n`);
+        content += '\n';
       }
-      if (a.bestPractices) {
-        content += `\n**Best Practices:** ${typeof a.bestPractices === 'string' ? a.bestPractices : JSON.stringify(a.bestPractices)}`;
+      if (analysis.bestPractices) {
+        const bp = analysis.bestPractices;
+        content += `**Best Practices:**\n`;
+        Object.entries(bp).forEach(([key, val]) => {
+          content += `• ${key}: ${val}\n`;
+        });
       }
       return content.trim();
     }
-    // Generic external agent response
-    if (typeof agentResult === 'string') return agentResult;
-    if (agentResult.output) return agentResult.output;
-    if (agentResult.response) return typeof agentResult.response === 'string' ? agentResult.response : JSON.stringify(agentResult.response, null, 2);
-    return JSON.stringify(agentResult, null, 2);
+    // Generic external agent fallback
+    if (typeof agentData === 'string') return agentData;
+    if (agentData?.output) return agentData.output;
+    if (agentData?.response) return typeof agentData.response === 'string' ? agentData.response : JSON.stringify(agentData.response, null, 2);
+    return JSON.stringify(agentData, null, 2);
   }
   
   if (data?.details?.summary) return data.details.summary;

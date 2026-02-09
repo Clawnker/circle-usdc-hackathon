@@ -70,11 +70,13 @@ function init(): boolean {
  */
 export async function sendOnChainPayment(
   specialist: string,
-  amountUsdc: string
+  amountUsdc: string,
+  recipientOverride?: string
 ): Promise<{ txHash: string; amount: string } | null> {
   if (!init()) return null;
 
-  const recipient = DEFAULT_RECIPIENT; // Send to treasury so funds stay recoverable
+  // Use override for external agents, otherwise send to treasury
+  const recipient = recipientOverride || DEFAULT_RECIPIENT;
   const amountWei = ethers.parseUnits(amountUsdc, USDC_DECIMALS);
 
   try {
@@ -85,7 +87,7 @@ export async function sendOnChainPayment(
       return null;
     }
 
-    console.log(`[OnChain] Sending ${amountUsdc} USDC to treasury for ${specialist}...`);
+    console.log(`[OnChain] Sending ${amountUsdc} USDC to ${recipientOverride ? specialist : 'treasury'} (${recipient.slice(0, 10)}...) for ${specialist}...`);
 
     const tx = await usdcContract!.transfer(recipient, amountWei);
     console.log(`[OnChain] Tx submitted: ${tx.hash}`);
