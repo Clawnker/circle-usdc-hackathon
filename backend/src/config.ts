@@ -104,6 +104,7 @@ export const config = {
     seeker: 0.10,
     magos: 0.10,
     aura: 0.10,
+    sentinel: 2.50,
     general: 0,
   },
 

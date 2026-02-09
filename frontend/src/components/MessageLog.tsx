@@ -39,8 +39,8 @@ function MessageItem({ message, index }: { message: AgentMessage; index: number 
       transition={{ delay: index * 0.03 }}
       className="glass-panel-subtle mb-2 overflow-hidden"
     >
-      <div className="w-full flex items-center justify-between p-3 text-left">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+      <div className="w-full p-3 text-left">
+        <div className="flex items-center justify-between mb-1">
           {/* From → To */}
           <div className="flex items-center gap-1 text-sm shrink-0">
             <span style={{ color: fromColor }} className="font-medium capitalize">
@@ -51,17 +51,17 @@ function MessageItem({ message, index }: { message: AgentMessage; index: number 
               {message.to}
             </span>
           </div>
+        
+          {/* Timestamp */}
+          <div className="flex items-center gap-1 text-xs text-[var(--text-muted)] shrink-0 ml-2">
+            <Clock size={10} />
+            <span>{formatTime(message.timestamp)}</span>
+          </div>
         </div>
 
         {/* Message Content */}
-        <div className="mt-1 text-sm text-[var(--text-secondary)] break-words">
+        <div className="text-sm text-[var(--text-secondary)] break-words">
           {message.content}
-        </div>
-        
-        {/* Timestamp */}
-        <div className="flex items-center gap-1 text-xs text-[var(--text-muted)] shrink-0 ml-2 mt-2">
-          <Clock size={10} />
-          <span>{formatTime(message.timestamp)}</span>
         </div>
       </div>
     </motion.div>

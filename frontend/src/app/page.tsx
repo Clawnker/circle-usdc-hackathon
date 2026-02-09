@@ -166,6 +166,30 @@ export default function CommandCenter() {
               // Prefer summary (full context) over insight (brief) for search results
               if (r.data?.summary) content = r.data.summary;
               else if (r.data?.insight) content = r.data.insight;
+              else if (r.data?.externalAgent && r.data?.result) {
+                // External agent result (e.g., Sentinel audit)
+                const agentResult = r.data.result;
+                if (agentResult.analysis) {
+                  const a = agentResult.analysis;
+                  let parts: string[] = [];
+                  if (a.overview) parts.push(a.overview);
+                  if (a.riskLevel) parts.push(`**Risk Level:** ${a.riskLevel}`);
+                  if (a.score !== undefined) parts.push(`**Score:** ${a.score}/100`);
+                  if (a.vulnerabilities?.length > 0) {
+                    parts.push('**Vulnerabilities Found:**');
+                    a.vulnerabilities.forEach((v: any) => {
+                      parts.push(`• **[${v.severity || 'Unknown'}]** ${v.title || v.description || JSON.stringify(v)}`);
+                    });
+                  }
+                  if (a.recommendations?.length > 0) {
+                    parts.push('\n**Recommendations:**');
+                    a.recommendations.forEach((rec: string) => parts.push(`• ${rec}`));
+                  }
+                  content = parts.join('\n');
+                } else {
+                  content = typeof agentResult === 'string' ? agentResult : JSON.stringify(agentResult, null, 2);
+                }
+              }
               else if (r.data?.details?.response) content = typeof r.data.details.response === 'string' ? r.data.details.response : JSON.stringify(r.data.details.response);
             }
             

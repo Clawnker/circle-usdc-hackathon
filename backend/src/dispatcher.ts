@@ -484,7 +484,8 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   }
   
   // Log any additional payments from the specialist result
-  if (result.cost) {
+  // Skip if dispatcher already paid the fee (avoids double-counting for external agents)
+  if (result.cost && fee === 0) {
     const record = createPaymentRecord(
       result.cost.amount,
       result.cost.currency,
@@ -596,6 +597,42 @@ function extractResponseContent(result: SpecialistResult): string {
   if (data?.insight) return data.insight;
   if (data?.summary) return data.summary;
   if (data?.reasoning) return data.reasoning;
+  
+  // External agent results (e.g., Sentinel audit)
+  if (data?.externalAgent && data?.result) {
+    const agentResult = data.result;
+    // Sentinel audit format
+    if (agentResult.analysis) {
+      const a = agentResult.analysis;
+      let content = `**${data.externalAgent} Security Audit**\n\n`;
+      if (a.overview) content += `${a.overview}\n\n`;
+      if (a.riskLevel) content += `**Risk Level:** ${a.riskLevel}\n`;
+      if (a.score !== undefined) content += `**Score:** ${a.score}/100\n\n`;
+      if (a.vulnerabilities && a.vulnerabilities.length > 0) {
+        content += `**Vulnerabilities Found:**\n`;
+        a.vulnerabilities.forEach((v: any) => {
+          content += `• **[${v.severity || 'Unknown'}]** ${v.title || v.description || JSON.stringify(v)}\n`;
+        });
+        content += '\n';
+      }
+      if (a.recommendations && a.recommendations.length > 0) {
+        content += `**Recommendations:**\n`;
+        a.recommendations.forEach((r: string) => {
+          content += `• ${r}\n`;
+        });
+      }
+      if (a.bestPractices) {
+        content += `\n**Best Practices:** ${typeof a.bestPractices === 'string' ? a.bestPractices : JSON.stringify(a.bestPractices)}`;
+      }
+      return content.trim();
+    }
+    // Generic external agent response
+    if (typeof agentResult === 'string') return agentResult;
+    if (agentResult.output) return agentResult.output;
+    if (agentResult.response) return typeof agentResult.response === 'string' ? agentResult.response : JSON.stringify(agentResult.response, null, 2);
+    return JSON.stringify(agentResult, null, 2);
+  }
+  
   if (data?.details?.summary) return data.details.summary;
   if (data?.details?.response) {
     return typeof data.details.response === 'string' 
@@ -742,9 +779,9 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
       patterns: [
         /swap|trade|buy|sell|exchange/,
         /transfer|send|withdraw|deposit/,
-        /balance|wallet|holdings|portfolio/,
+        /\bbalance\b|my wallet|holdings|portfolio/,
         /dca|dollar\s+cost|recurring|auto-buy/,
-        /solana|sol|transaction|tx/,
+        /solana|sol price/,
       ],
       weight: 1,
     },
