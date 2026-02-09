@@ -24,7 +24,7 @@ import { executeDemoPayment } from './x402-protocol';
 import { sendOnChainPayment } from './onchain-payments';
 import { recordSuccess, recordFailure, getSuccessRate } from './reputation';
 import { planWithLLM } from './llm-planner';
-import { isExternalAgent, callExternalAgent, getExternalAgents } from './external-agents';
+import { isExternalAgent, callExternalAgent, getExternalAgents, getExternalAgent } from './external-agents';
 import magos from './specialists/magos';
 import aura from './specialists/aura';
 import bankr from './specialists/bankr';
@@ -335,8 +335,19 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       // Execute x402 payment for this hop (primary), on-chain fallback
       const specialistFee = (config.fees as any)[specialist] || 0;
       if (specialistFee > 0 && !dryRun) {
-        const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
-        const specialistUrl = `${baseUrl}/api/specialist/${specialist}`;
+        // For external agents, route x402 to their endpoint
+        let specialistUrl: string;
+        const extAgent = isExternalAgent(specialist) ? getExternalAgent(specialist) : null;
+        
+        if (extAgent) {
+          const cap = extAgent.capabilities[0] || 'execute';
+          specialistUrl = (cap === 'security-audit' || cap === 'audit')
+            ? `${extAgent.endpoint}/audit`
+            : `${extAgent.endpoint}/execute`;
+        } else {
+          const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
+          specialistUrl = `${baseUrl}/api/specialist/${specialist}`;
+        }
         
         const paymentResult = await executeDemoPayment(specialistUrl, { prompt: currentContext }, specialistFee);
 
@@ -453,9 +464,24 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   if (fee > 0 && !dryRun) {
     addMessage(task, 'x402', 'dispatcher', `⏳ Processing ${fee} USDC payment via x402...`);
     
-    // Use the live public URL so x402/fetch can reach the 402 endpoint
-    const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
-    const specialistUrl = `${baseUrl}/api/specialist/${task.specialist}`;
+    // For external agents, route x402 payment to their endpoint directly
+    // For built-in specialists, use our own /api/specialist/:id endpoint
+    let specialistUrl: string;
+    const externalAgent = isExternalAgent(task.specialist) ? getExternalAgent(task.specialist) : null;
+    
+    if (externalAgent) {
+      // External agent: x402 payment goes directly to their audit/execute endpoint
+      const capability = externalAgent.capabilities[0] || 'execute';
+      if (capability === 'security-audit' || capability === 'audit') {
+        specialistUrl = `${externalAgent.endpoint}/audit`;
+      } else {
+        specialistUrl = `${externalAgent.endpoint}/execute`;
+      }
+      console.log(`[Dispatcher] x402 routing to external agent: ${specialistUrl}`);
+    } else {
+      const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
+      specialistUrl = `${baseUrl}/api/specialist/${task.specialist}`;
+    }
     
     const paymentResult = await executeDemoPayment(specialistUrl, { prompt: task.prompt }, fee);
 
