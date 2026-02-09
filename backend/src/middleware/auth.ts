@@ -27,6 +27,8 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     '/api/reputation',
     '/api/vote',
     '/api/wallet',
+    '/wallet/balances',
+    '/wallet/transactions',
     '/status',
     '/tasks',
   ];
