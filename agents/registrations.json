@@ -83,5 +83,37 @@
     "active": true,
     "registrations": [],
     "supportedTrust": ["reputation"]
+  },
+  {
+    "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    "name": "Sentinel",
+    "description": "Autonomous security audit agent. Analyzes smart contracts for vulnerabilities using Gemini AI. Hosted independently on Google Cloud Run. Fees: 2.50 USDC per audit via x402.",
+    "image": "https://circle-usdc-hackathon.vercel.app/agents/sentinel.png",
+    "services": [
+      {
+        "name": "x402-endpoint",
+        "endpoint": "https://sentinel-agent-957204176231.us-central1.run.app"
+      },
+      {
+        "name": "security-audit",
+        "endpoint": "https://sentinel-agent-957204176231.us-central1.run.app/audit"
+      },
+      {
+        "name": "health",
+        "endpoint": "https://sentinel-agent-957204176231.us-central1.run.app/health"
+      }
+    ],
+    "x402Support": true,
+    "active": true,
+    "registrations": [],
+    "supportedTrust": ["reputation"],
+    "external": true,
+    "wallet": "0x78eAC3A73b5211B7650D15E7058a846243930332",
+    "capabilities": ["security-audit", "compliance-check", "vulnerability-scan"],
+    "pricing": {
+      "security-audit": 2.50,
+      "compliance-check": 1.00,
+      "generic": 0.50
+    }
   }
 ]

@@ -14,7 +14,11 @@ import {
   Sparkles,
   Newspaper,
   FileText,
-  Cpu
+  Cpu,
+  Plus,
+  X,
+  ExternalLink,
+  Loader2
 } from 'lucide-react';
 import { AgentCard } from './AgentCard';
 
@@ -123,12 +127,36 @@ const AGENT_METADATA: Record<string, any> = {
     capabilities: ['orchestration', 'routing'],
     tier: 'system',
     erc8004Id: 'agent:base:0x000...000'
+  },
+  'Sentinel': {
+    id: 'sentinel',
+    tagline: 'Security Auditor',
+    icon: Shield,
+    price: 2.50,
+    successRate: 97,
+    responseTime: '5.0s',
+    tasksCompleted: 340,
+    color: 'red',
+    capabilities: ['security-audit', 'compliance-check', 'vulnerability-scan'],
+    tier: 'marketplace',
+    erc8004Id: 'agent:base:0x78e...332',
+    external: true,
+    endpoint: 'https://sentinel-agent-957204176231.us-central1.run.app'
   }
 };
 
 interface MarketplaceProps {
   hiredAgents: string[];
   onHire: (agentId: string) => void;
+}
+
+interface RegisterFormData {
+  name: string;
+  description: string;
+  endpoint: string;
+  wallet: string;
+  capabilities: string;
+  pricing: string;
 }
 
 export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
@@ -138,6 +166,17 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
   const [reputationData, setReputationData] = useState<Record<string, { successRate: number; upvotes: number; downvotes: number }>>({});
   const [agents, setAgents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [registerResult, setRegisterResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [formData, setFormData] = useState<RegisterFormData>({
+    name: '',
+    description: '',
+    endpoint: '',
+    wallet: '',
+    capabilities: '',
+    pricing: '',
+  });
 
   // Fetch registered agents and reputation
   useEffect(() => {
@@ -145,9 +184,10 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
     
     const fetchData = async () => {
       try {
-        const [repRes, agentsRes] = await Promise.all([
+        const [repRes, agentsRes, externalRes] = await Promise.all([
           fetch(`${apiUrl}/api/reputation`),
-          fetch(`${apiUrl}/api/agents`)
+          fetch(`${apiUrl}/api/agents`),
+          fetch(`${apiUrl}/api/agents/external`).catch(() => null),
         ]);
 
         const repData = await repRes.json();
@@ -178,9 +218,44 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
               name: a.name,
               description: a.description,
               isVerified: true, // All API agents are registered
-              capabilities: meta.capabilities || ['general'],
+              capabilities: meta.capabilities || a.capabilities || ['general'],
+              external: a.external || false,
+              endpoint: a.services?.[0]?.endpoint,
             };
           });
+
+        // Also add external agents that may not be in registrations.json yet
+        if (externalRes && externalRes.ok) {
+          const externalData = await externalRes.json();
+          for (const ext of (externalData.agents || [])) {
+            // Skip if already in the mapped list
+            if (mappedAgents.some((a: any) => a.id === ext.id)) continue;
+            
+            const meta = AGENT_METADATA[ext.name] || {
+              id: ext.id,
+              tagline: ext.capabilities?.[0] || 'External Agent',
+              icon: Shield,
+              price: Object.values(ext.pricing || {})[0] || 0,
+              successRate: 0,
+              responseTime: '?',
+              tasksCompleted: 0,
+              color: 'red',
+              capabilities: ext.capabilities || ['general'],
+              tier: 'marketplace',
+              erc8004Id: `agent:base:${ext.wallet?.slice(0, 6)}...${ext.wallet?.slice(-3)}`
+            };
+            
+            mappedAgents.push({
+              ...meta,
+              name: ext.name,
+              description: ext.description,
+              isVerified: ext.erc8004?.registered || false,
+              external: true,
+              endpoint: ext.endpoint,
+              healthy: ext.healthy,
+            });
+          }
+        }
 
         setAgents(mappedAgents);
         setIsLoading(false);
@@ -224,6 +299,55 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
   }, [search, sortBy, filterType, agentsWithReputation]);
 
   const allCapabilities = Array.from(new Set(agents.flatMap(a => a.capabilities)));
+
+  const handleRegister = async () => {
+    setIsRegistering(true);
+    setRegisterResult(null);
+    
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    
+    try {
+      // Parse capabilities and pricing
+      const capabilities = formData.capabilities.split(',').map(c => c.trim()).filter(Boolean);
+      let pricing: Record<string, number> = {};
+      if (formData.pricing) {
+        formData.pricing.split(',').forEach(p => {
+          const [cap, fee] = p.split(':').map(s => s.trim());
+          if (cap && fee) pricing[cap] = parseFloat(fee);
+        });
+      }
+      
+      const res = await fetch(`${apiUrl}/api/agents/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          endpoint: formData.endpoint,
+          wallet: formData.wallet,
+          capabilities,
+          pricing,
+          chain: 'base-sepolia',
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setRegisterResult({ success: true, message: data.message });
+        // Refresh agent list
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setRegisterResult({ success: false, message: data.error || 'Registration failed' });
+      }
+    } catch (err: any) {
+      setRegisterResult({ success: false, message: err.message });
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -335,10 +459,152 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
           </div>
           <span className="text-sm text-[var(--text-muted)]">Join 150+ agents in the open marketplace</span>
         </div>
-        <button className="text-sm font-bold text-[var(--accent-gold)] hover:underline">
+        <button 
+          onClick={() => setShowRegisterForm(true)}
+          className="text-sm font-bold text-[var(--accent-gold)] hover:underline flex items-center gap-1"
+        >
+          <Plus size={14} />
           List your agent &rarr;
         </button>
       </div>
+
+      {/* Registration Modal */}
+      <AnimatePresence>
+        {showRegisterForm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowRegisterForm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-panel gradient-border max-w-lg w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+                  <Shield className="text-[var(--accent-gold)]" size={20} />
+                  Register External Agent
+                </h3>
+                <button onClick={() => setShowRegisterForm(false)} className="text-[var(--text-muted)] hover:text-white">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <p className="text-sm text-[var(--text-secondary)] mb-6">
+                Register your autonomous agent on the Hivemind marketplace. Your agent will receive queries via HTTP and earn USDC through x402 payments.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Agent Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
+                    placeholder="e.g. Sentinel"
+                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm focus:outline-none focus:border-[var(--accent-cyan)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Description</label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
+                    placeholder="Security audit agent powered by Gemini"
+                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm focus:outline-none focus:border-[var(--accent-cyan)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                    Endpoint URL
+                    <ExternalLink size={12} className="inline ml-1" />
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.endpoint}
+                    onChange={(e) => setFormData(f => ({ ...f, endpoint: e.target.value }))}
+                    placeholder="https://your-agent.run.app"
+                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Payment Wallet</label>
+                  <input
+                    type="text"
+                    value={formData.wallet}
+                    onChange={(e) => setFormData(f => ({ ...f, wallet: e.target.value }))}
+                    placeholder="0x..."
+                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Capabilities (comma-separated)</label>
+                  <input
+                    type="text"
+                    value={formData.capabilities}
+                    onChange={(e) => setFormData(f => ({ ...f, capabilities: e.target.value }))}
+                    placeholder="security-audit, compliance-check"
+                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm focus:outline-none focus:border-[var(--accent-cyan)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Pricing (capability:fee, comma-separated)</label>
+                  <input
+                    type="text"
+                    value={formData.pricing}
+                    onChange={(e) => setFormData(f => ({ ...f, pricing: e.target.value }))}
+                    placeholder="security-audit:2.50, compliance-check:1.00"
+                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm focus:outline-none focus:border-[var(--accent-cyan)]"
+                  />
+                </div>
+              </div>
+
+              {registerResult && (
+                <div className={`mt-4 p-3 rounded-lg text-sm ${registerResult.success ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                  {registerResult.message}
+                </div>
+              )}
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => setShowRegisterForm(false)}
+                  className="flex-1 px-4 py-2 rounded-lg border border-white/10 text-[var(--text-secondary)] hover:bg-white/5 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRegister}
+                  disabled={isRegistering || !formData.name || !formData.endpoint || !formData.wallet}
+                  className="flex-1 btn-primary flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+                >
+                  {isRegistering ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Registering...
+                    </>
+                  ) : (
+                    <>
+                      <Shield size={16} />
+                      Register on Marketplace
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

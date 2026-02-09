@@ -20,6 +20,7 @@ import { submitVote, getVote, getReputationStats, getAllReputation, updateSyncSt
 import { syncReputationToChain } from './solana-reputation';
 import solana from './solana';
 import { DispatchRequest, Task, WSEvent, SpecialistType } from './types';
+import { registerAgent, getExternalAgents, getExternalAgent, healthCheckAgent, removeAgent, RegisterRequest } from './external-agents';
 
 dotenv.config();
 
@@ -165,6 +166,113 @@ app.get('/api/agents/:id/registration', (req: Request, res: Response) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+});
+
+/**
+ * POST /api/agents/register - Register an external agent on the marketplace
+ * Body: { name, description, endpoint, wallet, capabilities, pricing?, chain? }
+ */
+app.post('/api/agents/register', async (req: Request, res: Response) => {
+  try {
+    const { name, description, endpoint, wallet, capabilities, pricing, chain } = req.body as RegisterRequest;
+
+    if (!name || !description || !endpoint || !wallet || !capabilities?.length) {
+      return res.status(400).json({
+        error: 'Missing required fields: name, description, endpoint, wallet, capabilities[]',
+      });
+    }
+
+    // Validate endpoint URL
+    try {
+      new URL(endpoint);
+    } catch {
+      return res.status(400).json({ error: 'Invalid endpoint URL' });
+    }
+
+    // Health check the agent before registering
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    let healthOk = false;
+    let agentInfo: any = null;
+
+    try {
+      const healthRes = await fetch(`${endpoint.replace(/\/$/, '')}/health`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      healthOk = healthRes.ok;
+      if (healthOk) agentInfo = await healthRes.json();
+    } catch (err: any) {
+      clearTimeout(timeout);
+      console.warn(`[Register] Health check failed for ${endpoint}:`, err.message);
+    }
+
+    const agent = registerAgent({ name, description, endpoint, wallet, capabilities, pricing, chain });
+
+    // Also try to get /info for richer metadata
+    try {
+      const infoRes = await fetch(`${agent.endpoint}/info`, { signal: AbortSignal.timeout(5000) });
+      if (infoRes.ok) {
+        const infoData = await infoRes.json() as any;
+        agentInfo = { ...agentInfo, ...infoData };
+      }
+    } catch {}
+
+    res.status(201).json({
+      success: true,
+      agent: {
+        ...agent,
+        healthCheck: healthOk ? 'passed' : 'failed (registered anyway)',
+        agentInfo,
+      },
+      message: `Agent '${agent.name}' registered successfully. It will now appear in the marketplace.`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/agents/external - List all registered external agents
+ */
+app.get('/api/agents/external', (req: Request, res: Response) => {
+  const agents = getExternalAgents();
+  res.json({ agents, count: agents.length });
+});
+
+/**
+ * GET /api/agents/external/:id - Get details about a specific external agent
+ */
+app.get('/api/agents/external/:id', (req: Request, res: Response) => {
+  const agent = getExternalAgent(req.params.id);
+  if (!agent) {
+    return res.status(404).json({ error: 'External agent not found' });
+  }
+  res.json(agent);
+});
+
+/**
+ * POST /api/agents/external/:id/health - Health check an external agent
+ */
+app.post('/api/agents/external/:id/health', async (req: Request, res: Response) => {
+  const healthy = await healthCheckAgent(req.params.id);
+  const agent = getExternalAgent(req.params.id);
+  res.json({
+    id: req.params.id,
+    healthy,
+    lastCheck: agent?.lastHealthCheck,
+  });
+});
+
+/**
+ * DELETE /api/agents/external/:id - Remove an external agent
+ */
+app.delete('/api/agents/external/:id', (req: Request, res: Response) => {
+  const removed = removeAgent(req.params.id);
+  if (!removed) {
+    return res.status(404).json({ error: 'External agent not found' });
+  }
+  res.json({ success: true, message: `Agent '${req.params.id}' removed.` });
 });
 
 /**

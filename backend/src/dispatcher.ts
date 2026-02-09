@@ -24,6 +24,7 @@ import { executeDemoPayment } from './x402-protocol';
 import { sendOnChainPayment } from './onchain-payments';
 import { recordSuccess, recordFailure, getSuccessRate } from './reputation';
 import { planWithLLM } from './llm-planner';
+import { isExternalAgent, callExternalAgent, getExternalAgents } from './external-agents';
 import magos from './specialists/magos';
 import aura from './specialists/aura';
 import bankr from './specialists/bankr';
@@ -845,9 +846,16 @@ export async function callSpecialistGated(specialistId: string, prompt: string):
 
 /**
  * Call the appropriate specialist
+ * Checks external agents first, then falls back to built-in specialists
  */
 export async function callSpecialist(specialist: SpecialistType, prompt: string): Promise<SpecialistResult> {
   const startTime = Date.now();
+  
+  // Check if this is an external agent (registered via marketplace)
+  if (isExternalAgent(specialist as string)) {
+    console.log(`[Dispatcher] Routing to external agent: ${specialist}`);
+    return callExternalAgent(specialist as string, prompt);
+  }
   
   switch (specialist) {
     case 'magos':
@@ -927,15 +935,35 @@ export function getSpecialistPricing(): Record<SpecialistType, { fee: string; de
 }
 
 /**
- * Get full specialist list with reputation data
+ * Get full specialist list with reputation data (including external agents)
  */
 export function getSpecialists(): any[] {
-  return Object.entries(SPECIALIST_DESCRIPTIONS).map(([name, description]) => ({
+  // Built-in specialists
+  const builtIn = Object.entries(SPECIALIST_DESCRIPTIONS).map(([name, description]) => ({
     name,
     description,
     fee: String((config.fees as any)[name] || 0),
-    success_rate: getSuccessRate(name as SpecialistType)
+    success_rate: getSuccessRate(name as SpecialistType),
+    external: false,
   }));
+  
+  // External agents from the registry
+  const external = getExternalAgents()
+    .filter(a => a.active && a.healthy)
+    .map(a => ({
+      name: a.id,
+      displayName: a.name,
+      description: a.description,
+      fee: String(Object.values(a.pricing)[0] || 0),
+      success_rate: 0,
+      external: true,
+      endpoint: a.endpoint,
+      wallet: a.wallet,
+      capabilities: a.capabilities,
+      pricing: a.pricing,
+    }));
+  
+  return [...builtIn, ...external];
 }
 
 export default {
