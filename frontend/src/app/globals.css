@@ -62,7 +62,20 @@
 
 html, body {
   height: 100%;
-  overflow: hidden;
+}
+
+/* Allow scroll on mobile, hide on desktop */
+@media (min-width: 1024px) {
+  html, body {
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 1023px) {
+  html, body {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
 }
 
 body {

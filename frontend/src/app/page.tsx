@@ -503,12 +503,12 @@ export default function CommandCenter() {
       <div className="animated-bg" />
       
       {/* Main Content */}
-      <div className="relative z-10 min-h-screen flex flex-col p-6 max-w-7xl mx-auto w-full">
+      <div className="relative z-10 min-h-screen flex flex-col p-3 sm:p-6 max-w-7xl mx-auto w-full">
         {/* Header */}
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-6"
+          className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3"
         >
           <div className="flex items-center gap-3">
             <motion.div
@@ -519,7 +519,7 @@ export default function CommandCenter() {
               <Hexagon size={28} className="text-[var(--accent-gold)]" strokeWidth={2.5} />
             </motion.div>
             <div>
-              <h1 className="text-2xl font-bold text-gradient">
+              <h1 className="text-xl sm:text-2xl font-bold text-gradient">
                 Hivemind Protocol
               </h1>
               <p className="text-sm text-[var(--accent-gold)] opacity-80">
@@ -530,50 +530,50 @@ export default function CommandCenter() {
 
           <div className="flex items-center gap-4">
             {/* View Toggle */}
-            <div className="flex items-center p-1.5 glass-panel-subtle rounded-xl bg-black/20 backdrop-blur-md border border-white/5">
+            <div className="flex items-center p-1.5 glass-panel-subtle rounded-xl bg-black/20 backdrop-blur-md border border-white/5 flex-wrap gap-1">
               <button
                 onClick={() => setActiveView('dispatch')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 cursor-pointer ${
+                className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 cursor-pointer ${
                   activeView === 'dispatch' 
                     ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105' 
                     : 'text-white/50 hover:text-white/90 hover:bg-white/10'
                 }`}
               >
                 <Zap size={16} fill={activeView === 'dispatch' ? 'currentColor' : 'none'} />
-                <span>Dispatch</span>
+                <span className="hidden sm:inline">Dispatch</span>
               </button>
               <button
                 onClick={() => setActiveView('marketplace')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 cursor-pointer ${
+                className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 cursor-pointer ${
                   activeView === 'marketplace' 
                     ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105' 
                     : 'text-white/50 hover:text-white/90 hover:bg-white/10'
                 }`}
               >
                 <LayoutGrid size={16} />
-                <span>Marketplace</span>
+                <span className="hidden sm:inline">Marketplace</span>
               </button>
               <button
                 onClick={() => setActiveView('registry')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 cursor-pointer ${
+                className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 cursor-pointer ${
                   activeView === 'registry' 
                     ? 'bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-[#0D0D0D] shadow-[0_0_20px_rgba(0,240,255,0.3)] scale-105' 
                     : 'text-white/50 hover:text-white/90 hover:bg-white/10'
                 }`}
               >
                 <ShieldCheck size={16} />
-                <span>Registry</span>
+                <span className="hidden sm:inline">Registry</span>
               </button>
               <button
                 onClick={() => setActiveView('history')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 cursor-pointer ${
+                className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 cursor-pointer ${
                   activeView === 'history' 
                     ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105' 
                     : 'text-white/50 hover:text-white/90 hover:bg-white/10'
                 }`}
               >
                 <History size={16} />
-                <span>History</span>
+                <span className="hidden sm:inline">History</span>
               </button>
             </div>
           

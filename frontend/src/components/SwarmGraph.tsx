@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useEffect, useState } from 'react';
+import { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -126,6 +126,12 @@ function AgentNode({ data }: { data: {
   const isReady = data.status === 'ready';
   const isComplete = data.status === 'complete';
   const isActive = data.isActive || data.status === 'active';
+  
+  // Responsive sizing
+  const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 640;
+  const baseSize = data.isCenter ? (isSmallScreen ? 64 : 80) : (isSmallScreen ? 48 : 56);
+  const iconSize = data.isCenter ? (isSmallScreen ? 24 : 28) : (isSmallScreen ? 18 : 20);
+  const fontSize = isSmallScreen ? 8 : 10;
 
   return (
     <motion.div
@@ -145,16 +151,13 @@ function AgentNode({ data }: { data: {
         damping: 20,
         boxShadow: { duration: 0.3 }
       }}
-      className={`
-        relative flex flex-col items-center justify-center
-        ${data.isCenter ? 'w-32 h-32' : 'w-24 h-24'}
-        rounded-full glass-panel cursor-pointer
-        transition-all duration-300
-        ${isReady ? 'border-dashed' : 'border-solid'}
-      `}
+      className="relative flex flex-col items-center justify-center rounded-full glass-panel cursor-pointer transition-all duration-300"
       style={{
+        width: baseSize,
+        height: baseSize,
         borderColor: isActive ? config.color : isReady ? config.color : 'rgba(255,255,255,0.1)',
         borderWidth: isActive ? 3 : isReady ? 2 : 1,
+        borderStyle: isReady ? 'dashed' : 'solid',
       }}
     >
       {/* Pulse ring when active */}
@@ -186,24 +189,24 @@ function AgentNode({ data }: { data: {
         }}
       >
         <Icon 
-          size={data.isCenter ? 36 : 28} 
+          size={iconSize} 
           style={{ color: config.color }}
         />
       </motion.div>
       
       {/* Name */}
       <span 
-        className="mt-1 text-[10px] font-bold uppercase tracking-wider"
-        style={{ color: config.color }}
+        className="font-bold uppercase tracking-wider"
+        style={{ color: config.color, fontSize, marginTop: 2 }}
       >
         {config.name}
       </span>
 
       {/* ERC-8004 ID Badge (if available) */}
-      {!data.isCenter && (
+      {!data.isCenter && !isSmallScreen && (
         <div className="mt-0.5 px-1.5 py-0.5 rounded-full bg-black/40 border border-white/5 flex items-center gap-1">
-          <Shield size={8} className="text-[var(--accent-cyan)]" />
-          <span className="text-[8px] font-mono text-white/70">8004</span>
+          <Shield size={fontSize - 2} className="text-[var(--accent-cyan)]" />
+          <span className="font-mono text-white/70" style={{ fontSize: fontSize - 2 }}>8004</span>
         </div>
       )}
       
@@ -263,9 +266,31 @@ function getNodePositions(centerX: number, centerY: number, radius: number, extr
 }
 
 export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAgents = [], onAgentClick }: SwarmGraphProps) {
-  const centerX = 200;
-  const centerY = 150;
-  const radius = 140;
+  // Responsive dimensions
+  const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      const container = containerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        setDimensions({
+          width: rect.width,
+          height: rect.height,
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
+  const centerX = dimensions.width / 2;
+  const centerY = dimensions.height / 2;
+  const radius = Math.min(dimensions.width, dimensions.height) * 0.35;
+  const nodeSize = Math.min(dimensions.width, dimensions.height) * 0.14;
 
   const positions = useMemo(() => getNodePositions(centerX, centerY, radius, hiredAgents), [hiredAgents]);
   
@@ -394,7 +419,7 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAge
       </div>
 
       {/* Graph */}
-      <div className="h-[calc(100%-48px)]">
+      <div ref={containerRef} className="h-[calc(100%-48px)] min-h-[250px]">
         <ReactFlow
           nodes={nodes}
           edges={edges}

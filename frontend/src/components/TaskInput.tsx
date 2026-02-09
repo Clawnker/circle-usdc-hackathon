@@ -130,7 +130,7 @@ export function TaskInput({
             focus-within:border-[rgba(247,179,43,0.5)] focus-within:shadow-[0_0_40px_rgba(247,179,43,0.1)]
           `}>
             {/* Input Field */}
-            <div className="flex items-center p-2 gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center p-2 gap-2">
               <div className="flex-1 relative">
                 <input
                   type="text"
@@ -138,7 +138,7 @@ export function TaskInput({
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Ask the Hivemind anything..."
                   disabled={isLoading || disabled}
-                  className="w-full bg-transparent px-5 py-4 text-xl text-white
+                  className="w-full bg-transparent px-4 py-3 sm:px-5 sm:py-4 text-base sm:text-xl text-white
                     placeholder:text-white/20 focus:outline-none disabled:opacity-50"
                 />
                 
@@ -149,7 +149,7 @@ export function TaskInput({
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0 }}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-2 pointer-events-none"
                     >
                       <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
                         <div className={`w-1.5 h-1.5 rounded-full bg-[var(--accent-gold)] shadow-[0_0_8px_var(--accent-gold)]`} />
@@ -169,7 +169,7 @@ export function TaskInput({
                 whileHover={isReady ? { scale: 1.02, x: 2 } : {}}
                 whileTap={isReady ? { scale: 0.98 } : {}}
                 className={`
-                  relative overflow-hidden group/btn flex items-center gap-3 px-8 py-4 rounded-xl font-bold transition-all duration-300
+                  relative overflow-hidden group/btn flex items-center justify-center gap-2 sm:gap-3 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-bold transition-all duration-300
                   ${isReady 
                     ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_25px_rgba(247,179,43,0.4)]' 
                     : 'bg-white/5 text-white/20 cursor-not-allowed'}
@@ -206,7 +206,7 @@ export function TaskInput({
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="border-t border-white/5 bg-white/[0.02] px-6 py-2.5 flex items-center justify-between"
+                  className="border-t border-white/5 bg-white/[0.02] px-4 sm:px-6 py-2 sm:py-2.5 flex flex-wrap items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-4">
                     <span className="text-[11px] text-white/40 uppercase tracking-widest font-medium">Estimated Cost</span>
@@ -241,7 +241,7 @@ export function TaskInput({
       <AnimatePresence>
         {!prompt.trim() && !isLoading && (
           <motion.div 
-            className="flex flex-wrap gap-3"
+            className="flex flex-wrap gap-2 sm:gap-3"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -257,7 +257,7 @@ export function TaskInput({
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl glass-panel-subtle text-sm text-white/60 hover:text-white transition-colors cursor-pointer border border-white/5"
+                  className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl glass-panel-subtle text-xs sm:text-sm text-white/60 hover:text-white transition-colors cursor-pointer border border-white/5"
                 >
                   <Icon size={14} className="text-[var(--accent-gold)]" />
                   <span>{suggestion.text}</span>
