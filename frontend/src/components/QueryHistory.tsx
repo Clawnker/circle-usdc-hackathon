@@ -237,7 +237,7 @@ ${new Date(item.timestamp).toLocaleString()}
                                 x402 Payments
                               </h4>
                               {item.payments && item.payments.length > 0 ? (
-                                <div className="space-y-1">
+                                <div className="space-y-1 max-h-40 overflow-y-auto">
                                   {item.payments.map((payment, i) => (
                                     <div key={i} className="flex items-center justify-between text-xs bg-white/5 rounded px-3 py-2">
                                       <span className="text-[var(--text-secondary)]">
