@@ -498,7 +498,7 @@ export default function CommandCenter() {
   }, []);
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen overflow-x-hidden overflow-y-auto lg:overflow-hidden">
       {/* Animated Background */}
       <div className="animated-bg" />
       
@@ -528,7 +528,7 @@ export default function CommandCenter() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             {/* View Toggle */}
             <div className="flex items-center p-1.5 glass-panel-subtle rounded-xl bg-black/20 backdrop-blur-md border border-white/5 flex-wrap gap-1">
               <button
@@ -763,7 +763,7 @@ export default function CommandCenter() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
-          className="mt-6 flex items-center justify-between text-xs text-[var(--text-muted)]"
+          className="mt-6 pb-4 flex items-center justify-between text-xs text-[var(--text-muted)]"
         >
           <div className="flex items-center gap-2">
             <Hexagon size={12} className="text-[var(--accent-gold)]" />

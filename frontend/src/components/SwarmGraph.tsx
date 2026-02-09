@@ -432,6 +432,7 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAge
             }
           }}
           fitView
+          fitViewOptions={{ padding: 0.15 }}
           panOnDrag={false}
           zoomOnScroll={false}
           zoomOnPinch={false}
