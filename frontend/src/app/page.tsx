@@ -503,7 +503,7 @@ export default function CommandCenter() {
       <div className="animated-bg" />
       
       {/* Main Content */}
-      <div className="relative z-10 min-h-screen flex flex-col p-3 sm:p-6 max-w-7xl mx-auto w-full">
+      <div className="relative z-10 lg:min-h-screen flex flex-col p-3 sm:p-6 max-w-7xl mx-auto w-full">
         {/* Header */}
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
@@ -602,7 +602,7 @@ export default function CommandCenter() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.2 }}
-              className="flex-1 flex flex-col"
+              className="lg:flex-1 flex flex-col"
             >
               {/* Task Input or Result Card */}
               <motion.div
@@ -644,7 +644,7 @@ export default function CommandCenter() {
               </motion.div>
 
               {/* Main Grid */}
-              <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
+              <div className="lg:flex-1 grid grid-cols-12 gap-4 lg:min-h-0">
                 {/* Left Column - Swarm Graph + Activity */}
                 <div className="col-span-12 lg:col-span-5 flex flex-col gap-4">
                   <motion.div
