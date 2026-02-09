@@ -10,6 +10,7 @@ export interface Payment {
   txSignature?: string;
   createdAt?: string;
   timestamp?: string;
+  method?: 'x402' | 'on-chain';
 }
 
 export interface TransactionDetails {

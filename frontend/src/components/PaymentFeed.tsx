@@ -37,10 +37,12 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
   const from = getAgentDisplay(payment.from || payment.specialist || 'unknown');
   const to = getAgentDisplay(payment.to || 'agent');
   
+  const isX402 = payment.method === 'x402' || (payment.txSignature && !payment.txSignature.startsWith('0x'));
+
   const openExplorer = () => {
     // If txSignature looks like a hash, link to basescan; otherwise AgentWallet
     const sig = payment.txSignature || '';
-    if (sig.startsWith('0x') && sig.length > 20) {
+    if (!isX402 && sig.startsWith('0x') && sig.length > 20) {
       window.open(`https://sepolia.basescan.org/tx/${sig}`, '_blank');
     } else {
       window.open(`https://agentwallet.mcpay.tech/u/claw`, '_blank');
@@ -89,6 +91,12 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
         
         {/* Amount */}
         <div className="flex items-center gap-2">
+          {/* Payment method badge */}
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+            isX402 ? 'bg-[#00F0FF]/20 text-[#00F0FF]' : 'bg-orange-500/20 text-orange-400'
+          }`}>
+            {isX402 ? 'x402' : 'On-chain'}
+          </span>
           <motion.span
             initial={{ scale: 1.2 }}
             animate={{ scale: 1 }}
@@ -149,6 +157,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
               txSignature: tx.txHash || '',
               timestamp: tx.timestamp || new Date().toISOString(),
               specialist: tx.recipient,
+              method: tx.method || (tx.txHash && !tx.txHash.startsWith('0x') ? 'x402' : 'on-chain'),
             }));
             setHistoricPayments(mapped);
           }

@@ -56,6 +56,7 @@ export interface PaymentRecord extends PaymentInfo {
   txHash?: string;
   status: 'pending' | 'completed' | 'failed';
   timestamp: Date;
+  method?: string;
 }
 
 export interface DispatchRequest {

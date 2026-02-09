@@ -126,7 +126,8 @@ export function createPaymentRecord(
   currency: string,
   network: 'solana' | 'base' | 'ethereum',
   recipient: string,
-  txHash?: string
+  txHash?: string,
+  method?: string
 ): PaymentRecord {
   return {
     amount,
@@ -136,6 +137,7 @@ export function createPaymentRecord(
     txHash,
     status: txHash ? 'completed' : 'pending',
     timestamp: new Date(),
+    method,
   };
 }
 

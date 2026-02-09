@@ -122,6 +122,7 @@ export function useWebSocket(): UseWebSocketReturn {
                       token: p.currency || 'ETH',
                       txSignature: p.txHash || '',
                       timestamp: p.timestamp || new Date().toISOString(),
+                      method: p.method || (p.txHash && !p.txHash.startsWith('0x') ? 'x402' : 'on-chain'),
                     })));
                   }
                   // Add messages if present
@@ -224,6 +225,7 @@ export function useWebSocket(): UseWebSocketReturn {
             token: p.currency || 'USDC',
             txSignature: p.txHash || '',
             timestamp: p.timestamp || new Date().toISOString(),
+            method: p.method || (p.txHash && !p.txHash.startsWith('0x') ? 'x402' : 'on-chain'),
           })));
         }
         if (task.status === 'completed' && task.result) {

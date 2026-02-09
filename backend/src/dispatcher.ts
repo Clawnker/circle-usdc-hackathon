@@ -352,7 +352,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
         const paymentResult = await executeDemoPayment(specialistUrl, { prompt: currentContext }, specialistFee);
 
         if (paymentResult.success && paymentResult.txSignature) {
-          const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist, paymentResult.txSignature);
+          const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist, paymentResult.txSignature, 'x402');
           task.payments.push(feeRecord);
           addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${specialistFee} USDC → ${specialist}`);
           
@@ -365,12 +365,12 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
           const onChainResult = await sendOnChainPayment(specialist, String(specialistFee));
           if (onChainResult) {
             const feeRecord = createPaymentRecord(
-              onChainResult.amount, 'USDC', 'base-sepolia' as any, specialist, onChainResult.txHash
+              onChainResult.amount, 'USDC', 'base-sepolia' as any, specialist, onChainResult.txHash, 'on-chain'
             );
             task.payments.push(feeRecord);
             addMessage(task, 'x402', 'dispatcher', `💰 On-chain Payment: ${specialistFee} USDC → ${specialist} (tx: ${onChainResult.txHash.slice(0, 10)}...)`);
           } else {
-            const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist);
+            const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist, undefined, 'x402');
             task.payments.push(feeRecord);
             logTransaction(feeRecord);
             addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Pending): ${specialistFee} USDC → ${specialist}`);
@@ -486,7 +486,7 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
     const paymentResult = await executeDemoPayment(specialistUrl, { prompt: task.prompt }, fee);
 
     if (paymentResult.success && paymentResult.txSignature) {
-      const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist, paymentResult.txSignature);
+      const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist, paymentResult.txSignature, 'x402');
       task.payments.push(feeRecord);
       addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${fee} USDC → ${task.specialist}`);
     } else {
@@ -498,12 +498,12 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       
       if (onChainResult) {
         const feeRecord = createPaymentRecord(
-          onChainResult.amount, 'USDC', 'base-sepolia' as any, task.specialist, onChainResult.txHash
+          onChainResult.amount, 'USDC', 'base-sepolia' as any, task.specialist, onChainResult.txHash, 'on-chain'
         );
         task.payments.push(feeRecord);
         addMessage(task, 'x402', 'dispatcher', `💰 On-chain Payment: ${fee} USDC → ${task.specialist} (tx: ${onChainResult.txHash.slice(0, 10)}...)`);
       } else {
-        const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist);
+        const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist, undefined, 'x402');
         task.payments.push(feeRecord);
         logTransaction(feeRecord);
         addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Pending): ${fee} USDC → ${task.specialist}`);
