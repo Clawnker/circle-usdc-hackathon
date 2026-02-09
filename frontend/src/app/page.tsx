@@ -498,7 +498,7 @@ export default function CommandCenter() {
   }, []);
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden overflow-y-auto lg:overflow-hidden">
+    <div className="relative min-h-screen">
       {/* Animated Background */}
       <div className="animated-bg" />
       

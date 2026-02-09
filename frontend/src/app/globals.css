@@ -60,21 +60,31 @@
   box-sizing: border-box;
 }
 
-html, body {
+html {
   height: 100%;
 }
 
-/* Allow scroll on mobile, hide on desktop */
+body {
+  min-height: 100%;
+}
+
+/* Lock viewport on desktop, allow scroll on mobile */
 @media (min-width: 1024px) {
   html, body {
     overflow: hidden;
+    height: 100%;
   }
 }
 
 @media (max-width: 1023px) {
-  html, body {
+  html {
+    height: auto;
     overflow-y: auto;
     overflow-x: hidden;
+  }
+  body {
+    height: auto;
+    overflow: visible;
   }
 }
 
