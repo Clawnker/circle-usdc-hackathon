@@ -450,10 +450,19 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { prompt } = req.body;
     
-    // Validate specialist ID
+    // Validate specialist ID (with aliases)
+    const specialistAliases: Record<string, string> = {
+      'oracle': 'magos',
+      'market': 'magos',
+      'social': 'aura',
+      'security': 'sentinel',
+      'writer': 'scribe',
+      'trade': 'bankr',
+    };
+    const resolvedId = specialistAliases[id] || id;
     const validSpecialists: SpecialistType[] = ['magos', 'aura', 'bankr', 'scribe', 'seeker', 'sentinel', 'general'];
-    if (!validSpecialists.includes(id as SpecialistType)) {
-      return res.status(400).json({ error: 'Invalid specialist ID' });
+    if (!validSpecialists.includes(resolvedId as SpecialistType)) {
+      return res.status(400).json({ error: 'Invalid specialist ID', valid: validSpecialists, aliases: Object.keys(specialistAliases) });
     }
 
     if (!prompt) {
@@ -463,7 +472,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
     // Check for x402 payment signature
     const paymentSignature = req.headers['payment-signature'] || req.headers['x-payment'];
     
-    const fee = (config.fees as any)[id] || 0;
+    const fee = (config.fees as any)[resolvedId] || 0;
 
     if (!paymentSignature && fee > 0) {
       // Return 402 with payment requirements (x402 v2 format with accepts array)
@@ -479,8 +488,8 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
             amount: String(Math.floor(fee * 1_000_000)),
             payTo: TREASURY_WALLET_EVM,
             extra: {
-              name: `${id} specialist`,
-              description: `Query the ${id} AI specialist via Hivemind Protocol (Base Sepolia)`,
+              name: `${resolvedId} specialist`,
+              description: `Query the ${resolvedId} AI specialist via Hivemind Protocol (Base Sepolia)`,
               feePayer: TREASURY_WALLET_EVM,
             }
           },
@@ -491,8 +500,8 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
             amount: String(Math.floor(fee * 1_000_000)),
             payTo: TREASURY_WALLET_SOLANA,
             extra: {
-              name: `${id} specialist`,
-              description: `Query the ${id} AI specialist (fallback)`,
+              name: `${resolvedId} specialist`,
+              description: `Query the ${resolvedId} AI specialist (fallback)`,
               feePayer: TREASURY_WALLET_SOLANA,
             }
           }
@@ -502,7 +511,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
       // Encode as base64 for header
       const paymentRequiredBase64 = Buffer.from(JSON.stringify(paymentRequired)).toString('base64');
       
-      console.log(`[x402] Returning 402 for ${id}, fee: ${fee} USDC (Base primary)`);
+      console.log(`[x402] Returning 402 for ${resolvedId}, fee: ${fee} USDC (Base primary)`);
       res.setHeader('payment-required', paymentRequiredBase64);
       res.setHeader('x-payment-required', paymentRequiredBase64); // Fallback
       return res.status(402).json({ 
@@ -514,7 +523,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
     }
 
     if (fee > 0) {
-      console.log(`[x402] Verifying payment for ${id}, signature: ${String(paymentSignature).slice(0, 20)}...`);
+      console.log(`[x402] Verifying payment for ${resolvedId}, signature: ${String(paymentSignature).slice(0, 20)}...`);
       
       const sig = paymentSignature as string;
       if (usedSignatures.has(sig)) {
@@ -542,11 +551,11 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
       // Mark signature as used and persist (replay protection)
       usedSignatures.add(sig);
       saveUsedSignatures();
-      console.log(`[x402] Payment accepted: ${fee} USDC for ${id}`);
+      console.log(`[x402] Payment accepted: ${fee} USDC for ${resolvedId}`);
     }
     
     // Payment verified or not required - execute specialist
-    const result = await callSpecialist(id as SpecialistType, prompt);
+    const result = await callSpecialist(resolvedId as SpecialistType, prompt);
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: "Internal server error" });
