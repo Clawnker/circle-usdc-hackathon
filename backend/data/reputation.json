@@ -1,31 +1,43 @@
 {
   "specialists": {
     "magos": {
+      "agentId": "magos",
       "successCount": 39,
       "failureCount": 2,
       "upvotes": 39,
       "downvotes": 2,
+      "globalScore": 0.9512195121951219,
+      "capabilities": {},
       "votes": []
     },
     "aura": {
+      "agentId": "aura",
       "successCount": 6,
       "failureCount": 0,
       "upvotes": 6,
       "downvotes": 0,
+      "globalScore": 1,
+      "capabilities": {},
       "votes": []
     },
     "general": {
+      "agentId": "general",
       "successCount": 11,
       "failureCount": 0,
       "upvotes": 11,
       "downvotes": 0,
+      "globalScore": 1,
+      "capabilities": {},
       "votes": []
     },
     "bankr": {
+      "agentId": "bankr",
       "successCount": 23,
       "failureCount": 0,
       "upvotes": 23,
       "downvotes": 1,
+      "globalScore": 0.9583333333333334,
+      "capabilities": {},
       "votes": [
         {
           "taskId": "test-123",
@@ -37,17 +49,23 @@
       ]
     },
     "seeker": {
+      "agentId": "seeker",
       "successCount": 39,
       "failureCount": 0,
       "upvotes": 39,
       "downvotes": 0,
+      "globalScore": 1,
+      "capabilities": {},
       "votes": []
     },
     "DeFi Specialist Bankr": {
+      "agentId": "DeFi Specialist Bankr",
       "successCount": 0,
       "failureCount": 0,
       "upvotes": 2,
       "downvotes": 0,
+      "globalScore": 1,
+      "capabilities": {},
       "votes": [
         {
           "taskId": "d86ea43d-cd0c-41f3-9e62-041f1e53c8a0",
@@ -66,10 +84,13 @@
       ]
     },
     "Market Oracle": {
+      "agentId": "Market Oracle",
       "successCount": 0,
       "failureCount": 0,
       "upvotes": 2,
       "downvotes": 1,
+      "globalScore": 0.6666666666666666,
+      "capabilities": {},
       "votes": [
         {
           "taskId": "ae1bdde4-5358-4968-9818-c098781d8716",
@@ -130,10 +151,103 @@
       ]
     },
     "scribe": {
+      "agentId": "scribe",
       "successCount": 1,
       "failureCount": 0,
       "upvotes": 1,
       "downvotes": 0,
+      "globalScore": 1,
+      "capabilities": {},
+      "votes": []
+    },
+    "integration-test-agent": {
+      "agentId": "integration-test-agent",
+      "successCount": 24,
+      "failureCount": 40,
+      "upvotes": 24,
+      "downvotes": 40,
+      "globalScore": 0.5604999988514581,
+      "capabilities": {
+        "test-capability": {
+          "capabilityId": "test-capability",
+          "decayedUpvotes": 23.998941657065963,
+          "decayedDownvotes": 39.998236375123035,
+          "lastUpdateTimestamp": 1770685265256,
+          "latencySamples": [
+            150,
+            200,
+            250,
+            1000,
+            100,
+            150,
+            200,
+            250,
+            1000,
+            100,
+            150,
+            200,
+            250,
+            1000,
+            100,
+            150,
+            200,
+            250,
+            1000,
+            100,
+            150,
+            200,
+            250,
+            1000,
+            100,
+            150,
+            200,
+            250,
+            1000,
+            100,
+            150,
+            200,
+            250,
+            1000,
+            100,
+            150,
+            200,
+            250,
+            1000,
+            100
+          ],
+          "p50": 200,
+          "p95": 1000,
+          "p99": 1000,
+          "totalTasks": 64,
+          "currentScore": 0.5604999988514581
+        }
+      },
+      "votes": []
+    },
+    "e2e-agent": {
+      "agentId": "e2e-agent",
+      "successCount": 4,
+      "failureCount": 0,
+      "upvotes": 4,
+      "downvotes": 0,
+      "globalScore": 0.8984,
+      "capabilities": {
+        "e2e-cap": {
+          "capabilityId": "e2e-cap",
+          "decayedUpvotes": 3.9998431220074084,
+          "decayedDownvotes": 0,
+          "lastUpdateTimestamp": 1770685265270,
+          "latencySamples": [
+            200,
+            200
+          ],
+          "p50": 200,
+          "p95": 200,
+          "p99": 200,
+          "totalTasks": 4,
+          "currentScore": 0.8984
+        }
+      },
       "votes": []
     }
   },
