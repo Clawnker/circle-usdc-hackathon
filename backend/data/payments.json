@@ -43,5 +43,14 @@
     "txHash": "0xf0cc43c868abdb19ccaf29c6e791f242055049781fd82126944379d4a0da3429",
     "status": "completed",
     "timestamp": "2026-02-09T02:35:00.000Z"
+  },
+  {
+    "amount": "0.10 USDC",
+    "currency": "USDC",
+    "network": "base",
+    "recipient": "0x676fF3d546932dE6558a267887E58e39f405B135",
+    "txHash": "27bceaf6-b9f4-4ba0-acc6-7cabde7dcf9f",
+    "status": "completed",
+    "timestamp": "2026-02-10T22:27:28.879Z"
   }
 ]

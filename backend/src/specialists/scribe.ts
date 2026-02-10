@@ -84,9 +84,9 @@ ${context ? `### Context/Sources:\n${context}\n` : ''}
 ${userContent}
 </user_input>
 
-Please provide a detailed, well-structured response based on the above information. 
-If sources were provided, please include citations.
-Use Markdown for formatting.
+Write the actual content directly. Do NOT include meta-commentary like "Here is a draft" or "Created a report about...".
+Start with the content itself. Use Markdown for formatting. Be concise and professional.
+If sources were provided, include citations at the end.
 `;
 
   return chatText('', fullPrompt, {
@@ -237,19 +237,19 @@ async function draft(topic: string, format: string = 'general'): Promise<any> {
   const context = search.results.map(r => `News: ${r.title}\nContext: ${r.description}`).join('\n\n');
   
   const draft = await callLLM(
-    `Draft a ${format} based on the topic. The tone should be professional and engaging. Incorporate relevant details from the provided context.`,
+    `Write a ${format} based on the topic. Output ONLY the content — no preamble, no "here is your draft", just the actual text. Professional and engaging tone. Incorporate relevant details from context.`,
     topic,
     context
   );
   
   return {
-    summary: `✍️ **Draft Created**: ${format} about ${topic}`,
-    insight: `Created dynamic ${format} draft for ${topic}`,
-    draft,
+    summary: draft,
+    insight: draft,
     confidence: 0.9,
     details: {
       type: 'draft',
-      response: draft,
+      format,
+      topic,
     },
   };
 }

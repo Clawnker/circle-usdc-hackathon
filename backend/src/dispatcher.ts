@@ -227,9 +227,14 @@ function addMessage(task: Task, from: string, to: string, content: string): void
 export async function dispatch(request: DispatchRequest): Promise<DispatchResponse> {
   const taskId = uuidv4();
   
+  // Pre-check: Security audit fast-path BEFORE complexity detection
+  // "audit contract" often triggers false positive complexity (security + wallet domains)
+  const isSentinelQuery = /\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(request.prompt) && 
+    (/0x[a-fA-F0-9]{40}/.test(request.prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(request.prompt));
+  
   // Phase 2b: Multi-step DAG Planning
   // First, check if it's a simple query to use the fast path
-  const isComplex = await isComplexQuery(request.prompt);
+  const isComplex = isSentinelQuery ? false : await isComplexQuery(request.prompt);
   
   let dagPlan: DAGPlan;
   let isMultiStep = false;
@@ -244,7 +249,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       query: request.prompt,
       steps: [],
       totalEstimatedCost: 0,
-      reasoning: 'Simple query detected, skipping LLM planning.'
+      reasoning: isSentinelQuery ? 'Security audit query — fast-path to sentinel.' : 'Simple query detected, skipping LLM planning.'
     };
   }
   
@@ -482,10 +487,20 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       const successfulSteps = Object.values(dagResult.results).filter(r => r.success);
       const failedSteps = Object.values(dagResult.results).filter(r => !r.success);
       
+      // Bubble up the last successful step's summary as the top-level summary
+      // (typically the final synthesis step like scribe)
+      const lastSuccessful = successfulSteps.length > 0 
+        ? successfulSteps[successfulSteps.length - 1] 
+        : null;
+      const topLevelSummary = lastSuccessful?.summary || 
+        successfulSteps.map(s => s.summary).filter(Boolean).join('\n\n') || 
+        'No results available.';
+
       task.result = {
         success: successfulSteps.length > 0, // Partial success if at least one step worked
         data: {
           isDAG: true,
+          summary: topLevelSummary,
           planId: dagResult.planId,
           steps: Object.values(dagResult.results).map(r => ({
             specialist: r.specialist,
@@ -997,7 +1012,9 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
   }
   
   // 1b. Fast-path: contract audit/security queries → sentinel
-  if (/0x[a-fA-F0-9]{40}/.test(prompt) && /\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(prompt)) {
+  // Match either: contract address + audit keywords, OR contract/solidity code + audit keywords
+  if (/\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(prompt) && 
+      (/0x[a-fA-F0-9]{40}/.test(prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(prompt))) {
     console.log(`[Router] Fast-path: contract audit query detected, routing to sentinel`);
     if (!hiredAgents || hiredAgents.includes('sentinel' as SpecialistType)) return 'sentinel' as SpecialistType;
   }
