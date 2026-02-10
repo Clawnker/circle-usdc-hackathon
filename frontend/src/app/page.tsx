@@ -164,6 +164,12 @@ export default function CommandCenter() {
                 const sName = SPECIALIST_NAMES[s.specialist] || s.specialist;
                 return `[${sName}]\n${s.summary}`;
               }).join('\n\n');
+            } else if (r.data?.isDAG && r.data?.summary) {
+              // DAG orchestration result — use the synthesized summary
+              const steps = r.data.steps || [];
+              const specialists = steps.map((s: any) => SPECIALIST_NAMES[s.specialist] || s.specialist);
+              message = `Orchestrated: ${specialists.join(' → ')}`;
+              content = r.data.summary;
             } else {
               // Prefer summary (full context) over insight (brief) for search results
               if (r.data?.summary) content = r.data.summary;
@@ -209,7 +215,9 @@ export default function CommandCenter() {
               status: 'success',
               result: content || 'Task completed',
               cost: totalCost,
-              specialist: r.data?.isMultiHop ? r.data.hops.map((h: string) => h.charAt(0).toUpperCase() + h.slice(1)).join(' → ') : (SPECIALIST_NAMES[specialistId] || specialistId),
+              specialist: r.data?.isMultiHop ? r.data.hops.map((h: string) => h.charAt(0).toUpperCase() + h.slice(1)).join(' → ') 
+                : r.data?.isDAG ? (r.data.steps || []).map((s: any) => (SPECIALIST_NAMES[s.specialist] || s.specialist)).join(' → ')
+                : (SPECIALIST_NAMES[specialistId] || specialistId),
               taskId: currentTaskId || undefined,
               isMultiHop: r.data?.isMultiHop
             } as any);

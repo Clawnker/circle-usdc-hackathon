@@ -311,9 +311,20 @@ async function predictPrice(token: string = 'SOL', timeHorizon: string = '4h'): 
   let currentPrice = jup?.price;
   
   if (!currentPrice) {
-    const search = await braveSearch(`${token} crypto price usd`);
-    const match = search.results[0]?.description.match(/\$([0-9,.]+)/);
-    if (match) currentPrice = parseFloat(match[1].replace(/,/g, ''));
+    const search = await braveSearch(`${token} crypto price usd today`);
+    // Try multiple result snippets for price extraction
+    for (const result of search.results.slice(0, 5)) {
+      const text = (result.description || '') + ' ' + (result.title || '');
+      const match = text.match(/\$\s?([0-9]{1,3}(?:,\d{3})*(?:\.\d+)?)/);
+      if (match) {
+        const parsed = parseFloat(match[1].replace(/,/g, ''));
+        if (parsed > 0.001) {
+          currentPrice = parsed;
+          console.log(`[Magos] Brave Search price for ${token}: $${parsed}`);
+          break;
+        }
+      }
+    }
   }
   
   if (!currentPrice) {
@@ -396,23 +407,37 @@ async function generateInsight(prompt: string) {
  * Build a human-readable summary from structured Magos data
  */
 function buildMagosSummary(data: any, intentType: string): string {
-  if (data.insight) return data.insight;
+  if (data.insight && intentType !== 'predict') return data.insight;
   
   switch (intentType) {
     case 'predict': {
       const dir = data.direction === 'bullish' ? '📈' : data.direction === 'bearish' ? '📉' : '➡️';
-      const parts = [`${dir} **${data.token || 'Token'}**: $${data.currentPrice?.toLocaleString() || '?'}`];
-      if (data.predictedPrice) parts.push(`→ $${data.predictedPrice.toLocaleString()} (${data.timeHorizon || '?'})`);
-      if (data.direction) parts.push(`| Outlook: ${data.direction}`);
-      if (data.reasoning) parts.push(`\n\n${data.reasoning}`);
-      return parts.join(' ');
+      const token = data.token || 'Token';
+      const price = data.currentPrice ? `$${Number(data.currentPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A';
+      const predicted = data.predictedPrice ? `$${Number(data.predictedPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '';
+      const change = data.currentPrice && data.predictedPrice 
+        ? ((data.predictedPrice - data.currentPrice) / data.currentPrice * 100).toFixed(1)
+        : null;
+      
+      let summary = `${dir} **${token}** is currently at **${price}**`;
+      if (predicted && change) {
+        summary += ` | ${data.timeHorizon || '4h'} target: **${predicted}** (${Number(change) > 0 ? '+' : ''}${change}%)`;
+      }
+      summary += `\n\n**Outlook:** ${data.direction?.charAt(0).toUpperCase()}${data.direction?.slice(1) || 'Neutral'}`;
+      if (data.reasoning) summary += `\n\n${data.reasoning}`;
+      return summary;
     }
     case 'risk':
-      return `⚠️ **${data.token} Risk:** ${data.riskLevel?.toUpperCase() || '?'} (${data.riskScore || '?'}/100)\n\n${data.factors?.[0] || ''}`;
-    case 'trending':
-      return data.trending?.map((t: any) => `• $${t.token} (${t.mentions} mentions, ${t.sentiment})`).join('\n') || 'No trending data available.';
+      return `⚠️ **${data.token} Risk Assessment:** ${data.riskLevel?.toUpperCase() || '?'} (${data.riskScore || '?'}/100)\n\n${data.factors?.[0] || ''}`;
+    case 'trending': {
+      if (!data.trending?.length) return data.insight || 'No trending data available.';
+      const lines = data.trending.map((t: any) => `• **$${t.token}** — ${t.mentions} mentions (${t.sentiment})`);
+      return `🔥 **Trending Tokens**\n\n${lines.join('\n')}`;
+    }
+    case 'sentiment':
+      return data.insight || `Sentiment for ${data.token}: ${data.sentiment || 'neutral'}`;
     default:
-      return data.reasoning || data.analysis || JSON.stringify(data);
+      return data.insight || data.reasoning || data.analysis || JSON.stringify(data);
   }
 }
 

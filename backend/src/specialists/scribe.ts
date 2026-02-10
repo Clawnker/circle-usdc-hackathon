@@ -93,7 +93,7 @@ If sources were provided, include citations at the end.
     model: MODELS.fast,
     caller: 'scribe',
     temperature: 0.3,
-    maxTokens: 2048,
+    maxTokens: 4096,
   });
 }
 

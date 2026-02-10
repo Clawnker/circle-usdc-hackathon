@@ -180,7 +180,7 @@ async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
       if (avgScore > 0.8) label = 'fomo';
       else if (avgScore < -0.8) label = 'fud';
 
-      const summary = generateRealSentimentSummary(topic, label, avgScore, posts.length);
+      const summary = generateRealSentimentSummary(topic, label, avgScore, posts.length, posts);
 
       return {
         topic,
@@ -242,19 +242,26 @@ function stripHtml(html: string): string {
 /**
  * Generate human-readable sentiment summary based on real data
  */
-function generateRealSentimentSummary(topic: string, sentiment: string, score: number, count: number): string {
+function generateRealSentimentSummary(topic: string, sentiment: string, score: number, count: number, posts?: any[]): string {
+  const emoji = sentiment === 'bullish' ? '📈' : sentiment === 'bearish' ? '📉' : sentiment === 'fomo' ? '🚀' : sentiment === 'fud' ? '⚠️' : '📊';
   const intensity = Math.abs(score) > 0.7 ? 'strongly' : Math.abs(score) > 0.4 ? 'moderately' : 'slightly';
-  const platformText = count > 0 ? `based on ${count} recent posts from Twitter and Reddit` : 'based on available social signals';
   
-  const summaries: Record<string, string> = {
-    bullish: `${topic} sentiment is ${intensity} bullish. ${platformText}. Chatter shows growing optimism.`,
-    bearish: `${topic} sentiment is ${intensity} bearish. ${platformText}. Multiple negative narratives detected.`,
-    neutral: `${topic} sentiment is neutral. ${platformText}. No clear directional bias found.`,
-    fomo: `${topic} is in FOMO territory! High social volume and intense hype detected across platforms.`,
-    fud: `${topic} is facing significant FUD. Rapid spread of negative content found - use caution.`,
-  };
+  let summary = `${emoji} **${topic}** sentiment is **${intensity} ${sentiment}**`;
+  summary += ` (score: ${(score * 100).toFixed(0)}%) based on ${count} recent posts.\n`;
   
-  return summaries[sentiment] || `${topic} social activity monitored across platforms.`;
+  // Add top post snippets for richer UI display
+  if (posts && posts.length > 0) {
+    summary += '\n**Key Discussions:**\n';
+    const topPosts = posts.slice(0, 3);
+    for (const post of topPosts) {
+      const source = post.source || 'Web';
+      const snippet = (post.snippet || post.title || '').slice(0, 120);
+      const sentimentEmoji = post.sentiment > 0.2 ? '🟢' : post.sentiment < -0.2 ? '🔴' : '⚪';
+      summary += `${sentimentEmoji} [${source}] ${snippet}${snippet.length >= 120 ? '...' : ''}\n`;
+    }
+  }
+  
+  return summary;
 }
 
 /**

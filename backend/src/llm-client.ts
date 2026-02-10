@@ -11,6 +11,7 @@ const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8402/v1';
 const LLM_API_KEY = process.env.LLM_API_KEY || process.env.CLAWROUTER_API_KEY || 'clawrouter';
 const DEFAULT_MODEL = process.env.LLM_DEFAULT_MODEL || 'google/gemini-2.5-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+// Use global Vertex endpoint for Gemini 3.x model support
 const GEMINI_FALLBACK_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
 
 // Cost markup for specialist pricing (e.g., 1.5 = 50% markup)
@@ -23,7 +24,7 @@ const ACTIVE_API_KEY = useGeminiFallback ? GEMINI_API_KEY : LLM_API_KEY;
 const GEMINI_MODEL_MAP: Record<string, string> = {
   'google/gemini-2.5-flash': 'gemini-2.5-flash',
   'google/gemini-2.5-pro': 'gemini-2.5-pro',
-  'google/gemini-3-pro-preview': 'gemini-3-pro-preview',
+  'google/gemini-3-pro-preview': 'gemini-2.5-pro',  // fallback until 3.x available on this endpoint
   'nvidia/gpt-oss-120b': 'gemini-2.0-flash',  // fallback to cheapest Gemini
   'auto': 'gemini-2.5-flash',
 };
