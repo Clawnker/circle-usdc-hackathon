@@ -1,13 +1,14 @@
 /**
- * Reputation System - Global Agent Ratings via User/Agent Voting
+ * Reputation System V2 - Multi-dimensional, time-decayed, and capability-aware.
  * 
  * Each task response can be upvoted or downvoted by any user or agent.
- * Votes are aggregated to calculate global success rates.
- * In production, this would be a centralized database accessible worldwide.
+ * Votes and latency are tracked per-agent and per-capability.
+ * Performance data is decayed over time to prioritize recent reliability.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { SpecialistReputationV2, CapabilityMetrics } from './types';
 
 interface Vote {
   taskId: string;
@@ -15,31 +16,28 @@ interface Vote {
   voterType: 'human' | 'agent';
   vote: 'up' | 'down';
   timestamp: number;
-}
-
-interface SpecialistReputation {
-  // Legacy counts (for backward compatibility)
-  successCount: number;
-  failureCount: number;
-  
-  // New voting-based system
-  upvotes: number;
-  downvotes: number;
-  votes: Vote[];        // Individual vote records
-
-  // On-chain sync data
-  lastSyncTx?: string;
-  lastSyncTimestamp?: number;
+  capabilityId?: string;
 }
 
 interface ReputationData {
-  specialists: Record<string, SpecialistReputation>;
+  specialists: Record<string, SpecialistReputationV2>;
   // Track which voter has voted on which task (prevent double voting)
   voterTaskIndex: Record<string, string>;  // "voterId:taskId" -> "up"|"down"
 }
 
 const DATA_DIR = path.join(__dirname, '../data');
 const REPUTATION_FILE = path.join(DATA_DIR, 'reputation.json');
+
+const REP_CONFIG = {
+  HALF_LIFE_HOURS: 168, // 7 days
+  WEIGHT_SUCCESS: 0.7,
+  WEIGHT_LATENCY: 0.3,
+  LATENCY_THRESHOLD_MS: 30000,
+  MIN_VOLUME_FOR_CONFIDENCE: 20,
+  MIN_ROUTING_THRESHOLD: 0.2,
+  COLD_START_TASKS: 5,
+  COLD_START_SCORE: 0.5
+};
 
 // In-memory cache
 let reputationData: ReputationData = {
@@ -60,25 +58,32 @@ function loadReputation(): void {
       const data = fs.readFileSync(REPUTATION_FILE, 'utf8');
       const parsed = JSON.parse(data);
       
-      // Handle legacy format (flat specialist records)
+      // Handle legacy format (flat specialist records or V1)
       if (!parsed.specialists) {
-        // Migrate from old format
-        const specialists: Record<string, SpecialistReputation> = {};
+        // Migrate from extremely old format
+        const specialists: Record<string, SpecialistReputationV2> = {};
         for (const [key, value] of Object.entries(parsed)) {
-          const legacy = value as { successCount: number; failureCount: number };
-          specialists[key] = {
-            successCount: legacy.successCount || 0,
-            failureCount: legacy.failureCount || 0,
-            upvotes: legacy.successCount || 0,  // Migrate legacy successes as upvotes
-            downvotes: legacy.failureCount || 0,
-            votes: [],
-          };
+          const legacy = value as any;
+          specialists[key] = migrateToV2(key, legacy);
         }
         reputationData = { specialists, voterTaskIndex: {} };
         saveReputation();
         console.log(`[Reputation] Migrated legacy data for ${Object.keys(specialists).length} specialists`);
       } else {
+        // Check if migration to V2 is needed for individual specialists
+        let migratedCount = 0;
+        for (const [key, value] of Object.entries(parsed.specialists)) {
+          const spec = value as any;
+          if (!spec.capabilities || spec.globalScore === undefined) {
+            parsed.specialists[key] = migrateToV2(key, spec);
+            migratedCount++;
+          }
+        }
         reputationData = parsed;
+        if (migratedCount > 0) {
+          saveReputation();
+          console.log(`[Reputation] Migrated ${migratedCount} specialists to V2 format`);
+        }
         console.log(`[Reputation] Loaded data for ${Object.keys(reputationData.specialists).length} specialists`);
       }
     } else {
@@ -92,15 +97,43 @@ function loadReputation(): void {
 }
 
 /**
+ * Migrate a V1 specialist record to V2
+ */
+function migrateToV2(agentId: string, legacy: any): SpecialistReputationV2 {
+  const upvotes = legacy.upvotes || legacy.successCount || 0;
+  const downvotes = legacy.downvotes || legacy.failureCount || 0;
+  const total = upvotes + downvotes;
+  const score = total > 0 ? upvotes / total : REP_CONFIG.COLD_START_SCORE;
+
+  return {
+    agentId,
+    successCount: legacy.successCount || 0,
+    failureCount: legacy.failureCount || 0,
+    upvotes,
+    downvotes,
+    globalScore: score,
+    capabilities: {},
+    votes: legacy.votes || [],
+    lastSyncTx: legacy.lastSyncTx,
+    lastSyncTimestamp: legacy.lastSyncTimestamp
+  };
+}
+
+/**
  * Save reputation data to disk
  */
 function saveReputation(): void {
   try {
-    // Limit stored votes to last 100 per specialist for file size
     const dataToSave = { ...reputationData };
+    // Limit stored votes and latency samples for file size
     for (const specialist of Object.values(dataToSave.specialists)) {
-      if (specialist.votes.length > 100) {
+      if (specialist.votes && specialist.votes.length > 100) {
         specialist.votes = specialist.votes.slice(-100);
+      }
+      for (const cap of Object.values(specialist.capabilities)) {
+        if (cap.latencySamples.length > 100) {
+          cap.latencySamples = cap.latencySamples.slice(-100);
+        }
       }
     }
     
@@ -117,57 +150,205 @@ loadReputation();
 /**
  * Get or initialize specialist record
  */
-function getSpecialist(specialist: string): SpecialistReputation {
-  if (!reputationData.specialists[specialist]) {
-    reputationData.specialists[specialist] = {
+function getSpecialist(agentId: string): SpecialistReputationV2 {
+  if (!reputationData.specialists[agentId]) {
+    reputationData.specialists[agentId] = {
+      agentId,
       successCount: 0,
       failureCount: 0,
       upvotes: 0,
       downvotes: 0,
+      globalScore: REP_CONFIG.COLD_START_SCORE,
+      capabilities: {},
       votes: [],
     };
   }
-  return reputationData.specialists[specialist];
+  return reputationData.specialists[agentId];
 }
 
 /**
- * Record a successful task completion (legacy, still used internally)
+ * Get or initialize capability metrics for an agent
  */
-export function recordSuccess(specialist: string): void {
-  const record = getSpecialist(specialist);
-  record.successCount++;
-  // Also count as an implicit upvote from the system
-  record.upvotes++;
-  saveReputation();
-  console.log(`[Reputation] ${specialist} success recorded. New rate: ${getSuccessRate(specialist)}%`);
+function getCapabilityMetrics(agentId: string, capabilityId: string): CapabilityMetrics {
+  const specialist = getSpecialist(agentId);
+  if (!specialist.capabilities[capabilityId]) {
+    specialist.capabilities[capabilityId] = {
+      capabilityId,
+      decayedUpvotes: 0,
+      decayedDownvotes: 0,
+      lastUpdateTimestamp: Date.now(),
+      latencySamples: [],
+      p50: 0,
+      p95: 0,
+      p99: 0,
+      totalTasks: 0,
+      currentScore: REP_CONFIG.COLD_START_SCORE
+    };
+  }
+  return specialist.capabilities[capabilityId];
 }
 
 /**
- * Record a failed task completion (legacy)
+ * Apply exponential decay to success metrics
  */
-export function recordFailure(specialist: string): void {
-  const record = getSpecialist(specialist);
-  record.failureCount++;
-  record.downvotes++;
+function applyDecay(metrics: CapabilityMetrics): void {
+  const now = Date.now();
+  const deltaHours = (now - metrics.lastUpdateTimestamp) / (1000 * 60 * 60);
+  
+  if (deltaHours <= 0) return;
+
+  const lambda = Math.log(2) / REP_CONFIG.HALF_LIFE_HOURS;
+  const decayFactor = Math.exp(-lambda * deltaHours);
+
+  metrics.decayedUpvotes *= decayFactor;
+  metrics.decayedDownvotes *= decayFactor;
+  metrics.lastUpdateTimestamp = now;
+}
+
+/**
+ * Calculate percentiles for latency
+ */
+function calculatePercentiles(samples: number[]): { p50: number; p95: number; p99: number } {
+  if (samples.length === 0) return { p50: 0, p95: 0, p99: 0 };
+  const sorted = [...samples].sort((a, b) => a - b);
+  const getP = (p: number) => {
+    const idx = Math.min(sorted.length - 1, Math.floor(sorted.length * p));
+    return sorted[idx];
+  };
+  return {
+    p50: getP(0.5),
+    p95: getP(0.95),
+    p99: getP(0.99)
+  };
+}
+
+/**
+ * Calculate the comprehensive reputation score
+ */
+function calculateScore(metrics: CapabilityMetrics): number {
+  // 1. Success Score (S_decayed)
+  const totalDecayed = metrics.decayedUpvotes + metrics.decayedDownvotes;
+  let s_decayed = totalDecayed > 0 ? metrics.decayedUpvotes / totalDecayed : REP_CONFIG.COLD_START_SCORE;
+
+  // 2. Latency Score (L_score)
+  let l_score = 0;
+  if (metrics.p50 > 0) {
+    l_score = Math.max(0, 1 - (metrics.p50 / REP_CONFIG.LATENCY_THRESHOLD_MS));
+  } else {
+    l_score = 0.8; // Assume decent latency if no samples yet
+  }
+
+  // 3. Combined Base Score (Rc)
+  let rc = (s_decayed * REP_CONFIG.WEIGHT_SUCCESS) + (l_score * REP_CONFIG.WEIGHT_LATENCY);
+
+  // 4. Volume Confidence Factor (Vconf)
+  // Cold start logic: default score of 0.5 for agents with <5 tasks, ramping to actual score
+  let v_conf = 1.0;
+  if (metrics.totalTasks < REP_CONFIG.MIN_VOLUME_FOR_CONFIDENCE) {
+    v_conf = metrics.totalTasks / REP_CONFIG.MIN_VOLUME_FOR_CONFIDENCE;
+  }
+
+  // If very new (< COLD_START_TASKS), weight heavily towards COLD_START_SCORE
+  if (metrics.totalTasks < REP_CONFIG.COLD_START_TASKS) {
+    const actualWeight = metrics.totalTasks / REP_CONFIG.COLD_START_TASKS;
+    return (rc * actualWeight) + (REP_CONFIG.COLD_START_SCORE * (1 - actualWeight));
+  }
+
+  return rc * v_conf;
+}
+
+/**
+ * Update global score for an agent (weighted average of capabilities)
+ */
+function updateGlobalScore(agentId: string): void {
+  const specialist = getSpecialist(agentId);
+  const caps = Object.values(specialist.capabilities);
+  
+  if (caps.length === 0) {
+    // Keep existing global score or default
+    return;
+  }
+
+  const sumScores = caps.reduce((sum, cap) => sum + cap.currentScore, 0);
+  specialist.globalScore = sumScores / caps.length;
+}
+
+/**
+ * Record latency for a task
+ */
+export function recordLatency(agentId: string, capabilityId: string, ms: number): void {
+  const metrics = getCapabilityMetrics(agentId, capabilityId);
+  
+  metrics.latencySamples.push(ms);
+  if (metrics.latencySamples.length > 100) {
+    metrics.latencySamples.shift();
+  }
+
+  const percentiles = calculatePercentiles(metrics.latencySamples);
+  metrics.p50 = percentiles.p50;
+  metrics.p95 = percentiles.p95;
+  metrics.p99 = percentiles.p99;
+  
+  metrics.currentScore = calculateScore(metrics);
+  updateGlobalScore(agentId);
   saveReputation();
-  console.log(`[Reputation] ${specialist} failure recorded. New rate: ${getSuccessRate(specialist)}%`);
+}
+
+/**
+ * Record a successful task completion
+ */
+export function recordSuccess(agentId: string, capabilityId?: string): void {
+  const specialist = getSpecialist(agentId);
+  specialist.successCount++;
+  specialist.upvotes++;
+
+  if (capabilityId) {
+    const metrics = getCapabilityMetrics(agentId, capabilityId);
+    applyDecay(metrics);
+    metrics.decayedUpvotes += 1;
+    metrics.totalTasks += 1;
+    metrics.currentScore = calculateScore(metrics);
+  }
+  
+  updateGlobalScore(agentId);
+  saveReputation();
+}
+
+/**
+ * Record a failed task completion
+ */
+export function recordFailure(agentId: string, capabilityId?: string): void {
+  const specialist = getSpecialist(agentId);
+  specialist.failureCount++;
+  specialist.downvotes++;
+
+  if (capabilityId) {
+    const metrics = getCapabilityMetrics(agentId, capabilityId);
+    applyDecay(metrics);
+    metrics.decayedDownvotes += 1;
+    metrics.totalTasks += 1;
+    metrics.currentScore = calculateScore(metrics);
+  }
+  
+  updateGlobalScore(agentId);
+  saveReputation();
 }
 
 /**
  * Submit a vote on a task response
- * Returns: { success: boolean, message: string, newRate: number }
  */
 export function submitVote(
-  specialist: string,
+  agentId: string,
   taskId: string,
   voterId: string,
   voterType: 'human' | 'agent',
-  vote: 'up' | 'down'
+  vote: 'up' | 'down',
+  capabilityId?: string
 ): { success: boolean; message: string; newRate: number; upvotes: number; downvotes: number } {
   const voteKey = `${voterId}:${taskId}`;
   const existingVote = reputationData.voterTaskIndex[voteKey];
   
-  const record = getSpecialist(specialist);
+  const specialist = getSpecialist(agentId);
   
   // Check if already voted
   if (existingVote) {
@@ -175,25 +356,47 @@ export function submitVote(
       return {
         success: false,
         message: `Already ${vote}voted this response`,
-        newRate: getSuccessRate(specialist),
-        upvotes: record.upvotes,
-        downvotes: record.downvotes,
+        newRate: Math.round(specialist.globalScore * 100),
+        upvotes: specialist.upvotes,
+        downvotes: specialist.downvotes,
       };
     }
     
-    // Changing vote - undo previous vote first
+    // Changing vote - undo previous vote
     if (existingVote === 'up') {
-      record.upvotes = Math.max(0, record.upvotes - 1);
+      specialist.upvotes = Math.max(0, specialist.upvotes - 1);
+      if (capabilityId) {
+        const metrics = getCapabilityMetrics(agentId, capabilityId);
+        metrics.decayedUpvotes = Math.max(0, metrics.decayedUpvotes - 1);
+      }
     } else {
-      record.downvotes = Math.max(0, record.downvotes - 1);
+      specialist.downvotes = Math.max(0, specialist.downvotes - 1);
+      if (capabilityId) {
+        const metrics = getCapabilityMetrics(agentId, capabilityId);
+        metrics.decayedDownvotes = Math.max(0, metrics.decayedDownvotes - 1);
+      }
     }
   }
   
   // Apply new vote
   if (vote === 'up') {
-    record.upvotes++;
+    specialist.upvotes++;
+    if (capabilityId) {
+      const metrics = getCapabilityMetrics(agentId, capabilityId);
+      applyDecay(metrics);
+      metrics.decayedUpvotes += 1;
+      metrics.totalTasks = Math.max(metrics.totalTasks, 1); // Ensure task count at least 1
+      metrics.currentScore = calculateScore(metrics);
+    }
   } else {
-    record.downvotes++;
+    specialist.downvotes++;
+    if (capabilityId) {
+      const metrics = getCapabilityMetrics(agentId, capabilityId);
+      applyDecay(metrics);
+      metrics.decayedDownvotes += 1;
+      metrics.totalTasks = Math.max(metrics.totalTasks, 1);
+      metrics.currentScore = calculateScore(metrics);
+    }
   }
   
   // Record the vote
@@ -203,37 +406,95 @@ export function submitVote(
     voterType,
     vote,
     timestamp: Date.now(),
+    capabilityId
   };
-  record.votes.push(voteRecord);
+  specialist.votes.push(voteRecord);
   reputationData.voterTaskIndex[voteKey] = vote;
   
+  updateGlobalScore(agentId);
   saveReputation();
-  
-  const action = existingVote ? 'changed to' : 'recorded';
-  console.log(`[Reputation] Vote ${action} ${vote} for ${specialist} by ${voterType} ${voterId}. New rate: ${getSuccessRate(specialist)}%`);
   
   return {
     success: true,
     message: existingVote ? `Vote changed to ${vote}vote` : `${vote === 'up' ? 'Upvote' : 'Downvote'} recorded`,
-    newRate: getSuccessRate(specialist),
-    upvotes: record.upvotes,
-    downvotes: record.downvotes,
+    newRate: Math.round(specialist.globalScore * 100),
+    upvotes: specialist.upvotes,
+    downvotes: specialist.downvotes,
   };
 }
 
 /**
- * Update the on-chain sync status for a specialist
+ * Get the success rate for a specialist as a percentage (legacy/compat)
  */
-export function updateSyncStatus(specialist: string, signature: string): void {
-  const record = getSpecialist(specialist);
-  record.lastSyncTx = signature;
-  record.lastSyncTimestamp = Date.now();
-  saveReputation();
-  console.log(`[Reputation] Sync status updated for ${specialist}: ${signature}`);
+export function getSuccessRate(agentId: string): number {
+  const specialist = reputationData.specialists[agentId];
+  if (!specialist) return 100;
+  return Math.round(specialist.globalScore * 100);
 }
 
 /**
- * Get the vote for a specific task by a voter (if any)
+ * Get reputation score for a specific capability (0.0 - 1.0)
+ */
+export function getReputationScore(agentId: string, capabilityId?: string): number {
+  const specialist = reputationData.specialists[agentId];
+  if (!specialist) return REP_CONFIG.COLD_START_SCORE;
+
+  if (capabilityId && specialist.capabilities[capabilityId]) {
+    return specialist.capabilities[capabilityId].currentScore;
+  }
+
+  return specialist.globalScore;
+}
+
+/**
+ * Get capability-specific reputation metrics
+ */
+export function getCapabilityReputation(agentId: string, capabilityId: string): CapabilityMetrics | null {
+  const specialist = reputationData.specialists[agentId];
+  if (!specialist || !specialist.capabilities[capabilityId]) return null;
+  return specialist.capabilities[capabilityId];
+}
+
+/**
+ * Get detailed reputation stats (augmented for V2)
+ */
+export function getReputationStats(agentId: string) {
+  const specialist = reputationData.specialists[agentId];
+  if (!specialist) {
+    return {
+      successRate: 100,
+      upvotes: 0,
+      downvotes: 0,
+      totalVotes: 0,
+      recentVotes: [],
+      capabilities: {}
+    };
+  }
+  
+  return {
+    successRate: Math.round(specialist.globalScore * 100),
+    upvotes: specialist.upvotes,
+    downvotes: specialist.downvotes,
+    totalVotes: specialist.upvotes + specialist.downvotes,
+    recentVotes: specialist.votes.slice(-10),
+    lastSyncTx: specialist.lastSyncTx,
+    lastSyncTimestamp: specialist.lastSyncTimestamp,
+    capabilities: specialist.capabilities
+  };
+}
+
+/**
+ * Update the on-chain sync status
+ */
+export function updateSyncStatus(agentId: string, signature: string): void {
+  const specialist = getSpecialist(agentId);
+  specialist.lastSyncTx = signature;
+  specialist.lastSyncTimestamp = Date.now();
+  saveReputation();
+}
+
+/**
+ * Get the vote for a specific task
  */
 export function getVote(taskId: string, voterId: string): 'up' | 'down' | null {
   const voteKey = `${voterId}:${taskId}`;
@@ -241,66 +502,17 @@ export function getVote(taskId: string, voterId: string): 'up' | 'down' | null {
 }
 
 /**
- * Get the success rate for a specialist as a percentage
- * Based on upvotes vs total votes
+ * Get all reputation data
  */
-export function getSuccessRate(specialist: string): number {
-  const record = reputationData.specialists[specialist];
-  if (!record) return 100; // Default for new specialists
-  
-  const total = record.upvotes + record.downvotes;
-  if (total === 0) return 100;
-  
-  return Math.round((record.upvotes / total) * 100);
-}
-
-/**
- * Get detailed reputation stats for a specialist
- */
-export function getReputationStats(specialist: string): {
-  successRate: number;
-  upvotes: number;
-  downvotes: number;
-  totalVotes: number;
-  recentVotes: Vote[];
-  lastSyncTx?: string;
-  lastSyncTimestamp?: number;
-} {
-  const record = reputationData.specialists[specialist];
-  if (!record) {
-    return {
-      successRate: 100,
-      upvotes: 0,
-      downvotes: 0,
-      totalVotes: 0,
-      recentVotes: [],
-    };
-  }
-  
-  return {
-    successRate: getSuccessRate(specialist),
-    upvotes: record.upvotes,
-    downvotes: record.downvotes,
-    totalVotes: record.upvotes + record.downvotes,
-    recentVotes: record.votes.slice(-10),
-    lastSyncTx: record.lastSyncTx,
-    lastSyncTimestamp: record.lastSyncTimestamp,
-  };
-}
-
-/**
- * Get all reputation data (for admin/display)
- */
-export function getAllReputation(): Record<string, { successRate: number; upvotes: number; downvotes: number }> {
-  const result: Record<string, { successRate: number; upvotes: number; downvotes: number }> = {};
-  
-  for (const [specialist, record] of Object.entries(reputationData.specialists)) {
-    result[specialist] = {
-      successRate: getSuccessRate(specialist),
+export function getAllReputation(): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [agentId, record] of Object.entries(reputationData.specialists)) {
+    result[agentId] = {
+      successRate: Math.round(record.globalScore * 100),
       upvotes: record.upvotes,
       downvotes: record.downvotes,
+      capabilities: Object.keys(record.capabilities)
     };
   }
-  
   return result;
 }

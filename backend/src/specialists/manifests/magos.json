@@ -1,0 +1,24 @@
+[
+  {
+    "id": "magos:prediction",
+    "name": "Market Prediction",
+    "description": "Predict future price movements of tokens using technical analysis and market data.",
+    "category": "defi",
+    "subcategories": ["analytics", "prediction"],
+    "inputs": [{"type": "token"}],
+    "outputs": {"type": "json"},
+    "confidenceScore": 0.9,
+    "latencyEstimateMs": 2000
+  },
+  {
+    "id": "magos:analysis",
+    "name": "Market Analysis",
+    "description": "Deep technical analysis of trading pairs, support and resistance levels, and trend detection.",
+    "category": "defi",
+    "subcategories": ["analytics"],
+    "inputs": [{"type": "token"}],
+    "outputs": {"type": "json"},
+    "confidenceScore": 0.85,
+    "latencyEstimateMs": 1500
+  }
+]

@@ -17,14 +17,20 @@ import {
   DispatchRequest,
   DispatchResponse,
   SpecialistResult,
+  StepExecutor,
 } from './types';
 import config from './config';
 import { getBalances, logTransaction, createPaymentRecord } from './x402';
 import { executeDemoPayment } from './x402-protocol';
 import { sendOnChainPayment } from './onchain-payments';
-import { recordSuccess, recordFailure, getSuccessRate } from './reputation';
-import { planWithLLM } from './llm-planner';
+import { recordSuccess, recordFailure, getSuccessRate, recordLatency, getReputationScore } from './reputation';
+import { planWithLLM, planDAG } from './llm-planner';
+import { executeDAG, resolveVariables } from './dag-executor';
+import { capabilityMatcher } from './capability-matcher';
+import { circuitBreaker } from './circuit-breaker';
+import { fallbackChain } from './fallback-chain';
 import { isExternalAgent, callExternalAgent, getExternalAgents, getExternalAgent } from './external-agents';
+import { priceRouter } from './price-router';
 import magos from './specialists/magos';
 import aura from './specialists/aura';
 import bankr from './specialists/bankr';
@@ -190,10 +196,55 @@ function addMessage(task: Task, from: string, to: string, content: string): void
  */
 export async function dispatch(request: DispatchRequest): Promise<DispatchResponse> {
   const taskId = uuidv4();
-  const hops = detectMultiHop(request.prompt);
   
-  // Determine the best specialist for this prompt (ignoring swarm filter for routing decision)
-  const bestSpecialist = request.preferredSpecialist || (hops ? 'multi-hop' : await routePrompt(request.prompt));
+  // Phase 2b: Multi-step DAG Planning
+  const dagPlan = await planDAG(request.prompt);
+  const isMultiStep = dagPlan.steps.length > 1;
+  
+  // Determine the best specialist for this prompt
+  // If >1 step, it's multi-hop. If 1 step, use existing routing logic (Capability/RegExp/etc)
+  const bestSpecialist = request.preferredSpecialist || (isMultiStep ? 'multi-hop' as SpecialistType : await routePrompt(request.prompt, request.hiredAgents));
+  
+  // Phase 2e: Build fallback chain for single-hop tasks
+  let taskFallbackChain: string[] | undefined;
+  if (!isMultiStep && bestSpecialist !== 'multi-hop') {
+    try {
+      const chain = await fallbackChain.buildFallbackChain(request.prompt, []);
+      taskFallbackChain = chain.map(c => c.agentId);
+      // Ensure bestSpecialist is at the front if not already
+      if (taskFallbackChain.length > 0 && taskFallbackChain[0] !== bestSpecialist && taskFallbackChain.includes(bestSpecialist)) {
+          taskFallbackChain = [bestSpecialist, ...taskFallbackChain.filter(id => id !== bestSpecialist)];
+      } else if (!taskFallbackChain.includes(bestSpecialist)) {
+          taskFallbackChain = [bestSpecialist, ...taskFallbackChain];
+      }
+    } catch (err) {
+      console.error('[Dispatcher] Error building fallback chain:', err);
+      taskFallbackChain = [bestSpecialist];
+    }
+  }
+
+  // Phase 2d: Budget Enforcement
+  if (request.maxBudget !== undefined) {
+    const budgetCheck = priceRouter.checkBudget(dagPlan, request.maxBudget);
+    // For single-step, ensure we also check the bestSpecialist fee if it's different from the plan
+    const singleStepFee = !isMultiStep ? (Number((config.fees as any)[bestSpecialist]) || 0) : 0;
+    const finalEstimatedCost = Math.max(budgetCheck.totalCost, singleStepFee);
+    
+    if (finalEstimatedCost > request.maxBudget) {
+      console.log(`[Dispatcher] Rejecting request: Estimated cost (${finalEstimatedCost} USDC) exceeds budget (${request.maxBudget} USDC)`);
+      return {
+        taskId: '',
+        status: 'failed',
+        specialist: bestSpecialist,
+        error: `Estimated cost (${finalEstimatedCost.toFixed(2)} USDC) exceeds your budget limit of ${request.maxBudget.toFixed(2)} USDC.`,
+      };
+    }
+  }
+  
+  // Legacy multi-hop detection (deprecated)
+  const legacyHops = isMultiStep ? null : detectMultiHop(request.prompt);
+  const finalHops = isMultiStep ? dagPlan.steps.map(s => s.specialist) : legacyHops;
+  const isActuallyMultiStep = isMultiStep || !!legacyHops;
   
   // Check if user approved this specific agent
   const isApproved = request.approvedAgent === bestSpecialist;
@@ -204,18 +255,18 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   // If not in swarm and not approved, check if we need approval
   const requiresApproval = !isInSwarm && !isApproved && bestSpecialist !== 'general' && bestSpecialist !== 'scribe';
   
-  console.log(`[Dispatcher] Routing decision:`, {
+  console.log(`[Dispatcher] Routing decision (DAG):`, {
     bestSpecialist,
-    hiredAgents: request.hiredAgents,
-    isInSwarm,
-    isApproved,
+    isMultiStep,
+    isActuallyMultiStep,
+    stepCount: dagPlan.steps.length,
     requiresApproval,
   });
   
   // If preview only or requires approval, return info without executing
   if (request.previewOnly || requiresApproval) {
     const pricing = SPECIALIST_PRICING[bestSpecialist] || { fee: '0', description: 'Unknown' };
-    const successRate = getSuccessRate(bestSpecialist);
+    const reputationScore = getReputationScore(bestSpecialist);
     
     return {
       taskId: '', // No task created yet
@@ -225,21 +276,14 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       specialistInfo: {
         name: getSpecialistDisplayName(bestSpecialist),
         description: pricing.description,
-        fee: pricing.fee,
+        fee: isMultiStep ? String(dagPlan.totalEstimatedCost) : pricing.fee,
         feeCurrency: 'USDC',
-        successRate: successRate > 0 ? successRate : undefined,
+        successRate: Math.round(reputationScore * 100),
       },
     };
   }
   
-  // Filter multi-hop to only include hired agents (unless approved)
-  let filteredHops = hops;
-  if (hops && request.hiredAgents && !isApproved) {
-    filteredHops = hops.filter(h => request.hiredAgents!.includes(h) || h === request.approvedAgent);
-    if (filteredHops.length === 0) filteredHops = null;
-  }
-  
-  const specialist = request.preferredSpecialist || (filteredHops ? 'multi-hop' : bestSpecialist);
+  const specialist = bestSpecialist;
   
   // Create task
   const task: Task = {
@@ -254,16 +298,19 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     messages: [],
     metadata: { 
       dryRun: request.dryRun,
-      hops: filteredHops || undefined,
+      hops: finalHops || undefined,
       hiredAgents: request.hiredAgents,
-      wasApproved: isApproved, // Track if user approved a non-swarm agent
+      wasApproved: isApproved,
+      intent: (bestSpecialist as any).intent || undefined
     },
+    dagPlan, // Store the DAG plan for execution
+    fallbackChain: taskFallbackChain, // Added for Phase 2e
     callbackUrl: request.callbackUrl,
   };
   
   tasks.set(taskId, task);
   saveTasks();
-  console.log(`[Dispatcher] Created task ${taskId} for specialist: ${specialist}`);
+  console.log(`[Dispatcher] Created task ${taskId} for specialist: ${specialist} (${isMultiStep ? 'DAG' : 'Single'})`);
   
   // Small delay to allow WebSocket subscription before execution
   setTimeout(() => {
@@ -304,6 +351,102 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   // Demo delay for visual effect
   await new Promise(resolve => setTimeout(resolve, 500));
   
+  // Phase 2b: Multi-step DAG Execution
+  if (task.dagPlan && task.dagPlan.steps.length > 1) {
+    updateTaskStatus(task, 'processing');
+    addMessage(task, 'dispatcher', 'multi-hop', `Executing dynamic DAG plan: ${task.dagPlan.planId}`);
+    
+    const stepExecutor: StepExecutor = async (step, context) => {
+      // 1. Resolve variables in prompt template
+      const resolvedPrompt = resolveVariables(step.promptTemplate, context);
+      
+      // 2. Routing message
+      addMessage(task, 'dispatcher', step.specialist, `[Step ${step.id}] Routing to ${step.specialist}...`);
+      
+      // 3. Call the specialist (gated)
+      const result = await callSpecialistGated(step.specialist, resolvedPrompt);
+      
+      // 4. Specialist response message
+      const responseContent = extractResponseContent(result);
+      addMessage(task, step.specialist, 'dispatcher', responseContent);
+      
+      // 5. Handle x402 payment for this step
+      const fee = step.estimatedCost || (config.fees as any)[step.specialist] || 0;
+      if (fee > 0 && !dryRun) {
+        let specialistUrl: string;
+        const externalAgent = isExternalAgent(step.specialist) ? getExternalAgent(step.specialist) : null;
+        
+        if (externalAgent) {
+          const cap = externalAgent.capabilities[0] || 'execute';
+          specialistUrl = (cap === 'security-audit' || cap === 'audit')
+            ? `${externalAgent.endpoint}/audit`
+            : `${externalAgent.endpoint}/execute`;
+        } else {
+          const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
+          specialistUrl = `${baseUrl}/api/specialist/${step.specialist}`;
+        }
+        
+        const paymentResult = await executeDemoPayment(specialistUrl, { prompt: resolvedPrompt }, fee);
+        
+        if (paymentResult.success && paymentResult.txSignature) {
+          const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', step.specialist, paymentResult.txSignature, 'x402');
+          task.payments.push(feeRecord);
+          addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${fee} USDC → ${step.specialist}`);
+        } else {
+          // Fallback: on-chain
+          const onChainResult = await sendOnChainPayment(step.specialist, String(fee));
+          if (onChainResult) {
+            const feeRecord = createPaymentRecord(onChainResult.amount, 'USDC', 'base-sepolia' as any, step.specialist, onChainResult.txHash, 'on-chain');
+            task.payments.push(feeRecord);
+            addMessage(task, 'x402', 'dispatcher', `💰 On-chain Payment: ${fee} USDC → ${step.specialist}`);
+          }
+        }
+      }
+      
+      return {
+        stepId: step.id,
+        specialist: step.specialist,
+        output: result.data,
+        summary: responseContent,
+        success: result.success
+      };
+    };
+
+    try {
+      const dagResult = await executeDAG(task.dagPlan, stepExecutor);
+      
+      task.result = {
+        success: dagResult.success,
+        data: {
+          isDAG: true,
+          planId: dagResult.planId,
+          steps: Object.values(dagResult.results).map(r => ({
+            specialist: r.specialist,
+            summary: r.summary
+          })),
+          details: dagResult.results
+        },
+        timestamp: new Date(),
+        executionTimeMs: dagResult.executionTimeMs,
+        cost: {
+          amount: String(dagResult.totalCost || task.dagPlan?.totalEstimatedCost || 0),
+          currency: 'USDC',
+          network: 'base',
+          recipient: 'multi-agent-workflow',
+        },
+      };
+      
+      updateTaskStatus(task, dagResult.success ? 'completed' : 'failed');
+      console.log(`[Dispatcher] DAG task ${task.id} ${dagResult.success ? 'completed' : 'failed'}`);
+      return;
+    } catch (error: any) {
+      console.error(`[Dispatcher] DAG execution error:`, error.message);
+      updateTaskStatus(task, 'failed', { error: error.message });
+      return;
+    }
+  }
+
+  // Legacy fallback (rarely hit now)
   const hops = task.metadata?.hops as SpecialistType[] | undefined;
   
   if (hops && hops.length > 1) {
@@ -454,7 +597,47 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 800));
   
   // Call the specialist via x402-gated endpoint
-  const result = await callSpecialistGated(task.specialist, task.prompt);
+  let result: SpecialistResult;
+  
+  if (task.fallbackChain && task.fallbackChain.length > 1) {
+    const chain = task.fallbackChain.map(id => ({ agentId: id, score: 1, confidence: 1, reasoning: 'Fallback' }));
+    result = await fallbackChain.executeWithFallback(
+      chain,
+      task.prompt,
+      async (agentId, prompt) => {
+        if (agentId !== task.specialist) {
+          addMessage(task, 'dispatcher', agentId, `Switching to fallback agent: ${agentId}`);
+          updateTaskStatus(task, 'processing', { activeSpecialist: agentId });
+        }
+        return callSpecialistGated(agentId, prompt);
+      },
+      { maxRetries: task.fallbackChain.length - 1, timeoutMs: 30000 }
+    );
+    
+    // Update the task's specialist to the one that actually succeeded (if any)
+    if (result.success && (result.data as any).agentId) {
+      task.specialist = (result.data as any).agentId as SpecialistType;
+    }
+  } else {
+    // Check circuit breaker before calling
+    if (!circuitBreaker.canCall(task.specialist)) {
+      result = {
+        success: false,
+        data: { error: `Circuit breaker is OPEN for ${task.specialist}` },
+        timestamp: new Date(),
+        executionTimeMs: 0
+      };
+    } else {
+      circuitBreaker.recordCall(task.specialist);
+      result = await callSpecialistGated(task.specialist, task.prompt);
+      
+      if (result.success) {
+        circuitBreaker.recordSuccess(task.specialist);
+      } else {
+        circuitBreaker.recordFailure(task.specialist);
+      }
+    }
+  }
   
   // Add specialist response message
   const responseContent = extractResponseContent(result);
@@ -529,11 +712,14 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   task.result = result;
   updateTaskStatus(task, result.success ? 'completed' : 'failed');
   
-  // Record reputation
+  // Record reputation and latency
+  const capabilityId = task.metadata?.intent?.category || 'generic';
+  recordLatency(task.specialist, capabilityId, result.executionTimeMs);
+
   if (result.success) {
-    recordSuccess(task.specialist);
+    recordSuccess(task.specialist, capabilityId);
   } else {
-    recordFailure(task.specialist);
+    recordFailure(task.specialist, capabilityId);
   }
   
   // Call webhook if provided
@@ -724,12 +910,46 @@ function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<string,
 
 /**
  * Route prompt to appropriate specialist
- * Supports both RegExp-based (fast) and LLM-based (smart) routing
+ * Supports Capability-based (modern), LLM-based (smart) and RegExp-based (fast) routing
  * Only routes to specialists in the hiredAgents list if provided
  */
 export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]): Promise<SpecialistType> {
-  const planningMode = process.env.PLANNING_MODE || 'regexp';
+  const planningMode = process.env.PLANNING_MODE || 'capability';
   
+  // 1. Capability-Based Matching (Primary)
+  if (planningMode === 'capability') {
+    try {
+      const intent = await capabilityMatcher.extractIntent(prompt);
+      // Pass intent to metadata for later reputation recording
+      // Note: This only works if we're in the context of creating a task,
+      // but routePrompt is often called before the task object exists.
+      // We'll rely on the matcher result.
+      const matches = await capabilityMatcher.matchAgents(intent);
+      
+      if (matches.length > 0) {
+        const best = matches[0];
+        console.log(`[Capability Matcher] Top match: ${best.agentId} (score: ${best.score.toFixed(2)})`);
+        
+        // Use capability matcher if score is high enough (>= 0.6)
+        if (best.score >= 0.6) {
+          const specialist = best.agentId as SpecialistType;
+          
+          // If specialist is not in hiredAgents, use fallback routing
+          if (hiredAgents && !hiredAgents.includes(specialist)) {
+            console.log(`[Capability Matcher] Specialist ${specialist} not in swarm, falling back to regexp routing`);
+            return routeWithRegExp(prompt, hiredAgents);
+          }
+          
+          return specialist;
+        }
+      }
+      console.log(`[Capability Matcher] No high-confidence match (top score < 0.6), falling back to regexp`);
+    } catch (error: any) {
+      console.error(`[Capability Matcher] Error:`, error.message, '- falling back to regexp');
+    }
+  }
+  
+  // 2. LLM-based routing (Smart fallback)
   if (planningMode === 'llm') {
     try {
       const plan = await planWithLLM(prompt);
@@ -748,7 +968,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     }
   }
   
-  // Default: RegExp routing
+  // 3. Default: RegExp routing (Fastest fallback)
   return routeWithRegExp(prompt, hiredAgents);
 }
 
@@ -939,21 +1159,28 @@ export async function callSpecialist(specialist: SpecialistType, prompt: string)
     return callExternalAgent(specialist as string, prompt);
   }
   
+  let result: SpecialistResult;
+  
   switch (specialist) {
     case 'magos':
-      return magos.handle(prompt);
+      result = await magos.handle(prompt);
+      break;
     
     case 'aura':
-      return aura.handle(prompt);
+      result = await aura.handle(prompt);
+      break;
     
     case 'bankr':
-      return bankr.handle(prompt);
+      result = await bankr.handle(prompt);
+      break;
     
     case 'scribe':
-      return scribe.handle(prompt);
+      result = await scribe.handle(prompt);
+      break;
     
     case 'seeker':
-      return seeker.handle(prompt);
+      result = await seeker.handle(prompt);
+      break;
     
     case 'general':
     default:
@@ -963,7 +1190,7 @@ export async function callSpecialist(specialist: SpecialistType, prompt: string)
         aura.handle(prompt),
       ]);
       
-      return {
+      result = {
         success: true,
         data: {
           magos: magosResult.data,
@@ -975,6 +1202,26 @@ export async function callSpecialist(specialist: SpecialistType, prompt: string)
         executionTimeMs: Date.now() - startTime,
       };
   }
+
+  // Ensure agentId is present in result data for routing/reputation tracking
+  if (result.data && typeof result.data === 'object') {
+    result.data.agentId = specialist;
+  }
+
+  // Add cost for built-in if not present
+  if (result && !result.cost) {
+    const fee = (config.fees as any)[specialist];
+    if (fee !== undefined) {
+      result.cost = {
+        amount: String(fee),
+        currency: 'USDC',
+        network: 'base',
+        recipient: config.specialistWallets[specialist] || 'treasury',
+      };
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -1010,7 +1257,7 @@ export function getSpecialistPricing(): Record<SpecialistType, { fee: string; de
     pricingWithRep[key] = {
       fee: String(fee),
       description,
-      success_rate: getSuccessRate(key as SpecialistType)
+      success_rate: Math.round(getReputationScore(key as SpecialistType) * 100)
     };
   }
   return pricingWithRep;
@@ -1021,13 +1268,19 @@ export function getSpecialistPricing(): Record<SpecialistType, { fee: string; de
  */
 export function getSpecialists(): any[] {
   // Built-in specialists
-  const builtIn = Object.entries(SPECIALIST_DESCRIPTIONS).map(([name, description]) => ({
-    name,
-    description,
-    fee: String((config.fees as any)[name] || 0),
-    success_rate: getSuccessRate(name as SpecialistType),
-    external: false,
-  }));
+  const builtIn = Object.entries(SPECIALIST_DESCRIPTIONS).map(([name, description]) => {
+    // Get structured capabilities from matcher if available
+    const structuredCapabilities = capabilityMatcher.specialistManifests.get(name) || [];
+    
+    return {
+      name,
+      description,
+      fee: String((config.fees as any)[name] || 0),
+      success_rate: Math.round(getReputationScore(name as SpecialistType) * 100),
+      external: false,
+      structuredCapabilities,
+    };
+  });
   
   // External agents from the registry
   const external = getExternalAgents()
@@ -1042,6 +1295,7 @@ export function getSpecialists(): any[] {
       endpoint: a.endpoint,
       wallet: a.wallet,
       capabilities: a.capabilities,
+      structuredCapabilities: a.structuredCapabilities,
       pricing: a.pricing,
     }));
   

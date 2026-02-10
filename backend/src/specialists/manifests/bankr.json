@@ -1,0 +1,35 @@
+[
+  {
+    "id": "bankr:swap",
+    "name": "Token Swap",
+    "description": "Execute token swaps on Solana DEXs (Jupiter).",
+    "category": "defi",
+    "subcategories": ["dex", "trading"],
+    "inputs": [{"type": "token"}, {"type": "number"}],
+    "outputs": {"type": "transaction"},
+    "confidenceScore": 0.95,
+    "latencyEstimateMs": 5000
+  },
+  {
+    "id": "bankr:balance",
+    "name": "Wallet Balance",
+    "description": "Check token balances for a Solana or Base wallet.",
+    "category": "defi",
+    "subcategories": ["wallet"],
+    "inputs": [{"type": "address"}],
+    "outputs": {"type": "json"},
+    "confidenceScore": 1.0,
+    "latencyEstimateMs": 1000
+  },
+  {
+    "id": "bankr:transfer",
+    "name": "Token Transfer",
+    "description": "Send tokens to another wallet address.",
+    "category": "defi",
+    "subcategories": ["wallet"],
+    "inputs": [{"type": "address"}, {"type": "number"}],
+    "outputs": {"type": "transaction"},
+    "confidenceScore": 0.99,
+    "latencyEstimateMs": 3000
+  }
+]

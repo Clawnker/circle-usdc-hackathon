@@ -19,8 +19,8 @@ import { getSimulatedBalances } from './specialists/bankr';
 import { submitVote, getVote, getReputationStats, getAllReputation, updateSyncStatus } from './reputation';
 import { syncReputationToChain } from './solana-reputation';
 import solana from './solana';
-import { DispatchRequest, Task, WSEvent, SpecialistType } from './types';
-import { registerAgent, getExternalAgents, getExternalAgent, healthCheckAgent, removeAgent, RegisterRequest } from './external-agents';
+import { DispatchRequest, Task, WSEvent, SpecialistType, RegisterRequest } from './types';
+import { registerAgent, getExternalAgents, getExternalAgent, healthCheckAgent, removeAgent } from './external-agents';
 
 dotenv.config();
 

@@ -1,0 +1,13 @@
+[
+  {
+    "id": "seeker:search",
+    "name": "Web Search",
+    "description": "Search the web for real-time news, information, and current events.",
+    "category": "research",
+    "subcategories": ["search"],
+    "inputs": [{"type": "string"}],
+    "outputs": {"type": "report"},
+    "confidenceScore": 0.85,
+    "latencyEstimateMs": 4000
+  }
+]

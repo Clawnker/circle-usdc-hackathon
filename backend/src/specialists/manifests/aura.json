@@ -1,0 +1,24 @@
+[
+  {
+    "id": "aura:sentiment",
+    "name": "Social Sentiment",
+    "description": "Analyze social media sentiment, FOMO, and FUD for specific tokens or topics.",
+    "category": "social",
+    "subcategories": ["sentiment", "trending"],
+    "inputs": [{"type": "string"}],
+    "outputs": {"type": "json"},
+    "confidenceScore": 0.8,
+    "latencyEstimateMs": 3000
+  },
+  {
+    "id": "aura:trending",
+    "name": "Trending Tokens",
+    "description": "Identify currently trending tokens and narratives in the crypto ecosystem.",
+    "category": "social",
+    "subcategories": ["trending"],
+    "inputs": [],
+    "outputs": {"type": "json"},
+    "confidenceScore": 0.85,
+    "latencyEstimateMs": 2500
+  }
+]

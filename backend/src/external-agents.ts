@@ -7,40 +7,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import { SpecialistResult } from './types';
+import { SpecialistResult, Capability, ExternalAgent, RegisterRequest } from './types';
 
 const DATA_DIR = path.join(__dirname, '../data');
 const EXTERNAL_AGENTS_FILE = path.join(DATA_DIR, 'external-agents.json');
-
-export interface ExternalAgent {
-  id: string;                    // Unique agent ID (e.g. "sentinel")
-  name: string;                  // Display name
-  description: string;           // What this agent does
-  endpoint: string;              // Base URL (e.g. https://sentinel-agent-xxx.run.app)
-  wallet: string;                // Agent's payment wallet address
-  capabilities: string[];        // e.g. ["security-audit", "compliance-check"]
-  pricing: Record<string, number>; // capability -> USDC fee
-  chain: string;                 // Payment chain (e.g. "base-sepolia")
-  x402Support: boolean;          // Does it support x402 payment headers?
-  erc8004: {
-    registered: boolean;
-    identityHash?: string;
-  };
-  registeredAt: string;          // ISO timestamp
-  lastHealthCheck?: string;      // ISO timestamp of last successful health check
-  healthy: boolean;              // Is the agent currently reachable?
-  active: boolean;               // Is the agent enabled for routing?
-}
-
-export interface RegisterRequest {
-  name: string;
-  description: string;
-  endpoint: string;
-  wallet: string;
-  capabilities: string[];
-  pricing?: Record<string, number>;
-  chain?: string;
-}
 
 // In-memory store, persisted to disk
 let externalAgents: Map<string, ExternalAgent> = new Map();
@@ -56,6 +26,20 @@ function loadAgents(): void {
     if (fs.existsSync(EXTERNAL_AGENTS_FILE)) {
       const data = JSON.parse(fs.readFileSync(EXTERNAL_AGENTS_FILE, 'utf8'));
       for (const agent of data) {
+        // Migration: ensure structuredCapabilities exist
+        if (!agent.structuredCapabilities) {
+          agent.structuredCapabilities = agent.capabilities.map((cap: string) => ({
+            id: `${agent.id}:${cap}`,
+            name: cap,
+            description: `Capability ${cap} provided by ${agent.name}`,
+            category: 'generic',
+            subcategories: [],
+            inputs: [],
+            outputs: { type: 'json' },
+            confidenceScore: 0.8,
+            latencyEstimateMs: 1000,
+          }));
+        }
         externalAgents.set(agent.id, agent);
       }
       console.log(`[ExternalAgents] Loaded ${externalAgents.size} external agents`);
@@ -90,6 +74,19 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
   // Generate a slug-style ID from the name
   const id = req.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   
+  // Ensure structured capabilities exist (backward compatibility)
+  const structuredCapabilities = req.structuredCapabilities || req.capabilities.map(cap => ({
+    id: `${id}:${cap}`,
+    name: cap,
+    description: `Capability ${cap} provided by ${req.name}`,
+    category: 'generic' as const,
+    subcategories: [],
+    inputs: [],
+    outputs: { type: 'json' as const },
+    confidenceScore: 0.8,
+    latencyEstimateMs: 1000,
+  }));
+
   // Check if already registered
   if (externalAgents.has(id)) {
     // Update existing registration
@@ -98,6 +95,7 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
     existing.endpoint = req.endpoint;
     existing.wallet = req.wallet;
     existing.capabilities = req.capabilities;
+    existing.structuredCapabilities = structuredCapabilities;
     existing.pricing = req.pricing || {};
     existing.chain = req.chain || 'base-sepolia';
     existing.active = true;
@@ -113,6 +111,7 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
     endpoint: req.endpoint.replace(/\/$/, ''), // Remove trailing slash
     wallet: req.wallet,
     capabilities: req.capabilities,
+    structuredCapabilities,
     pricing: req.pricing || {},
     chain: req.chain || 'base-sepolia',
     x402Support: true,
@@ -124,6 +123,13 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
 
   externalAgents.set(id, agent);
   saveAgents();
+
+  // Trigger embedding sync (non-blocking)
+  import('./capability-matcher').then(({ capabilityMatcher }) => {
+    capabilityMatcher.syncAgentEmbeddings(id, structuredCapabilities).catch(err => {
+      console.error(`[ExternalAgents] Failed to sync embeddings for ${id}:`, err);
+    });
+  });
 
   // Also update the registrations.json for the /api/agents endpoint
   updateRegistrationsJson(agent);

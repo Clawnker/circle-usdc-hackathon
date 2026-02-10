@@ -1,0 +1,24 @@
+[
+  {
+    "id": "scribe:summarize",
+    "name": "Text Summarization",
+    "description": "Summarize long articles, threads, or data into concise bullet points.",
+    "category": "generic",
+    "subcategories": ["utility"],
+    "inputs": [{"type": "string"}],
+    "outputs": {"type": "string"},
+    "confidenceScore": 0.95,
+    "latencyEstimateMs": 1500
+  },
+  {
+    "id": "scribe:explain",
+    "name": "Concept Explanation",
+    "description": "Explain complex crypto or DeFi concepts in simple terms.",
+    "category": "generic",
+    "subcategories": ["education"],
+    "inputs": [{"type": "string"}],
+    "outputs": {"type": "string"},
+    "confidenceScore": 0.9,
+    "latencyEstimateMs": 1200
+  }
+]
