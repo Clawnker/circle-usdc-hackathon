@@ -1,11 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
+import { hasErc8128Headers, verifyErc8128Request } from './erc8128-auth';
 
 /**
- * Simple API key authentication middleware.
- * Checks for X-API-Key header or apiKey query parameter.
- * Valid keys are loaded from process.env.API_KEYS (comma-separated).
+ * Authentication middleware.
+ * Supports two methods (checked in order):
+ *   1. ERC-8128 — Signed HTTP requests with Ethereum wallets (cryptographic)
+ *   2. API Key  — Static X-API-Key header (legacy)
+ *
+ * ERC-8128 is preferred: agents authenticate with their wallet, same identity
+ * that pays and earns reputation on-chain.
  */
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   // Always allow /health
   if (req.path === '/health') {
     return next();
@@ -13,8 +18,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
   // x402-gated specialist endpoints bypass API key auth (protected by payment instead)
   if (req.path.startsWith('/api/specialist/')) {
-    // Set a placeholder user for the request
-    (req as any).user = { id: 'x402-payer' };
+    (req as any).user = { id: 'x402-payer', authMethod: 'x402' };
     return next();
   }
 
@@ -31,26 +35,60 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     '/wallet/transactions',
     '/status',
     '/tasks',
+    '/api/auth/verify',
   ];
   if (publicPaths.some(p => req.path === p || req.path.startsWith(p + '/'))) {
-    (req as any).user = { id: 'demo-user' };
+    (req as any).user = { id: 'demo-user', authMethod: 'public' };
     return next();
   }
 
-  // Security: Only accept API key from headers, not query params (prevents logging exposure)
+  // ── Method 1: ERC-8128 Signed HTTP Request ──────────────────────────
+  if (hasErc8128Headers(req)) {
+    try {
+      const result = await verifyErc8128Request(req);
+
+      if (result && result.ok) {
+        (req as any).user = {
+          id: result.address,
+          address: result.address,
+          chainId: result.chainId,
+          authMethod: 'erc8128' as const,
+        };
+        (req as any).erc8128Verified = true;
+        return next();
+      }
+
+      // ERC-8128 headers present but invalid — reject
+      if (result && !result.ok) {
+        return res.status(401).json({
+          error: 'ERC-8128 authentication failed',
+          reason: result.reason,
+        });
+      }
+    } catch (err: any) {
+      console.error('[Auth] ERC-8128 verification error:', err.message);
+      return res.status(401).json({
+        error: 'ERC-8128 authentication error',
+        reason: err.message,
+      });
+    }
+  }
+
+  // ── Method 2: API Key (legacy) ──────────────────────────────────────
   const apiKey = req.headers['x-api-key'] as string;
   const apiKeysEnv = process.env.API_KEYS || '';
   const validKeys = apiKeysEnv.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
   if (!apiKey || !validKeys.includes(apiKey)) {
     return res.status(401).json({ 
-      error: 'Unauthorized: Invalid or missing API Key' 
+      error: 'Unauthorized: Invalid or missing API Key',
+      hint: 'Provide X-API-Key header or sign requests with ERC-8128 (https://erc8128.org)',
     });
   }
 
-  // Attach user context to request for downstream filtering
   (req as any).user = {
-    id: apiKey // Use the key itself as a simple userId for this hackathon
+    id: apiKey,
+    authMethod: 'api-key' as const,
   };
 
   next();

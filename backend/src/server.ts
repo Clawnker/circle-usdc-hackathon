@@ -121,8 +121,47 @@ app.get('/health', (req: Request, res: Response) => {
     version: '0.3.0',
     chain: 'Base Sepolia (EIP-155:84532)',
     trustLayer: 'ERC-8004',
+    auth: ['api-key', 'erc8128'],
     timestamp: new Date().toISOString(),
   });
+});
+
+/**
+ * ERC-8128 Verification endpoint — test your signed request setup.
+ * This is a PUBLIC endpoint (no API key required).
+ * Send a signed request here to verify your ERC-8128 integration works.
+ */
+app.get('/api/auth/verify', async (req: Request, res: Response) => {
+  try {
+    const { hasErc8128Headers, verifyErc8128Request } = await import('./middleware/erc8128-auth');
+    
+    if (!hasErc8128Headers(req)) {
+      return res.json({
+        authenticated: false,
+        hint: 'Sign this request with ERC-8128 to test authentication. See https://erc8128.org',
+      });
+    }
+
+    const result = await verifyErc8128Request(req);
+    if (result && result.ok) {
+      return res.json({
+        authenticated: true,
+        address: result.address,
+        chainId: result.chainId,
+        method: 'erc8128',
+      });
+    }
+
+    return res.json({
+      authenticated: false,
+      reason: result && !result.ok ? result.reason : 'Unknown error',
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      authenticated: false,
+      error: err.message,
+    });
+  }
 });
 
 /**

@@ -43,6 +43,7 @@ export interface Task {
   id: string;
   prompt: string;
   userId?: string;
+  authMethod?: 'api-key' | 'erc8128' | 'x402';
   status: TaskStatus;
   specialist: SpecialistType;
   createdAt: Date;
@@ -322,6 +323,7 @@ export interface ExternalAgent {
   pricing: Record<string, number>; // capability -> USDC fee
   chain: string;                 // Payment chain (e.g. "base-sepolia")
   x402Support: boolean;          // Does it support x402 payment headers?
+  erc8128Support?: boolean;
   erc8004: {
     registered: boolean;
     identityHash?: string;
@@ -341,4 +343,5 @@ export interface RegisterRequest {
   structuredCapabilities?: Capability[];
   pricing?: Record<string, number>;
   chain?: string;
+  erc8128Support?: boolean;
 }

@@ -1,16 +1,44 @@
-/**
- * External Agent Registry
- * Manages registration and communication with external agents (non-built-in specialists).
- * External agents register via API, appear in the marketplace, and receive queries via HTTP proxy.
- */
-
+// @ts-nocheck
+import { createPublicClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { baseSepolia } from 'viem/chains';
 import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { SpecialistResult, Capability, ExternalAgent, RegisterRequest } from './types';
 
+// Use require to avoid tsc following types into the broken ox dependency
+const { createSignerClient } = require('@slicekit/erc8128');
+
 const DATA_DIR = path.join(__dirname, '../data');
 const EXTERNAL_AGENTS_FILE = path.join(DATA_DIR, 'external-agents.json');
+
+// Setup signer for outgoing requests
+const privateKey = process.env.DEMO_WALLET_PRIVATE_KEY;
+let signer: any = null;
+
+if (privateKey) {
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    const publicClient = createPublicClient({
+      chain: baseSepolia,
+      transport: http(),
+    });
+    
+    signer = createSignerClient({
+      address: account.address,
+      chainId: baseSepolia.id,
+      signMessage: async (message: Uint8Array) => {
+        return await account.signMessage({ 
+          message: { raw: `0x${Buffer.from(message).toString('hex')}` } 
+        });
+      }
+    });
+    console.log(`[ExternalAgents] ERC-8128 Signer initialized for address: ${account.address}`);
+  } catch (err) {
+    console.error('[ExternalAgents] Failed to initialize ERC-8128 signer:', err);
+  }
+}
 
 // In-memory store, persisted to disk
 let externalAgents: Map<string, ExternalAgent> = new Map();
@@ -115,6 +143,7 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
     pricing: req.pricing || {},
     chain: req.chain || 'base-sepolia',
     x402Support: true,
+    erc8128Support: req.erc8128Support || false,
     erc8004: { registered: true },
     registeredAt: new Date().toISOString(),
     healthy: true, // Assume healthy until proven otherwise
@@ -165,6 +194,7 @@ function updateRegistrationsJson(agent: ExternalAgent): void {
         }))),
       ],
       x402Support: agent.x402Support,
+      erc8128Support: agent.erc8128Support,
       active: agent.active,
       registrations: [],
       supportedTrust: ["reputation"],
@@ -293,12 +323,34 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
 
     console.log(`[ExternalAgents] Calling ${agent.name} at ${url} with body:`, JSON.stringify(requestBody));
 
+    let headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-402-Payment': 'demo-payment-signature', // For x402 gating
+    };
+
+    // Use ERC-8128 signing if supported and signer is available
+    if (agent.erc8128Support && signerClient) {
+      try {
+        const signedRequest = await signerClient.signRequest(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody),
+        });
+        // Extract headers from native Request
+        const newHeaders: Record<string, string> = {};
+        signedRequest.headers.forEach((v: string, k: string) => {
+          newHeaders[k] = v;
+        });
+        headers = newHeaders;
+        console.log(`[ExternalAgents] Signed request with ERC-8128 for ${agent.name}`);
+      } catch (err) {
+        console.error(`[ExternalAgents] Failed to sign request with ERC-8128:`, err);
+      }
+    }
+
     const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-402-Payment': 'demo-payment-signature', // For x402 gating
-      },
+      headers,
       body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
