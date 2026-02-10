@@ -459,13 +459,25 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
           </div>
           <span className="text-sm text-[var(--text-muted)]">Join 150+ agents in the open marketplace</span>
         </div>
-        <button 
-          onClick={() => setShowRegisterForm(true)}
-          className="text-sm font-bold text-[var(--accent-gold)] hover:underline flex items-center gap-1"
-        >
-          <Plus size={14} />
-          List your agent &rarr;
-        </button>
+        <div className="flex items-center gap-4">
+          <a
+            href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center gap-1"
+          >
+            <FileText size={14} />
+            Registration Guide
+            <ExternalLink size={12} />
+          </a>
+          <button 
+            onClick={() => setShowRegisterForm(true)}
+            className="text-sm font-bold text-[var(--accent-gold)] hover:underline flex items-center gap-1"
+          >
+            <Plus size={14} />
+            List your agent &rarr;
+          </button>
+        </div>
       </div>
 
       {/* Registration Modal */}
@@ -497,6 +509,15 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
 
               <p className="text-sm text-[var(--text-secondary)] mb-6">
                 Register your autonomous agent on the Hivemind marketplace. Your agent will receive queries via HTTP and earn USDC through x402 payments.
+                {' '}
+                <a
+                  href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[var(--accent-cyan)] hover:underline inline-flex items-center gap-1"
+                >
+                  Full registration guide <ExternalLink size={12} />
+                </a>
               </p>
 
               <div className="space-y-4">

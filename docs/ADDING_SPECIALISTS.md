@@ -6,14 +6,19 @@ This guide walks you through creating a new specialist agent for the Hivemind Pr
 
 Specialists are modular agent implementations that handle specific types of tasks. Each specialist:
 - Implements a standard interface
-- Declares its capabilities via metadata
+- Declares its capabilities via a **Capability Manifest** (V2)
 - Can be called independently or as part of multi-hop workflows
 - Charges micropayment fees via x402 protocol
+- Has per-capability reputation and resilience (V2)
 
 ## File Structure
 
 ```
 backend/src/specialists/
+├── manifests/        # Capability Manifests (JSON)
+│   ├── magos.json
+│   ├── aura.json
+│   └── your-specialist.json
 ├── magos.ts          # Market analysis specialist
 ├── aura.ts           # Social sentiment specialist
 ├── bankr.ts          # Wallet operations specialist
@@ -86,7 +91,58 @@ class OracleSpecialist {
 export default new OracleSpecialist();
 ```
 
-### 2. Add to Type Definitions
+### 2. Create the Capability Manifest (V2)
+
+In Hivemind V2, specialists must declare their capabilities in a JSON manifest file located in `backend/src/specialists/manifests/`. This manifest is used for semantic routing and discovery.
+
+Create `backend/src/specialists/manifests/oracle.json`:
+
+```json
+[
+  {
+    "id": "security:contract-audit",
+    "name": "Smart Contract Auditor",
+    "description": "Analyzes smart contract source code for vulnerabilities, security flaws, and logic errors on Solana and EVM chains.",
+    "category": "security",
+    "subcategories": ["audit", "solidity", "rust"],
+    "inputs": [{"type": "string", "description": "Contract address or source code"}],
+    "outputs": {"type": "json", "description": "Vulnerability report with severity scores"},
+    "confidenceScore": 0.9,
+    "latencyEstimateMs": 5000
+  },
+  {
+    "id": "defi:price-oracle",
+    "name": "On-chain Price Oracle",
+    "description": "Fetches real-time price data and liquidity metrics for any SPL or ERC-20 token directly from on-chain DEXs.",
+    "category": "defi",
+    "subcategories": ["price", "liquidity", "dex"],
+    "inputs": [{"type": "string", "description": "Token symbol or mint address"}],
+    "outputs": {"type": "json", "description": "Price data in USDC"},
+    "confidenceScore": 0.98,
+    "latencyEstimateMs": 1500
+  }
+]
+```
+
+Existing manifests in `backend/src/specialists/manifests/` can be used as references.
+
+### 3. Capability Matching & Routing (V2)
+
+Hivemind V2 uses **Semantic Vector Matching** for routing.
+- The `description` fields in your manifest are used to generate embeddings.
+- When a user submits a prompt, the Router performs a vector search against all registered capabilities.
+- **Tip:** Better descriptions = better routing. Be specific about what your specialist can do.
+
+For more details, see [docs/CAPABILITY_MATCHING.md](CAPABILITY_MATCHING.md).
+
+### 4. Reputation & Resilience (V2)
+
+Specialists are no longer just "on" or "off." The system tracks performance automatically:
+
+- **Reputation Tracking**: V2 tracks per-capability reputation (success rate, accuracy, latency) with time decay. If your specialist starts failing or slowing down, its routing priority decreases. See [docs/REPUTATION_SYSTEM.md](REPUTATION_SYSTEM.md).
+- **Fallback Chains**: If a specialist fails or its circuit breaker trips, the Router automatically engages the fallback system to try alternative specialists or a generic LLM fallback. See [docs/ROUTING_RESILIENCE.md](ROUTING_RESILIENCE.md).
+
+### 5. Add to Type Definitions
 
 Edit `backend/src/types.ts` and add your specialist to the `SpecialistType`:
 
@@ -102,7 +158,7 @@ export type SpecialistType =
   | 'multi-hop';
 ```
 
-### 3. Register in Dispatcher
+### 6. Register in Dispatcher
 
 Edit `backend/src/dispatcher.ts`:
 
@@ -111,8 +167,8 @@ Edit `backend/src/dispatcher.ts`:
 import oracle from './specialists/oracle';
 ```
 
-#### Add Routing Rules
-Add routing patterns in the `routeWithRegExp()` function:
+#### Add Routing Rules (Legacy / Backup)
+While V2 uses semantic matching, you can still add regex patterns in `routeWithRegExp()` for high-priority overrides:
 
 ```typescript
 const rules: Array<{ specialist: SpecialistType; patterns: RegExp[]; weight: number }> = [
@@ -175,7 +231,7 @@ export async function callSpecialist(specialist: SpecialistType, prompt: string)
 }
 ```
 
-### 4. Configure Fees
+### 7. Configure Fees
 
 Edit `backend/src/config.ts` to set the x402 fee:
 
@@ -190,7 +246,7 @@ fees: {
 },
 ```
 
-### 5. Add Frontend Integration (Optional)
+### 8. Add Frontend Integration (Optional)
 
 To add a visual node to the SwarmGraph:
 
@@ -210,7 +266,7 @@ const agents = [
 ];
 ```
 
-### 6. Test Your Specialist
+### 9. Test Your Specialist
 
 #### Direct Call Test
 ```bash
@@ -232,7 +288,7 @@ Look for routing decision in backend logs:
 [Router] Scores: { oracle: 1, ... } -> oracle
 ```
 
-### 7. Document Your Specialist
+### 10. Document Your Specialist
 
 Create a `skill.md` in the specialist directory (optional):
 
@@ -303,7 +359,7 @@ async handle(prompt: string): Promise<SpecialistResult> {
 
 **Specialist not being routed:**
 - Check routing patterns in `dispatcher.ts`
-- Increase weight if competing with other specialists
+- Ensure your manifest JSON is valid and in the `manifests/` folder
 - Test with explicit specialist call first
 
 **Payment not working:**

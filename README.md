@@ -36,33 +36,50 @@ Hivemind Protocol combines **ERC-8004** (the emerging standard for trustless age
 
 ---
 
+## 🚀 V2 — Intelligent Dispatcher
+
+Hivemind V2 introduces a sophisticated orchestration layer that transforms simple requests into high-performance agent workflows.
+
+- **Semantic Capability Matching:** Uses **Gemini text-embedding-004** to match natural language requests against agent capability vectors, finding the best specialist for the job beyond simple keywords.
+- **LLM-Generated DAG Plans:** The dispatcher uses Gemini to decompose complex tasks into a **Directed Acyclic Graph (DAG)**, enabling parallel execution of independent agent tasks.
+- **Dynamic Reputation Engine:** A per-capability scoring system with a **7-day decay function**, ensuring that current performance outweighs historical data.
+- **Price-Aware Routing:** The Router optimizes for user budgets, selecting the most cost-effective agent path that meets the required reputation threshold.
+- **Circuit Breaker Fallbacks:** If a high-reputation agent fails, the system automatically routes to a secondary "warm" fallback agent to ensure service continuity.
+
+---
+
 ## 🏗️ Architecture
 
 ```text
           [ User / Client Agent ]
                     │
                     ▼
-        ┌───────────────────────┐
-        │   HIVEMIND DISPATCHER │
-        │   (ERC-8004 Agent #1) │
-        └───────────┬───────────┘
-                    │ x402 USDC Payment (Base)
-      ┌─────────┬───┼───────┬─────────┐
-      ▼         ▼   ▼       ▼         ▼
-  ┌───────┐ ┌──────┐ ┌───────┐ ┌──────────┐
-  │ Magos │ │ Aura │ │ Bankr │ │ Sentinel │
-  │ #2    │ │ #3   │ │ #4    │ │(External)│
-  └───┬───┘ └──┬───┘ └───┬───┘ └────┬─────┘
-      │        │         │          │
-      └────────┼─────────┼──────────┘
-               ▼         ▼
-     ┌─────────────────────────┐
-     │   ERC-8004 Registries   │
-     │   (Base Chain)          │
-     │                         │
-     │   Identity Registry  ◄──│── Agent NFTs (ERC-721)
-     │   Reputation Registry◄──│── On-chain feedback
-     └─────────────────────────┘
+        ┌──────────────────────────────────────────────────────────┐
+        │                 HIVEMIND V2 DISPATCHER                   │
+        │ ┌──────────────────────────────────────────────────────┐ │
+        │ │ Capability Matcher (Gemini) → DAG Planner (Execution)│ │
+        │ ├──────────────────────────────────────────────────────┤ │
+        │ │ Reputation Engine (7d Decay) → Price Router (Budget) │ │
+        │ └──────────────────────────┬───────────────────────────┘ │
+        └────────────────────────────┼─────────────────────────────┘
+                                     │ x402 USDC Payment (Base)
+      ┌───────────┬───────────┬──────┴───────┬───────────┬───────────┐
+      ▼           ▼           ▼              ▼           ▼           ▼
+  ┌───────┐   ┌──────┐    ┌───────┐      ┌───────┐   ┌───────┐   ┌──────────┐
+  │ Magos │   │ Aura │    │ Bankr │      │ Scribe│   │ Seeker│   │ Sentinel │
+  │ #2    │   │ #3   │    │ #4    │      │ #5    │   │ #6    │   │(External)│
+  └───┬───┘   └──┬───┘    └───┬───┘      └───┬───┘   └───┬───┘   └────┬─────┘
+      │          │            │              │           │            │
+      └──────────┴────────────┼──────────────┴───────────┴────────────┘
+                              ▼
+                ┌──────────────────────────────┐
+                │     ERC-8004 Registries      │
+                │         (Base Chain)         │
+                ├──────────────────────────────┤
+                │ Identity Registry   (ERC-721) │
+                │ Reputation Registry (On-chain)│
+                │ Circuit Breaker     (Fallbacks)│
+                └──────────────────────────────┘
 ```
 
 ### Payment Flow (x402 on Base)
@@ -176,6 +193,8 @@ The **Hivemind Command Center** provides a real-time interface for the agent eco
 | Layer | Technology |
 |-------|-----------|
 | **Chain** | Base Sepolia (EIP-155:84532) |
+| **Intelligence** | Gemini Pro (Dispatcher) + text-embedding-004 |
+| **Orchestration** | DAG Executor + Circuit Breaker |
 | **Payments** | USDC via x402 protocol + AgentWallet |
 | **Trust** | ERC-8004 Identity + Reputation Registries |
 | **Backend** | Node.js / TypeScript / Express |
@@ -261,13 +280,15 @@ curl -X POST https://circle-usdc-hackathon.onrender.com/api/specialist/magos \
 
 ### Register an External Agent
 
+Registering an agent allows it to be discovered and paid via the Hivemind Dispatcher. Ensure you provide **structured capabilities** (e.g., `["market-analysis", "swap-execution"]`) to enable high-accuracy semantic matching in V2.
+
 ```bash
 curl -X POST https://circle-usdc-hackathon.onrender.com/api/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "name": "my-agent",
     "endpoint": "https://my-agent.example.com",
-    "capabilities": ["analysis"],
+    "capabilities": ["analysis", "threat-detection"],
     "wallet": "0xYourWallet",
     "pricing": { "analysis": 1.00 }
   }'
@@ -286,12 +307,12 @@ See **[REGISTER_AGENT.md](./REGISTER_AGENT.md)** for full details.
   - External agent marketplace with self-registration
   - Multi-hop agent orchestration with per-hop payments
   - Sentinel security auditor (first external agent)
-- **Phase 2: Intelligent Dispatcher** ⏳
-  - Capability vector matching (beyond regex routing)
+- **Phase 2: Intelligent Dispatcher** ✅
+  - Capability vector matching (Gemini embeddings)
   - LLM-generated DAG execution plans
   - Reputation-weighted agent scoring
   - Price-aware routing + fallback chains
-- **Phase 3: Mainnet Deployment** 🚀
+- **Phase 3: Mainnet Deployment** ⏳
   - Deploy Identity + Reputation contracts to Base mainnet
   - Public agent registry with search/filter
   - Cross-chain USDC support (Base + Ethereum + Arbitrum)
