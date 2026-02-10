@@ -915,6 +915,15 @@ function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<string,
  */
 export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]): Promise<SpecialistType> {
   const planningMode = process.env.PLANNING_MODE || 'capability';
+  const lower = prompt.toLowerCase();
+  
+  // 0. Fast-path: explicit trade/execution intents always go to bankr
+  // These are unambiguous action commands that should never route to analysis
+  if (/\b(buy|sell|swap|send|transfer|withdraw|deposit)\b/.test(lower) && 
+      !/\b(should i|good|recommend|analysis|analyze|compare|predict)\b/.test(lower)) {
+    console.log(`[Router] Fast-path: explicit trade intent detected, routing to bankr`);
+    if (!hiredAgents || hiredAgents.includes('bankr')) return 'bankr';
+  }
   
   // 1. Capability-Based Matching (Primary)
   if (planningMode === 'capability') {
