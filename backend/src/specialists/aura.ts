@@ -7,6 +7,7 @@
 import axios from 'axios';
 import config from '../config';
 import { AuraSentiment, SpecialistResult } from '../types';
+import { braveSearch } from './tools/brave-search';
 
 const MOLTX_API = config.specialists.moltx.baseUrl;
 const MOLTX_KEY = config.specialists.moltx.apiKey;
@@ -123,43 +124,19 @@ function estimateSentiment(text: string): number {
  * Analyze sentiment for a topic using Brave Search API
  */
 async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
-  // If we have Brave API key, use real search
-  if (BRAVE_API_KEY) {
-    try {
-      console.log(`[Aura] Performing real social search for: ${topic}`);
-      // Sanitize topic to prevent search operator injection
-      const sanitizedTopic = topic.replace(/[^a-zA-Z0-9$ ]/g, ' ').trim();
-      const query = `${sanitizedTopic} crypto sentiment reddit discussion`;
-      const response = await axios.get('https://api.search.brave.com/res/v1/web/search', {
-        headers: {
-          'Accept': 'application/json',
-          'X-Subscription-Token': BRAVE_API_KEY,
-        },
-        params: {
-          q: query,
-          count: 10,
-        },
-      });
-
-      const results = response.data.web?.results || [];
-      
-      if (results.length === 0) {
-        return {
-          topic,
-          sentiment: 0,
-          score: 0,
-          volume: 0,
-          trending: false,
-          sources: [],
-          summary: `No recent social media activity found for "${topic}" on monitored platforms.`,
-          analysis: `No real-time social data found for "${topic}" on Twitter or Reddit.`,
-          posts: [],
-        };
-      }
-
+  console.log(`[Aura] Analyzing sentiment for: ${topic}`);
+  const sanitizedTopic = topic.replace(/[^a-zA-Z0-9$ ]/g, ' ').trim();
+  const query = `${sanitizedTopic} crypto sentiment reddit discussion`;
+  
+  // Use shared braveSearch (has mock fallback if API key invalid)
+  try {
+    const searchResult = await braveSearch(query, { count: 10 });
+    const results = searchResult.results || [];
+    
+    if (results.length > 0) {
       const posts = results.map((r: any) => {
-        const isTwitter = r.url.includes('twitter.com') || r.url.includes('x.com');
-        const isReddit = r.url.includes('reddit.com');
+        const isTwitter = r.url?.includes('twitter.com') || r.url?.includes('x.com');
+        const isReddit = r.url?.includes('reddit.com');
         const snippet = stripHtml(r.description || '');
         return {
           title: stripHtml(r.title || ''),
@@ -172,11 +149,9 @@ async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
 
       const avgScore = posts.reduce((acc: number, p: any) => acc + p.sentiment, 0) / posts.length;
       
-      // Determine label
       let label: 'bullish' | 'bearish' | 'neutral' | 'fomo' | 'fud' = 'neutral';
       if (avgScore > 0.4) label = 'bullish';
       else if (avgScore < -0.4) label = 'bearish';
-      
       if (avgScore > 0.8) label = 'fomo';
       else if (avgScore < -0.8) label = 'fud';
 
@@ -184,18 +159,18 @@ async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
 
       return {
         topic,
-        sentiment: avgScore, // Returning score as number per instructions
-        score: avgScore,     // Keeping for compatibility
+        sentiment: avgScore,
+        score: avgScore,
         volume: posts.length,
         trending: posts.length >= 5,
         sources: Array.from(new Set(posts.map((p: any) => p.source))),
-        summary: summary,    // For UI display
-        analysis: summary,   // Per instructions
-        posts: posts,        // Real posts with attribution
+        summary,
+        analysis: summary,
+        posts,
       };
-    } catch (error) {
-      console.error('[Aura] Real search failed, checking MoltX fallback:', error);
     }
+  } catch (error) {
+    console.error('[Aura] Search failed:', error);
   }
 
   // Fallback to MoltX if available
@@ -218,8 +193,8 @@ async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
     volume: 0,
     trending: false,
     sources: [],
-    summary: `I'm currently unable to access real-time social data for ${topic}. Please check again later.`,
-    analysis: `Social monitoring systems are currently offline.`,
+    summary: `No social data currently available for ${topic}. Market monitoring is active but no recent discussions were found.`,
+    analysis: `No real-time social data available for ${topic}.`,
     posts: [],
   };
 }
