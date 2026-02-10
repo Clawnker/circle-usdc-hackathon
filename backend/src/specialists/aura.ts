@@ -86,7 +86,9 @@ function parseIntent(prompt: string): { type: string; topic?: string; category?:
   }
   
   // Determine intent type
-  if (lower.includes('sentiment') || lower.includes('feeling') || lower.includes('mood')) {
+  if (lower.includes('sentiment') || lower.includes('feeling') || lower.includes('mood') || 
+      lower.includes('saying') || lower.includes('think') || lower.includes('opinion') ||
+      lower.includes('discussing') || lower.includes('people')) {
     return { type: 'sentiment', topic };
   }
   if (lower.includes('trending') || lower.includes('hot') || lower.includes('popular') || lower.includes('talking about')) {
@@ -357,12 +359,15 @@ async function trackInfluencers(topic: string): Promise<any> {
  * Get general vibes/overview
  */
 async function getVibes(prompt: string): Promise<any> {
-  const result = await analyzeSentiment('crypto market');
+  // Extract topic from the prompt instead of hardcoding 'crypto market'
+  const topicMatch = prompt.match(/\b(SOL|BTC|ETH|BONK|WIF|JUP|Solana|Bitcoin|Ethereum)\b/i);
+  const topic = topicMatch ? topicMatch[0] : 'crypto market';
+  const result = await analyzeSentiment(topic);
   return {
-    market: 'crypto',
+    market: topic,
     mood: result.score > 0 ? 'optimistic' : 'cautious',
     topMentions: ['SOL', 'BTC', 'USDC'],
-    summary: `Overall market vibes are ${result.score > 0 ? 'positive' : 'mixed'}. ${result.summary}`,
+    summary: result.summary,
     confidence: 0.75,
     posts: result.posts
   };

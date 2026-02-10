@@ -70,6 +70,11 @@ export const magos = {
           data = await generateInsight(prompt);
       }
 
+      // Add human-readable summary if not present
+      if (!data.summary) {
+        data.summary = buildMagosSummary(data, intent.type);
+      }
+
       return {
         success: true,
         data,
@@ -385,6 +390,30 @@ async function generateInsight(prompt: string) {
     confidence: 0.9,
     relatedTokens: []
   };
+}
+
+/**
+ * Build a human-readable summary from structured Magos data
+ */
+function buildMagosSummary(data: any, intentType: string): string {
+  if (data.insight) return data.insight;
+  
+  switch (intentType) {
+    case 'predict': {
+      const dir = data.direction === 'bullish' ? '📈' : data.direction === 'bearish' ? '📉' : '➡️';
+      const parts = [`${dir} **${data.token || 'Token'}**: $${data.currentPrice?.toLocaleString() || '?'}`];
+      if (data.predictedPrice) parts.push(`→ $${data.predictedPrice.toLocaleString()} (${data.timeHorizon || '?'})`);
+      if (data.direction) parts.push(`| Outlook: ${data.direction}`);
+      if (data.reasoning) parts.push(`\n\n${data.reasoning}`);
+      return parts.join(' ');
+    }
+    case 'risk':
+      return `⚠️ **${data.token} Risk:** ${data.riskLevel?.toUpperCase() || '?'} (${data.riskScore || '?'}/100)\n\n${data.factors?.[0] || ''}`;
+    case 'trending':
+      return data.trending?.map((t: any) => `• $${t.token} (${t.mentions} mentions, ${t.sentiment})`).join('\n') || 'No trending data available.';
+    default:
+      return data.reasoning || data.analysis || JSON.stringify(data);
+  }
 }
 
 export default magos;

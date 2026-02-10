@@ -258,7 +258,8 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   let bestSpecialist = request.preferredSpecialist || (isMultiStep ? 'multi-hop' as SpecialistType : await routePrompt(request.prompt, request.hiredAgents));
   
   // Legacy multi-hop detection — check before building fallback chains
-  const legacyHops = isMultiStep ? null : detectMultiHop(request.prompt);
+  // Skip for sentinel queries (audit prompts trigger false positives in multi-domain detection)
+  const legacyHops = (isMultiStep || isSentinelQuery) ? null : detectMultiHop(request.prompt);
   if (legacyHops && !request.preferredSpecialist) {
     bestSpecialist = 'multi-hop' as SpecialistType;
   }
