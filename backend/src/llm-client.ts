@@ -10,9 +10,29 @@ import axios from 'axios';
 const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8402/v1';
 const LLM_API_KEY = process.env.LLM_API_KEY || process.env.CLAWROUTER_API_KEY || 'clawrouter';
 const DEFAULT_MODEL = process.env.LLM_DEFAULT_MODEL || 'google/gemini-2.5-flash';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+const GEMINI_FALLBACK_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
 
 // Cost markup for specialist pricing (e.g., 1.5 = 50% markup)
 const COST_MARKUP = parseFloat(process.env.LLM_COST_MARKUP || '1.5');
+
+// Use Gemini direct when no LLM_BASE_URL is explicitly set and we have a Gemini key
+const useGeminiFallback = !process.env.LLM_BASE_URL && !!GEMINI_API_KEY;
+const ACTIVE_BASE_URL = useGeminiFallback ? GEMINI_FALLBACK_URL : LLM_BASE_URL;
+const ACTIVE_API_KEY = useGeminiFallback ? GEMINI_API_KEY : LLM_API_KEY;
+const GEMINI_MODEL_MAP: Record<string, string> = {
+  'google/gemini-2.5-flash': 'gemini-2.5-flash',
+  'google/gemini-2.5-pro': 'gemini-2.5-pro',
+  'google/gemini-3-pro-preview': 'gemini-3-pro-preview',
+  'nvidia/gpt-oss-120b': 'gemini-2.0-flash',  // fallback to cheapest Gemini
+  'auto': 'gemini-2.5-flash',
+};
+
+if (useGeminiFallback) {
+  console.log('[LLM] ClawRouter not configured — using Gemini OpenAI-compatible endpoint as fallback');
+} else {
+  console.log(`[LLM] Using ${ACTIVE_BASE_URL}`);
+}
 
 // --- Types ---
 export interface LLMMessage {
@@ -150,11 +170,18 @@ export async function callLLM(
   const caller = options.caller || 'unknown';
   const startTime = Date.now();
 
+  // Map model names for Gemini fallback
+  const resolvedModel = useGeminiFallback
+    ? (GEMINI_MODEL_MAP[model] || 'gemini-2.5-flash')
+    : model;
+
   const requestBody: any = {
-    model,
+    model: resolvedModel,
     messages,
     temperature: options.temperature ?? 0.3,
-    max_tokens: options.maxTokens ?? 2048,
+    max_tokens: useGeminiFallback
+      ? Math.max(options.maxTokens ?? 2048, 500)  // Gemini needs headroom for thinking tokens
+      : (options.maxTokens ?? 2048),
     top_p: options.topP ?? 0.95,
   };
 
@@ -164,11 +191,11 @@ export async function callLLM(
 
   try {
     const response = await axios.post(
-      `${LLM_BASE_URL}/chat/completions`,
+      `${ACTIVE_BASE_URL}/chat/completions`,
       requestBody,
       {
         headers: {
-          'Authorization': `Bearer ${LLM_API_KEY}`,
+          'Authorization': `Bearer ${ACTIVE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         timeout: 60000,
