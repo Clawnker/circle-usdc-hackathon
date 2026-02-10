@@ -478,16 +478,24 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
     try {
       const dagResult = await executeDAG(task.dagPlan, stepExecutor);
       
+      // Collect successful step summaries for a synthesized result
+      const successfulSteps = Object.values(dagResult.results).filter(r => r.success);
+      const failedSteps = Object.values(dagResult.results).filter(r => !r.success);
+      
       task.result = {
-        success: dagResult.success,
+        success: successfulSteps.length > 0, // Partial success if at least one step worked
         data: {
           isDAG: true,
           planId: dagResult.planId,
           steps: Object.values(dagResult.results).map(r => ({
             specialist: r.specialist,
-            summary: r.summary
+            summary: r.summary,
+            success: r.success
           })),
-          details: dagResult.results
+          details: dagResult.results,
+          ...(failedSteps.length > 0 && { 
+            partialFailure: `${failedSteps.length}/${Object.keys(dagResult.results).length} steps failed` 
+          })
         },
         timestamp: new Date(),
         executionTimeMs: dagResult.executionTimeMs,
@@ -499,8 +507,9 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
         },
       };
       
-      updateTaskStatus(task, dagResult.success ? 'completed' : 'failed');
-      console.log(`[Dispatcher] DAG task ${task.id} ${dagResult.success ? 'completed' : 'failed'}`);
+      const status = dagResult.success ? 'completed' : (successfulSteps.length > 0 ? 'completed' : 'failed');
+      updateTaskStatus(task, status);
+      console.log(`[Dispatcher] DAG task ${task.id} ${status} (${successfulSteps.length}/${Object.keys(dagResult.results).length} steps OK)`);
       return;
     } catch (error: any) {
       console.error(`[Dispatcher] DAG execution error:`, error.message);
@@ -985,6 +994,12 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
   if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
     console.log(`[Router] Complex query or multi-hop pattern detected, routing to multi-hop`);
     return 'multi-hop' as SpecialistType;
+  }
+  
+  // 1b. Fast-path: contract audit/security queries → sentinel
+  if (/0x[a-fA-F0-9]{40}/.test(prompt) && /\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(prompt)) {
+    console.log(`[Router] Fast-path: contract audit query detected, routing to sentinel`);
+    if (!hiredAgents || hiredAgents.includes('sentinel' as SpecialistType)) return 'sentinel' as SpecialistType;
   }
   
   // 2. Capability-Based Matching (SECOND)

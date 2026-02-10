@@ -412,7 +412,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
     const { prompt } = req.body;
     
     // Validate specialist ID
-    const validSpecialists: SpecialistType[] = ['magos', 'aura', 'bankr', 'scribe', 'seeker', 'general'];
+    const validSpecialists: SpecialistType[] = ['magos', 'aura', 'bankr', 'scribe', 'seeker', 'sentinel', 'general'];
     if (!validSpecialists.includes(id as SpecialistType)) {
       return res.status(400).json({ error: 'Invalid specialist ID' });
     }

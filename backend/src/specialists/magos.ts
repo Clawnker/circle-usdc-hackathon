@@ -123,16 +123,19 @@ function parseIntent(prompt: string): { type: string; token?: string; timeHorizo
     return { type: 'trending' };
   }
   if (lower.includes('sentiment') || lower.includes('bullish') || lower.includes('bearish')) {
-    return { type: 'sentiment', token };
+    return { type: token ? 'sentiment' : 'insight', token };
   }
-  if (lower.includes('predict') || lower.includes('price') || lower.includes('forecast')) {
+  if (lower.includes('predict') || lower.includes('forecast')) {
+    return { type: token ? 'predict' : 'insight', token, timeHorizon };
+  }
+  if (lower.includes('price') && token) {
     return { type: 'predict', token, timeHorizon };
   }
   if (lower.includes('risk') || lower.includes('safe') || lower.includes('rug')) {
-    return { type: 'risk', token };
+    return { type: token ? 'risk' : 'insight', token };
   }
   if (lower.includes('analyze') || lower.includes('analysis')) {
-    return { type: 'analyze', token };
+    return { type: token ? 'analyze' : 'insight', token };
   }
   
   return { type: 'insight', token, timeHorizon };
