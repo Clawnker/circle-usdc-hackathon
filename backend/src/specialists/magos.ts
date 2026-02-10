@@ -139,21 +139,51 @@ function parseIntent(prompt: string): { type: string; token?: string; timeHorizo
 }
 
 /**
- * Helper to get price from Jupiter
+ * CoinGecko ID mapping for major tokens (free API, no key needed)
+ */
+const COINGECKO_IDS: Record<string, string> = {
+  'BTC': 'bitcoin', 'ETH': 'ethereum', 'SOL': 'solana',
+  'USDC': 'usd-coin', 'USDT': 'tether', 'BONK': 'bonk',
+  'WIF': 'dogwifcoin', 'JUP': 'jupiter-exchange-solana',
+  'DOGE': 'dogecoin', 'PEPE': 'pepe', 'AVAX': 'avalanche-2',
+  'MATIC': 'matic-network', 'BASE': 'base-protocol',
+};
+
+/**
+ * Helper to get price — tries Jupiter first, falls back to CoinGecko for major tokens
  */
 async function getJupiterPrice(token: string): Promise<{ price: number; mint: string } | null> {
-  const mint = TOKEN_MINTS[token.toUpperCase()] || (token.length >= 32 ? token : null);
-  if (!mint) return null;
+  const upperToken = token.toUpperCase();
+  const mint = TOKEN_MINTS[upperToken] || (token.length >= 32 ? token : null);
 
-  try {
-    const response = await axios.get(`${JUPITER_PRICE_API}?ids=${mint}`);
-    const data = response.data.data[mint];
-    if (data && data.price) {
-      return { price: parseFloat(data.price), mint };
+  // Try Jupiter first
+  if (mint) {
+    try {
+      const response = await axios.get(`${JUPITER_PRICE_API}?ids=${mint}`);
+      const data = response.data.data[mint];
+      if (data && data.price && parseFloat(data.price) > 0.001) {
+        return { price: parseFloat(data.price), mint };
+      }
+    } catch (err: any) {
+      console.log(`[Magos] Jupiter price fetch error:`, err.message);
     }
-  } catch (err: any) {
-    console.log(`[Magos] Jupiter price fetch error:`, err.message);
   }
+
+  // Fallback to CoinGecko for major tokens
+  const geckoId = COINGECKO_IDS[upperToken];
+  if (geckoId) {
+    try {
+      const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=usd`);
+      const price = response.data[geckoId]?.usd;
+      if (price) {
+        console.log(`[Magos] CoinGecko fallback price for ${token}: $${price}`);
+        return { price, mint: mint || upperToken };
+      }
+    } catch (err: any) {
+      console.log(`[Magos] CoinGecko fallback error:`, err.message);
+    }
+  }
+
   return null;
 }
 
@@ -164,7 +194,7 @@ async function callLLM(systemPrompt: string, userPrompt: string): Promise<string
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (apiKey) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
       const response = await axios.post(url, {
         contents: [
           {

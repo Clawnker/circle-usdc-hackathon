@@ -127,7 +127,7 @@ async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
       console.log(`[Aura] Performing real social search for: ${topic}`);
       // Sanitize topic to prevent search operator injection
       const sanitizedTopic = topic.replace(/[^a-zA-Z0-9$ ]/g, ' ').trim();
-      const query = `${sanitizedTopic} site:twitter.com OR site:reddit.com`;
+      const query = `${sanitizedTopic} crypto sentiment reddit discussion`;
       const response = await axios.get('https://api.search.brave.com/res/v1/web/search', {
         headers: {
           'Accept': 'application/json',
