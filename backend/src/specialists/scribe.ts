@@ -272,7 +272,7 @@ async function generalAssist(prompt: string): Promise<any> {
   
   return {
     summary: response,
-    insight: 'Synthesized dynamic response for general query',
+    insight: response,
     confidence: 0.95,
     details: {
       type: 'general',

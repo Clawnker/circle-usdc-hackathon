@@ -896,8 +896,8 @@ async function validateCallbackUrl(urlStr: string): Promise<boolean> {
 function extractResponseContent(result: SpecialistResult): string {
   const data = result.data;
   if (data?.combined) return data.combined;
-  if (data?.insight) return data.insight;
   if (data?.summary) return data.summary;
+  if (data?.insight) return data.insight;
   if (data?.reasoning) return data.reasoning;
   
   // External agent results (e.g., Sentinel audit)
