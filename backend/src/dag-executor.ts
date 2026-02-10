@@ -132,7 +132,8 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage: str
 
 /**
  * Utility: Resolve variables in prompt templates
- * Supports {{step-id.output.path.to.value}}
+ * Supports {{step-id.output.path.to.value}} and {{step-id.summary}}
+ * Falls back to step summary when specific path not found
  */
 export function resolveVariables(template: string, context: Record<string, any>): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (match, expression) => {
@@ -140,7 +141,8 @@ export function resolveVariables(template: string, context: Record<string, any>)
     const stepId = parts[0];
     
     if (!context[stepId]) {
-      return match; // Keep template if step result not found
+      // Step result not available — remove the template tag and note it
+      return `[data from ${stepId} unavailable]`;
     }
     
     let current = context[stepId];
@@ -154,7 +156,17 @@ export function resolveVariables(template: string, context: Record<string, any>)
       if (current && typeof current === 'object' && part in current) {
         current = current[part];
       } else {
-        return match; // Path not found
+        // Path not found — fall back to stringifying the entire step output
+        // This ensures downstream specialists get actual data, not raw template tags
+        const stepData = context[stepId];
+        if (typeof stepData === 'object') {
+          // Try to extract meaningful content: insight, summary, analysis, or full JSON
+          const fallback = stepData.insight || stepData.summary || stepData.analysis || 
+                          stepData.description || stepData.content || JSON.stringify(stepData);
+          console.log(`[DAG] Template fallback for {{${expression}}}: using step ${stepId} full output`);
+          return typeof fallback === 'string' ? fallback : JSON.stringify(fallback);
+        }
+        return String(stepData);
       }
     }
     

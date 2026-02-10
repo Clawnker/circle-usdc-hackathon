@@ -150,37 +150,38 @@ const COINGECKO_IDS: Record<string, string> = {
 };
 
 /**
- * Helper to get price — tries Jupiter first, falls back to CoinGecko for major tokens
+ * Helper to get price — tries CoinGecko first for major tokens, Jupiter as fallback
  */
 async function getJupiterPrice(token: string): Promise<{ price: number; mint: string } | null> {
   const upperToken = token.toUpperCase();
   const mint = TOKEN_MINTS[upperToken] || (token.length >= 32 ? token : null);
 
-  // Try Jupiter first
+  // Try CoinGecko FIRST for major tokens (more reliable, no API key needed)
+  const geckoId = COINGECKO_IDS[upperToken];
+  if (geckoId) {
+    try {
+      const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=usd`, { timeout: 5000 });
+      const price = response.data[geckoId]?.usd;
+      if (price && price > 0.001) {
+        console.log(`[Magos] CoinGecko price for ${token}: $${price}`);
+        return { price, mint: mint || upperToken };
+      }
+    } catch (err: any) {
+      console.log(`[Magos] CoinGecko error for ${token}:`, err.message);
+    }
+  }
+
+  // Fallback to Jupiter for exotic tokens
   if (mint) {
     try {
-      const response = await axios.get(`${JUPITER_PRICE_API}?ids=${mint}`);
-      const data = response.data.data[mint];
+      const response = await axios.get(`${JUPITER_PRICE_API}?ids=${mint}`, { timeout: 5000 });
+      const data = response.data?.data?.[mint];
       if (data && data.price && parseFloat(data.price) > 0.001) {
+        console.log(`[Magos] Jupiter price for ${token}: $${data.price}`);
         return { price: parseFloat(data.price), mint };
       }
     } catch (err: any) {
       console.log(`[Magos] Jupiter price fetch error:`, err.message);
-    }
-  }
-
-  // Fallback to CoinGecko for major tokens
-  const geckoId = COINGECKO_IDS[upperToken];
-  if (geckoId) {
-    try {
-      const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=${geckoId}&vs_currencies=usd`);
-      const price = response.data[geckoId]?.usd;
-      if (price) {
-        console.log(`[Magos] CoinGecko fallback price for ${token}: $${price}`);
-        return { price, mint: mint || upperToken };
-      }
-    } catch (err: any) {
-      console.log(`[Magos] CoinGecko fallback error:`, err.message);
     }
   }
 

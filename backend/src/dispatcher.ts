@@ -1108,11 +1108,10 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
     {
       specialist: 'bankr',
       patterns: [
-        /\b(?:swap|trade|buy|sell|exchange)\b/,
+        /\b(?:swap|trade|buy|sell|exchange)\b.*\b(?:token|coin|sol|eth|btc|usdc|for)\b/,
         /\b(?:transfer|send|withdraw|deposit)\b/,
-        /\bbalance\b|my wallet|holdings|portfolio/,
+        /\bbalance\b|my wallet|my holdings|my portfolio/,
         /\b(?:dca|dollar\s+cost|recurring|auto-buy)\b/,
-        /solana|sol price/,
       ],
       weight: 1,
     },
