@@ -6,9 +6,9 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import axios from 'axios';
 import { SpecialistResult } from '../types';
 import { braveSearch } from './tools/brave-search';
+import { chatText, MODELS } from '../llm-client';
 
 // Load system prompt
 const PROMPT_PATH = path.join(__dirname, 'prompts', 'scribe.md');
@@ -69,17 +69,9 @@ export const scribe = {
 };
 
 /**
- * Call Gemini LLM with security wrapping
+ * Call LLM via unified client
  */
 async function callLLM(task: string, userContent: string, context: string = ''): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('LLM API key (GEMINI_API_KEY or GOOGLE_API_KEY) is missing');
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  
   const fullPrompt = `
 ${systemPrompt}
 
@@ -97,28 +89,12 @@ If sources were provided, please include citations.
 Use Markdown for formatting.
 `;
 
-  try {
-    const response = await axios.post(url, {
-      contents: [{
-        role: 'user',
-        parts: [{ text: fullPrompt }]
-      }],
-      generationConfig: {
-        temperature: 0.3,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      }
-    });
-
-    const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) {
-      throw new Error('Empty response from LLM');
-    }
-    return text.trim();
-  } catch (error: any) {
-    console.error('[Scribe] LLM API Error:', error.response?.data || error.message);
-    throw new Error(`LLM generation failed: ${error.message}`);
-  }
+  return chatText('', fullPrompt, {
+    model: MODELS.fast,
+    caller: 'scribe',
+    temperature: 0.3,
+    maxTokens: 2048,
+  });
 }
 
 /**

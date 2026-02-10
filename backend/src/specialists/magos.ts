@@ -8,6 +8,7 @@ import axios from 'axios';
 import config from '../config';
 import { MagosPrediction, SpecialistResult } from '../types';
 import { braveSearch } from './tools/brave-search';
+import { chatText, MODELS } from '../llm-client';
 
 const MOLTX_API = 'https://moltx.io/v1';
 const MOLTX_KEY = config.specialists.moltx?.apiKey || process.env.MOLTX_API_KEY;
@@ -205,28 +206,15 @@ async function getJupiterPrice(token: string): Promise<{ price: number; mint: st
  * Call LLM or Search for analysis
  */
 async function callLLM(systemPrompt: string, userPrompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (apiKey) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-      const response = await axios.post(url, {
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: systemPrompt },
-              { text: `\n\n<user_request>\n${userPrompt}\n</user_request>` }
-            ]
-          }
-        ],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
-      });
-      const data = response.data;
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text.trim();
-    } catch (e: any) {
-      console.log('[Magos] LLM failed:', e.message);
-    }
+  try {
+    return await chatText(systemPrompt, userPrompt, {
+      model: MODELS.fast,
+      caller: 'magos',
+      temperature: 0.7,
+      maxTokens: 500,
+    });
+  } catch (e: any) {
+    console.log('[Magos] LLM failed:', e.message);
   }
 
   const search = await braveSearch(userPrompt);

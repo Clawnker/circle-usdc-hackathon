@@ -5,6 +5,7 @@
 
 import { SpecialistType, DAGPlan, PlanStep } from './types';
 import { capabilityMatcher } from './capability-matcher';
+import { chatJSON, chatText, MODELS } from './llm-client';
 
 /**
  * Determine if a query is complex enough to require multi-step DAG planning.
@@ -131,8 +132,12 @@ RULES:
 5. If the query is simple and only needs one specialist, return a single-step plan.`;
 
   try {
-    const response = await callGeminiFlash(systemPrompt, prompt);
-    const parsed = JSON.parse(response);
+    const { data: parsed } = await chatJSON(systemPrompt, prompt, {
+      model: MODELS.fast,
+      caller: 'llm-planner',
+      temperature: 0.1,
+      maxTokens: 1000,
+    });
 
     // Ensure totalEstimatedCost is calculated if missing
     if (parsed.steps && parsed.totalEstimatedCost === undefined) {
@@ -177,68 +182,6 @@ export async function planWithLLM(prompt: string): Promise<PlanningResult> {
     confidence: plan.steps.length > 0 ? 0.9 : 0.3,
     reasoning: plan.reasoning
   };
-}
-
-/**
- * Call Gemini Flash API
- * Uses the same Gemini configuration as other specialists
- */
-async function callGeminiFlash(systemPrompt: string, userPrompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY or GOOGLE_API_KEY not configured');
-  }
-  
-  const fetch = (await import('node-fetch')).default;
-  
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-  
-  const requestBody = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: systemPrompt },
-          { text: `\n\n<user_query>\n${userPrompt}\n</user_query>` }
-        ]
-      }
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      maxOutputTokens: 1000,
-      topP: 0.95,
-      responseMimeType: "application/json",
-    }
-  };
-  
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody),
-  });
-  
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Gemini API error: ${response.status} ${error}`);
-  }
-  
-  const data: any = await response.json();
-  
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new Error('No response from Gemini');
-  }
-  
-  // Extract JSON from response (remove markdown code blocks if present)
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error(`Could not parse JSON from response: ${text}`);
-  }
-  
-  return jsonMatch[0];
 }
 
 export default {

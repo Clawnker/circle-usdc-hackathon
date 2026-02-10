@@ -21,6 +21,7 @@ import { syncReputationToChain } from './solana-reputation';
 import solana from './solana';
 import { DispatchRequest, Task, WSEvent, SpecialistType, RegisterRequest } from './types';
 import { registerAgent, getExternalAgents, getExternalAgent, healthCheckAgent, removeAgent } from './external-agents';
+import { costTracker } from './llm-client';
 
 dotenv.config();
 
@@ -118,11 +119,32 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'Hivemind Protocol',
-    version: '0.3.0',
+    version: '0.4.0',
     chain: 'Base Sepolia (EIP-155:84532)',
     trustLayer: 'ERC-8004',
     auth: ['api-key', 'erc8128'],
+    llmRouter: 'ClawRouter/BlockRun',
     timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * LLM Cost tracking endpoint — real-time compute cost data
+ */
+app.get('/v1/costs', (req: Request, res: Response) => {
+  const summary = costTracker.getSummary();
+  const recent = costTracker.getRecent(20);
+  res.json({
+    summary,
+    recent: recent.map(r => ({
+      caller: r.caller,
+      model: r.model,
+      tokens: r.usage.totalTokens,
+      rawCost: r.cost.rawCost,
+      markedUpCost: r.cost.markedUpCost,
+      markup: r.cost.markup,
+      timestamp: r.timestamp,
+    })),
   });
 });
 

@@ -10,6 +10,7 @@ import { getExternalAgents } from './external-agents';
 import { getReputationScore, getReputationStats } from './reputation';
 import { priceRouter } from './price-router';
 import { config } from './config';
+import { chatJSON, MODELS } from './llm-client';
 
 const DATA_DIR = path.join(__dirname, '../data');
 const EMBEDDINGS_FILE = path.join(DATA_DIR, 'embeddings.json');
@@ -198,8 +199,13 @@ Example: "Audit this contract 0x123... on Base"
 }`;
 
     try {
-      const response = await this.callGeminiFlash(systemPrompt, prompt);
-      return JSON.parse(response);
+      const { data } = await chatJSON(systemPrompt, prompt, {
+        model: MODELS.fast,
+        caller: 'capability-matcher',
+        temperature: 0.1,
+        maxTokens: 500,
+      });
+      return data;
     } catch (err) {
       console.error('[CapabilityMatcher] Intent extraction failed:', err);
       return {
@@ -325,43 +331,6 @@ Example: "Audit this contract 0x123... on Base"
     return dotProduct / (Math.sqrt(mA) * Math.sqrt(mB));
   }
 
-  /**
-   * Call Gemini Flash API (shared logic with llm-planner)
-   */
-  private async callGeminiFlash(systemPrompt: string, userPrompt: string): Promise<string> {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY or GOOGLE_API_KEY not configured');
-
-    const fetch = (await import('node-fetch')).default;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-    const requestBody = {
-      contents: [{
-        role: 'user',
-        parts: [{ text: systemPrompt }, { text: `\n\n<user_query>\n${userPrompt}\n</user_query>` }]
-      }],
-      generationConfig: { 
-        temperature: 0.1, 
-        maxOutputTokens: 500,
-        responseMimeType: "application/json"
-      }
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    });
-
-    if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
-    
-    const data: any = await response.json();
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error('No response from Gemini');
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    return jsonMatch ? jsonMatch[0] : text;
-  }
 }
 
 // Singleton instance
