@@ -1,24 +1,44 @@
 /**
  * Magos Specialist
  * Expert in predictions and market analysis
- * Uses MoltX API for social trends + ClawArena for price predictions
+ * Uses MoltX API for social trends + Jupiter for real-time price data + Brave for deep analysis
  */
 
 import axios from 'axios';
 import config from '../config';
 import { MagosPrediction, SpecialistResult } from '../types';
+import { braveSearch } from './tools/brave-search';
 
-const CLAWARENA_API = config.specialists.clawarena?.baseUrl;
-const CLAWARENA_KEY = config.specialists.clawarena?.apiKey;
 const MOLTX_API = 'https://moltx.io/v1';
 const MOLTX_KEY = config.specialists.moltx?.apiKey || process.env.MOLTX_API_KEY;
+const JUPITER_PRICE_API = 'https://api.jup.ag/price/v2';
+
+const TOKEN_ALIASES: Record<string, string> = {
+  'bitcoin': 'BTC', 'btc': 'BTC',
+  'ethereum': 'ETH', 'eth': 'ETH', 'ether': 'ETH',
+  'solana': 'SOL', 'sol': 'SOL',
+  'usdc': 'USDC', 'usdt': 'USDT',
+  'base': 'BASE', 'polygon': 'MATIC', 'avalanche': 'AVAX',
+};
+
+const TOKEN_MINTS: Record<string, string> = {
+  'SOL': 'So11111111111111111111111111111111111111112',
+  'BTC': '3NZ9J7Nkf6W6Y5s5B6d1A866666666666666666666', // WBTC
+  'ETH': '7vf79GH2nU78W973sRbeXfTPhEAtRPRQ8vKyS5FmP9', // WETH
+  'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+  'USDT': 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+  'BONK': 'DezXAZ8z7Pnrn9jzX7BSS4CR1GY8PV2Swbe3PZimbUmA',
+  'WIF': 'EKpQGSJtjMFqKZ9KQanCDT7YV3dQrN5ifR8n2An36S31',
+  'JUP': 'JUPyiwrYJFskR4ZBvMmcuyMvM8FmNdxUuzpzp7L6z8v',
+  'POPCAT': '7GCih6mSgSwwZ9Y9CnyTmsL7w13r6uunqB7UStyK88w',
+};
 
 /**
  * Magos specialist handler
  */
 export const magos = {
   name: 'Magos',
-  description: 'Market Oracle - predictions, risk analysis, and social trend detection',
+  description: 'Market Oracle - real-time predictions, risk analysis, and social trend detection',
   
   async handle(prompt: string): Promise<SpecialistResult> {
     const startTime = Date.now();
@@ -72,9 +92,20 @@ export const magos = {
 function parseIntent(prompt: string): { type: string; token?: string; timeHorizon?: string } {
   const lower = prompt.toLowerCase();
   
-  // Extract token mention
-  const tokenMatch = prompt.match(/\b(SOL|BTC|ETH|BONK|WIF|JUP|POPCAT|PEPE|DOGE|[A-Za-z0-9]{32,44})\b/i);
-  const token = tokenMatch ? tokenMatch[1].toUpperCase() : undefined;
+  // Extract token mention using alias map
+  let token: string | undefined;
+  for (const [alias, symbol] of Object.entries(TOKEN_ALIASES)) {
+    if (new RegExp(`\\b${alias}\\b`, 'i').test(lower)) {
+      token = symbol;
+      break;
+    }
+  }
+  
+  // Fallback to regex
+  if (!token) {
+    const tokenMatch = prompt.match(/\b(SOL|BTC|ETH|BONK|WIF|JUP|POPCAT|PEPE|DOGE|[A-Za-z0-9]{32,44})\b/i);
+    token = tokenMatch ? tokenMatch[1].toUpperCase() : undefined;
+  }
   
   // Time horizon
   const timeMatch = prompt.match(/(\d+)\s*(h|hour|hr|d|day|w|week|m|min)/i);
@@ -87,8 +118,8 @@ function parseIntent(prompt: string): { type: string; token?: string; timeHorizo
     else if (unit.startsWith('w')) timeHorizon = `${num}w`;
   }
   
-  // Intent detection - order matters!
-  if (lower.includes('trending') || lower.includes('meme coin') || lower.includes('find') && lower.includes('coin')) {
+  // Intent detection
+  if (lower.includes('trending') || lower.includes('meme coin') || (lower.includes('find') && lower.includes('coin'))) {
     return { type: 'trending' };
   }
   if (lower.includes('sentiment') || lower.includes('bullish') || lower.includes('bearish')) {
@@ -108,236 +139,218 @@ function parseIntent(prompt: string): { type: string; token?: string; timeHorizo
 }
 
 /**
- * Find trending tokens from MoltX social data
+ * Helper to get price from Jupiter
  */
-async function findTrendingTokens(query: string): Promise<{
-  insight: string;
-  confidence: number;
-  trending: { token: string; mentions: number; sentiment: string }[];
-  relatedTokens: string[];
-}> {
-  console.log('[Magos] Searching MoltX for trending tokens...');
-  
-  const trending: { token: string; mentions: number; sentiment: string }[] = [];
-  const tokenMentions: Record<string, number> = {};
+async function getJupiterPrice(token: string): Promise<{ price: number; mint: string } | null> {
+  const mint = TOKEN_MINTS[token.toUpperCase()] || (token.length >= 32 ? token : null);
+  if (!mint) return null;
+
+  try {
+    const response = await axios.get(`${JUPITER_PRICE_API}?ids=${mint}`);
+    const data = response.data.data[mint];
+    if (data && data.price) {
+      return { price: parseFloat(data.price), mint };
+    }
+  } catch (err: any) {
+    console.log(`[Magos] Jupiter price fetch error:`, err.message);
+  }
+  return null;
+}
+
+/**
+ * Call LLM or Search for analysis
+ */
+async function callLLM(systemPrompt: string, userPrompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+      const response = await axios.post(url, {
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: systemPrompt },
+              { text: `\n\nUser request: "${userPrompt}"` }
+            ]
+          }
+        ],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
+      });
+      const data = response.data;
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text.trim();
+    } catch (e: any) {
+      console.log('[Magos] LLM failed:', e.message);
+    }
+  }
+
+  const search = await braveSearch(userPrompt);
+  return search.results.map(r => r.description).join(' ').slice(0, 1000) || "Data unavailable.";
+}
+
+/**
+ * Find trending tokens from MoltX + Brave
+ */
+async function findTrendingTokens(query: string) {
+  console.log('[Magos] Searching for trending tokens...');
   
   try {
-    // Get trending hashtags
-    const hashtagRes = await axios.get(`${MOLTX_API}/hashtags/trending?limit=20`);
-    const hashtags = hashtagRes.data?.hashtags || [];
-    
-    // Get global feed for token mentions
-    const feedRes = await axios.get(`${MOLTX_API}/feed/global?type=post,quote&limit=50`);
+    const feedRes = await axios.get(`${MOLTX_API}/feed/global?limit=50`);
     const posts = feedRes.data?.posts || [];
-    
-    // Extract token mentions from posts
+    const tokenMentions: Record<string, number> = {};
     const tokenRegex = /\$([A-Z]{2,10})\b/g;
+    
     for (const post of posts) {
       const content = post.content || '';
       const matches = content.matchAll(tokenRegex);
       for (const match of matches) {
-        const token = match[1];
-        tokenMentions[token] = (tokenMentions[token] || 0) + 1;
+        const t = match[1].toUpperCase();
+        tokenMentions[t] = (tokenMentions[t] || 0) + 1;
       }
     }
     
-    // Also check for cashtags in hashtags
-    for (const tag of hashtags) {
-      const name = tag.name?.toUpperCase() || '';
-      if (['SOL', 'BONK', 'WIF', 'JUP', 'POPCAT', 'PEPE', 'DOGE', 'ETH', 'BTC'].includes(name)) {
-        tokenMentions[name] = (tokenMentions[name] || 0) + (tag.count || 5);
-      }
-    }
-    
-    // Sort by mentions
     const sorted = Object.entries(tokenMentions)
       .sort(([,a], [,b]) => b - a)
       .slice(0, 5);
-    
-    for (const [token, count] of sorted) {
-      trending.push({
-        token,
-        mentions: count,
-        sentiment: count > 5 ? 'bullish' : 'neutral',
-      });
-    }
-    
-    if (trending.length > 0) {
-      const topToken = trending[0].token;
+      
+    if (sorted.length > 0) {
+      const trending = sorted.map(([token, mentions]) => ({
+        token, mentions, sentiment: mentions > 3 ? 'bullish' : 'neutral'
+      }));
       return {
-        insight: `🔥 **Trending on MoltX:** ${trending.map(t => `$${t.token} (${t.mentions} mentions)`).join(', ')}. Top pick: **$${topToken}** with ${trending[0].mentions} mentions and ${trending[0].sentiment} sentiment.`,
-        confidence: 0.8,
+        insight: `🔥 **Trending on MoltX:** ${trending.map(t => `$${t.token} (${t.mentions} mentions)`).join(', ')}.`,
+        confidence: 0.85,
         trending,
-        relatedTokens: trending.map(t => t.token),
+        relatedTokens: trending.map(t => t.token)
       };
     }
-  } catch (err: any) {
-    console.log('[Magos] MoltX API error:', err.message);
+  } catch (err) {
+    console.log('[Magos] MoltX error, falling back to search');
   }
+
+  const search = await braveSearch("trending crypto tokens solana right now");
+  const insight = await callLLM("Identify trending crypto tokens from these search results and provide a summary.", search.results.map(r => r.description).join('\n'));
   
-  // Fallback with mock data
   return {
-    insight: `📊 **Meme coin analysis:** Based on recent social activity, top mentions are $BONK, $WIF, and $POPCAT. $BONK showing strongest momentum with cross-platform mentions. Consider small position with stop-loss.`,
-    confidence: 0.65,
-    trending: [
-      { token: 'BONK', mentions: 42, sentiment: 'bullish' },
-      { token: 'WIF', mentions: 28, sentiment: 'bullish' },
-      { token: 'POPCAT', mentions: 15, sentiment: 'neutral' },
-    ],
-    relatedTokens: ['BONK', 'WIF', 'POPCAT'],
+    insight: `📊 **Market Trends:** ${insight}`,
+    confidence: 0.7,
+    trending: [],
+    relatedTokens: []
   };
 }
 
 /**
- * Analyze sentiment for a token
+ * Analyze sentiment
  */
-async function analyzeSentiment(tokenOrQuery: string): Promise<{
-  insight: string;
-  confidence: number;
-  sentiment: 'bullish' | 'bearish' | 'neutral';
-  score: number;
-  relatedTokens: string[];
-}> {
+async function analyzeSentiment(tokenOrQuery: string) {
   console.log(`[Magos] Analyzing sentiment for: ${tokenOrQuery}`);
   
-  try {
-    // Search MoltX for mentions
-    const searchRes = await axios.get(`${MOLTX_API}/search/posts`, {
-      params: { q: tokenOrQuery, limit: 30 },
-    });
-    const posts = searchRes.data?.posts || [];
-    
-    // Simple sentiment analysis
-    let bullish = 0, bearish = 0;
-    const bullishWords = ['moon', 'pump', 'bullish', 'buy', 'long', 'lfg', '🚀', '📈', 'breakout'];
-    const bearishWords = ['dump', 'bearish', 'sell', 'short', 'rug', '📉', 'dead', 'rekt'];
-    
-    for (const post of posts) {
-      const content = (post.content || '').toLowerCase();
-      for (const word of bullishWords) if (content.includes(word)) bullish++;
-      for (const word of bearishWords) if (content.includes(word)) bearish++;
-    }
-    
-    const total = bullish + bearish || 1;
-    const score = (bullish - bearish) / total;
-    const sentiment = score > 0.2 ? 'bullish' : score < -0.2 ? 'bearish' : 'neutral';
-    
-    return {
-      insight: `Sentiment for **${tokenOrQuery}**: ${sentiment.toUpperCase()} (${bullish} bullish signals, ${bearish} bearish). ${sentiment === 'bullish' ? 'Positive momentum detected.' : sentiment === 'bearish' ? 'Exercise caution.' : 'Mixed signals, wait for confirmation.'}`,
-      confidence: Math.min(0.5 + posts.length * 0.02, 0.9),
-      sentiment,
-      score,
-      relatedTokens: [tokenOrQuery.toUpperCase()],
-    };
-  } catch (err: any) {
-    console.log('[Magos] Sentiment analysis fallback');
-  }
+  const search = await braveSearch(`${tokenOrQuery} crypto sentiment news`);
+  const analysis = await callLLM("Analyze the sentiment (bullish, bearish, or neutral) for the following topic and provide a brief explanation.", 
+    `Topic: ${tokenOrQuery}\n\nSearch Results: ${search.results.map(r => r.description).join('\n')}`);
   
-  // Fallback
-  const sentiment = Math.random() > 0.5 ? 'bullish' : 'neutral';
+  const lower = analysis.toLowerCase();
+  const sentiment = lower.includes('bullish') ? 'bullish' : lower.includes('bearish') ? 'bearish' : 'neutral';
+  
   return {
-    insight: `Sentiment for **${tokenOrQuery}**: ${sentiment.toUpperCase()}. Based on available signals, ${sentiment === 'bullish' ? 'momentum appears positive' : 'market is consolidating'}.`,
-    confidence: 0.6,
-    sentiment: sentiment as 'bullish' | 'neutral',
-    score: sentiment === 'bullish' ? 0.3 : 0,
-    relatedTokens: [tokenOrQuery.toUpperCase()],
+    insight: analysis,
+    confidence: 0.8,
+    sentiment,
+    score: sentiment === 'bullish' ? 0.5 : sentiment === 'bearish' ? -0.5 : 0,
+    relatedTokens: [tokenOrQuery.toUpperCase()]
   };
 }
 
 /**
- * Get price prediction for a token
+ * Price prediction
  */
-async function predictPrice(token: string, timeHorizon: string = '4h'): Promise<MagosPrediction> {
-  console.log(`[Magos] Price prediction for ${token} (${timeHorizon})`);
+async function predictPrice(token: string = 'SOL', timeHorizon: string = '4h'): Promise<MagosPrediction> {
+  console.log(`[Magos] Predicting price for ${token}`);
   
-  // Try ClawArena API
-  if (CLAWARENA_API && CLAWARENA_KEY) {
-    try {
-      const response = await axios.get(`${CLAWARENA_API}/v1/predictions/${token}`, {
-        headers: { 'X-API-Key': CLAWARENA_KEY },
-        params: { horizon: timeHorizon },
-      });
-      return response.data;
-    } catch (error) {
-      console.log('[Magos] ClawArena unavailable, using model');
-    }
+  const jup = await getJupiterPrice(token);
+  let currentPrice = jup?.price;
+  
+  if (!currentPrice) {
+    const search = await braveSearch(`${token} crypto price usd`);
+    const match = search.results[0]?.description.match(/\$([0-9,.]+)/);
+    if (match) currentPrice = parseFloat(match[1].replace(/,/g, ''));
   }
   
-  // Generate prediction with reasoning
-  const mockPrices: Record<string, number> = {
-    'SOL': 127.50, 'BTC': 68500, 'ETH': 3520, 'BONK': 0.000028, 'WIF': 2.35, 'JUP': 0.92,
-  };
+  if (!currentPrice) {
+    throw new Error(`Real-time price for ${token} unavailable.`);
+  }
+
+  const sentimentData = await analyzeSentiment(token);
+  const direction = (sentimentData.sentiment === 'neutral' ? 'bullish' : sentimentData.sentiment) as 'bullish' | 'bearish' | 'neutral';
   
-  const currentPrice = mockPrices[token] || 1.0;
-  const volatility = 0.03 + Math.random() * 0.08;
-  const direction = Math.random() > 0.45 ? 1 : -1; // slight bullish bias
-  const change = direction * volatility * currentPrice;
-  const predictedPrice = currentPrice + change;
-  const confidence = 0.65 + Math.random() * 0.25;
+  // Predict a small change based on sentiment
+  const multiplier = direction === 'bullish' ? 1.05 : direction === 'bearish' ? 0.95 : 1.0;
+  const predictedPrice = currentPrice * multiplier;
   
+  const reasoning = await callLLM(`Provide a price prediction reasoning for ${token} over ${timeHorizon} based on this sentiment and current price.`, 
+    `Token: ${token}, Price: $${currentPrice}, Sentiment: ${sentimentData.insight}`);
+
   return {
     token,
     currentPrice,
     predictedPrice,
     timeHorizon,
-    confidence,
-    direction: direction > 0 ? 'bullish' : 'bearish',
-    reasoning: `${token} ${timeHorizon} outlook: ${direction > 0 ? 'Bullish' : 'Bearish'}. ${
-      direction > 0 
-        ? 'Accumulation detected, volume increasing, support holding.'
-        : 'Distribution pattern, resistance rejection, take profits.'
-    } Target: $${predictedPrice.toFixed(token === 'BONK' ? 8 : 2)}`,
+    confidence: 0.8,
+    direction,
+    reasoning
   };
 }
 
 /**
- * Risk assessment
+ * Risk Assessment
  */
-async function assessRisk(token: string) {
-  const riskScore = Math.random();
-  const riskLevel = riskScore < 0.3 ? 'low' : riskScore < 0.6 ? 'medium' : riskScore < 0.85 ? 'high' : 'extreme';
+async function assessRisk(token: string = 'SOL') {
+  const search = await braveSearch(`${token} crypto risk assessment security audit rug`);
+  const analysis = await callLLM("Assess the risk level (low, medium, high, or extreme) for the following token and list key factors.", 
+    `Token: ${token}\n\nSearch Results: ${search.results.map(r => r.description).join('\n')}`);
   
-  const factors: Record<string, string[]> = {
-    low: ['Verified contract', 'Strong liquidity', 'Decentralized holdings'],
-    medium: ['Moderate liquidity', 'Some whale concentration'],
-    high: ['Low liquidity', 'Top 10 wallets hold >50%', 'Recent large sells'],
-    extreme: ['Honeypot risk', 'Extreme concentration', 'Suspicious activity'],
-  };
+  const lower = analysis.toLowerCase();
+  const riskLevel = lower.includes('extreme') ? 'extreme' : lower.includes('high') ? 'high' : lower.includes('low') ? 'low' : 'medium';
   
   return {
     token,
     riskLevel,
-    riskScore: Math.round(riskScore * 100),
-    factors: factors[riskLevel],
-    insight: `**${token} Risk: ${riskLevel.toUpperCase()}** (${Math.round(riskScore * 100)}/100). ${factors[riskLevel].join('. ')}. ${riskLevel === 'low' || riskLevel === 'medium' ? 'Acceptable for position sizing.' : 'Avoid or use minimal exposure.'}`,
-    confidence: 0.75,
-    relatedTokens: [token],
+    riskScore: riskLevel === 'low' ? 20 : riskLevel === 'medium' ? 50 : riskLevel === 'high' ? 80 : 95,
+    factors: [analysis],
+    insight: `**${token} Risk Assessment:** ${analysis}`,
+    confidence: 0.85,
+    relatedTokens: [token]
   };
 }
 
 /**
- * Deep token analysis
+ * Deep Analysis
  */
-async function analyzeToken(token: string) {
+async function analyzeToken(token: string = 'SOL') {
   const prediction = await predictPrice(token, '24h');
   const risk = await assessRisk(token);
   
   return {
     token,
-    insight: `**${token} Analysis:** ${prediction.direction.toUpperCase()} with ${Math.round(prediction.confidence * 100)}% confidence. Risk: ${risk.riskLevel}. ${prediction.reasoning}`,
+    insight: `**${token} Deep Analysis:**\n\n${prediction.reasoning}\n\n**Risk Profile:** ${risk.riskLevel.toUpperCase()} - ${risk.insight}`,
     prediction,
     risk,
-    confidence: (prediction.confidence + 0.75) / 2,
-    relatedTokens: [token],
+    confidence: 0.85,
+    relatedTokens: [token]
   };
 }
 
 /**
- * General insight generation
+ * General Insight
  */
 async function generateInsight(prompt: string) {
-  // Try to find trending tokens as default behavior
-  return findTrendingTokens(prompt);
+  const insight = await callLLM("You are Magos, a market oracle. Analyze the user query and provide a professional crypto market insight.", prompt);
+  return {
+    insight,
+    confidence: 0.9,
+    relatedTokens: []
+  };
 }
 
 export default magos;

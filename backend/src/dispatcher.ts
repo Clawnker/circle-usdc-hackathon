@@ -18,6 +18,7 @@ import {
   DispatchResponse,
   SpecialistResult,
   StepExecutor,
+  DAGPlan,
 } from './types';
 import config from './config';
 import { getBalances, logTransaction, createPaymentRecord } from './x402';
@@ -117,6 +118,30 @@ const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: str
 };
 
 /**
+ * Complexity heuristic: detects if a query covers multiple domains
+ * Flags queries that mention 2+ distinct domains as multi-hop
+ */
+function isComplexQuery(prompt: string): boolean {
+  const lower = prompt.toLowerCase();
+  const domains = [
+    { name: 'social', patterns: [/sentiment/, /vibe/, /mood/, /social/, /trending/, /popular/, /alpha/, /gem/, /influencer/, /kol/, /whale/, /twitter/, /fomo/, /fud/, /hype/, /buzz/] },
+    { name: 'price', patterns: [/price/, /value/, /worth/, /cost/, /predict/, /forecast/, /chart/, /trend/, /market/, /valuation/, /support/, /resistance/, /technical/] },
+    { name: 'security', patterns: [/audit/, /security/, /vulnerabilit/, /exploit/, /hack/, /safe/, /secure/, /risk/, /danger/, /smart\s*contract/] },
+    { name: 'wallet', patterns: [/swap/, /trade/, /buy/, /sell/, /exchange/, /transfer/, /send/, /withdraw/, /deposit/, /balance/, /portfolio/, /dca/] },
+    { name: 'research', patterns: [/search/, /research/, /find/, /news/, /latest/, /happened/, /google/, /brave/, /internet/, /web/] }
+  ];
+  
+  let detectedDomains = 0;
+  for (const domain of domains) {
+    if (domain.patterns.some(p => p.test(lower))) {
+      detectedDomains++;
+    }
+  }
+  
+  return detectedDomains >= 2;
+}
+
+/**
  * Detect multi-hop patterns
  */
 function detectMultiHop(prompt: string): SpecialistType[] | null {
@@ -134,6 +159,11 @@ function detectMultiHop(prompt: string): SpecialistType[] | null {
 
   // Pattern: "research" + "summary" = seeker → scribe
   if ((lower.includes('research') || lower.includes('search') || lower.includes('news')) && (lower.includes('summary') || lower.includes('summarize'))) {
+    return ['seeker', 'scribe'];
+  }
+
+  // Complexity heuristic fallback - if 2+ domains are detected, route to seeker -> scribe for research and synthesis
+  if (isComplexQuery(prompt)) {
     return ['seeker', 'scribe'];
   }
   
@@ -198,8 +228,25 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   const taskId = uuidv4();
   
   // Phase 2b: Multi-step DAG Planning
-  const dagPlan = await planDAG(request.prompt);
-  const isMultiStep = dagPlan.steps.length > 1;
+  // First, check if it's a simple query to use the fast path
+  const isComplex = await isComplexQuery(request.prompt);
+  
+  let dagPlan: DAGPlan;
+  let isMultiStep = false;
+
+  if (isComplex) {
+    dagPlan = await planDAG(request.prompt);
+    isMultiStep = dagPlan.steps.length > 1;
+  } else {
+    // Single-step fast path: Create a dummy plan for consistency
+    dagPlan = {
+      planId: `simple-${Date.now()}`,
+      query: request.prompt,
+      steps: [],
+      totalEstimatedCost: 0,
+      reasoning: 'Simple query detected, skipping LLM planning.'
+    };
+  }
   
   // Determine the best specialist for this prompt
   // If >1 step, it's multi-hop. If 1 step, use existing routing logic (Capability/RegExp/etc)
@@ -930,18 +977,17 @@ function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<string,
  * Only routes to specialists in the hiredAgents list if provided
  */
 export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]): Promise<SpecialistType> {
-  const planningMode = process.env.PLANNING_MODE || 'capability';
   const lower = prompt.toLowerCase();
+  const planningMode = process.env.PLANNING_MODE || 'capability';
   
-  // 0. Fast-path: explicit trade/execution intents always go to bankr
-  // These are unambiguous action commands that should never route to analysis
-  if (/\b(buy|sell|swap|send|transfer|withdraw|deposit)\b/.test(lower) && 
-      !/\b(should i|good|recommend|analysis|analyze|compare|predict)\b/.test(lower)) {
-    console.log(`[Router] Fast-path: explicit trade intent detected, routing to bankr`);
-    if (!hiredAgents || hiredAgents.includes('bankr')) return 'bankr';
+  // 1. Multi-hop / Complex Query Detection (FIRST)
+  // If query is complex or matches known multi-hop patterns, flag for orchestration
+  if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
+    console.log(`[Router] Complex query or multi-hop pattern detected, routing to multi-hop`);
+    return 'multi-hop' as SpecialistType;
   }
   
-  // 1. Capability-Based Matching (Primary)
+  // 2. Capability-Based Matching (SECOND)
   if (planningMode === 'capability') {
     try {
       const intent = await capabilityMatcher.extractIntent(prompt);
@@ -968,13 +1014,21 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
           return specialist;
         }
       }
-      console.log(`[Capability Matcher] No high-confidence match (top score < 0.6), falling back to regexp`);
+      console.log(`[Capability Matcher] No high-confidence match (top score < 0.6), falling back to next router`);
     } catch (error: any) {
-      console.error(`[Capability Matcher] Error:`, error.message, '- falling back to regexp');
+      console.error(`[Capability Matcher] Error:`, error.message, '- falling back to next router');
     }
   }
   
-  // 2. LLM-based routing (Smart fallback)
+  // 3. Fast-path: explicit trade/execution intents
+  // These are unambiguous action commands that should never route to analysis
+  if (/\b(buy|sell|swap|send|transfer|withdraw|deposit)\b/.test(lower) && 
+      !/\b(should i|good|recommend|analysis|analyze|compare|predict)\b/.test(lower)) {
+    console.log(`[Router] Fast-path: explicit trade intent detected, routing to bankr`);
+    if (!hiredAgents || hiredAgents.includes('bankr')) return 'bankr';
+  }
+  
+  // 4. LLM-based routing (Smart fallback)
   if (planningMode === 'llm') {
     try {
       const plan = await planWithLLM(prompt);
@@ -993,7 +1047,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     }
   }
   
-  // 3. Default: RegExp routing (Fastest fallback)
+  // 5. Default: RegExp routing (LAST FALLBACK)
   return routeWithRegExp(prompt, hiredAgents);
 }
 
@@ -1014,7 +1068,8 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
   }
   
   // Price queries should go to magos (market analysis), not seeker
-  if (/price|value|worth|cost.*\b(sol|eth|btc|bonk|wif|pepe|usdc|usdt)\b/i.test(prompt) || 
+  // BUG FIX: Group regex patterns correctly to prevent greedy matching on single keywords
+  if (/(?:price|value|worth|cost).*\b(sol|eth|btc|bonk|wif|pepe|usdc|usdt)\b/i.test(prompt) || 
       /\b(sol|eth|btc|bonk|wif|pepe)\b.*price/i.test(prompt)) {
     if (!hiredAgents || hiredAgents.includes('magos')) return 'magos';
   }

@@ -151,12 +151,14 @@ export interface MagosPrediction {
 
 export interface AuraSentiment {
   topic: string;
-  sentiment: 'bullish' | 'bearish' | 'neutral' | 'fomo' | 'fud';
+  sentiment: any; // Allow number (score) or string (label)
   score: number; // -1 to 1
   volume: number;
   trending: boolean;
   sources: string[];
   summary: string;
+  posts?: any[];
+  analysis?: string;
 }
 
 export interface BankrAction {

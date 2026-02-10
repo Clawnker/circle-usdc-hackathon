@@ -22,7 +22,7 @@ export class EmbeddingService {
   private apiKey: string;
 
   constructor() {
-    this.apiKey = process.env.GEMINI_API_KEY || '';
+    this.apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
   }
 
   /**
@@ -34,13 +34,13 @@ export class EmbeddingService {
     }
 
     const fetch = (await import('node-fetch')).default;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${this.apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${this.apiKey}`;
 
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'models/text-embedding-004',
+        model: 'models/gemini-embedding-001',
         content: { parts: [{ text }] }
       }),
     });
@@ -329,18 +329,22 @@ Example: "Audit this contract 0x123... on Base"
    * Call Gemini Flash API (shared logic with llm-planner)
    */
   private async callGeminiFlash(systemPrompt: string, userPrompt: string): Promise<string> {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) throw new Error('GEMINI_API_KEY or GOOGLE_API_KEY not configured');
 
     const fetch = (await import('node-fetch')).default;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
     const requestBody = {
       contents: [{
         role: 'user',
         parts: [{ text: systemPrompt }, { text: `\n\nUser query: "${userPrompt}"` }]
       }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 500 }
+      generationConfig: { 
+        temperature: 0.1, 
+        maxOutputTokens: 500,
+        responseMimeType: "application/json"
+      }
     };
 
     const response = await fetch(url, {

@@ -4,6 +4,59 @@
  */
 
 import { SpecialistType, DAGPlan, PlanStep } from './types';
+import { capabilityMatcher } from './capability-matcher';
+
+/**
+ * Determine if a query is complex enough to require multi-step DAG planning.
+ * Triggered if 2+ distinct capability domains are mentioned.
+ */
+export async function isComplexQuery(prompt: string): Promise<boolean> {
+  const lower = prompt.toLowerCase();
+  
+  // 1. Fast Path: Regex-based multi-hop keyword detection
+  const multiHopWords = [
+    'compare', 'then', 'and then', 'after', 'followed by', 
+    'while', 'relationship between', 'correlation', 'summarize both',
+    'buy and', 'sell and', 'swap and'
+  ];
+  if (multiHopWords.some(word => lower.includes(word))) {
+    console.log(`[Complexity Detector] Fast-path: multi-hop keywords detected`);
+    return true;
+  }
+
+  // 2. Fast Path: Multiple domain detection via keyword groups
+  const domains = [
+    { name: 'market', regex: /price|market|predict|analysis|oracle/i },
+    { name: 'social', regex: /sentiment|trending|popular|social|alpha|mention/i },
+    { name: 'defi', regex: /swap|send|buy|sell|wallet|balance|transfer/i },
+    { name: 'research', regex: /search|find|news|research|lookup/i },
+    { name: 'security', regex: /audit|security|contract|vulnerability/i }
+  ];
+  
+  const matchedDomains = domains.filter(d => d.regex.test(prompt));
+  if (matchedDomains.length >= 2) {
+    console.log(`[Complexity Detector] Fast-path: ${matchedDomains.length} domains detected: ${matchedDomains.map(d => d.name).join(', ')}`);
+    return true;
+  }
+
+  // 3. Smart Path: Use intent extraction only if fast paths are ambiguous but query is long
+  if (prompt.split(' ').length > 15) {
+    try {
+      const intent = await capabilityMatcher.extractIntent(prompt);
+      const hasMultipleCaps = intent.requiredCapabilities && intent.requiredCapabilities.length >= 2;
+      const hasMultipleEntities = (intent.entities?.tokens?.length || 0) + (intent.entities?.addresses?.length || 0) >= 2;
+
+      if (hasMultipleCaps || hasMultipleEntities) {
+        console.log(`[Complexity Detector] Smart-path: Complex query detected via LLM intent`);
+        return true;
+      }
+    } catch (error) {
+      console.error('[Complexity Detector] Smart-path error:', error);
+    }
+  }
+
+  return false;
+}
 
 /**
  * Specialist pricing for cost estimation
@@ -60,18 +113,18 @@ Return ONLY a valid JSON object:
     },
     {
       "id": "step-2",
-      "specialist": "bankr",
-      "promptTemplate": "Swap 0.1 SOL for {{step-1.output.topToken}}",
+      "specialist": "magos",
+      "promptTemplate": "Analyze the price history and potential for {{step-1.output.trendingTokens[0].symbol}}",
       "dependencies": ["step-1"],
-      "estimatedCost": 0.0001
+      "estimatedCost": 0.001
     }
   ],
   "reasoning": "Explain the plan strategy.",
-  "totalEstimatedCost": 0.0006
+  "totalEstimatedCost": 0.0015
 }
 
 RULES:
-1. Use {{step-id.output.path}} for dependency injection.
+1. MANDATORY: Use {{step-id.output.path}} for dependency injection. EVERY time you refer to data from a previous step, you MUST use this syntax.
 2. Parallelize: Steps with no common dependencies should run simultaneously.
 3. Minimalist: Use the fewest agents possible to solve the query.
 4. Sentinel: Only use for security audits of contract addresses.
@@ -131,15 +184,15 @@ export async function planWithLLM(prompt: string): Promise<PlanningResult> {
  * Uses the same Gemini configuration as other specialists
  */
 async function callGeminiFlash(systemPrompt: string, userPrompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY not configured');
+    throw new Error('GEMINI_API_KEY or GOOGLE_API_KEY not configured');
   }
   
   const fetch = (await import('node-fetch')).default;
   
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
   
   const requestBody = {
     contents: [
@@ -152,9 +205,10 @@ async function callGeminiFlash(systemPrompt: string, userPrompt: string): Promis
       }
     ],
     generationConfig: {
-      temperature: 0.2, // Low temperature for consistent routing
-      maxOutputTokens: 200,
-      topP: 0.8,
+      temperature: 0.1,
+      maxOutputTokens: 1000,
+      topP: 0.95,
+      responseMimeType: "application/json",
     }
   };
   
