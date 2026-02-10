@@ -118,7 +118,7 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'Hivemind Protocol',
-    version: '0.2.1',
+    version: '0.3.0',
     chain: 'Base Sepolia (EIP-155:84532)',
     trustLayer: 'ERC-8004',
     timestamp: new Date().toISOString(),
