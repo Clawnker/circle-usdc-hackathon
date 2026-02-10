@@ -1,11 +1,14 @@
 /**
  * Scribe Specialist
  * Knowledge synthesis, summarization, and explanation
+ * Upgraded to use Gemini Flash + Brave Search for dynamic, data-driven responses
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import axios from 'axios';
 import { SpecialistResult } from '../types';
+import { braveSearch } from './tools/brave-search';
 
 // Load system prompt
 const PROMPT_PATH = path.join(__dirname, 'prompts', 'scribe.md');
@@ -14,11 +17,12 @@ try {
   systemPrompt = fs.readFileSync(PROMPT_PATH, 'utf-8');
 } catch (e) {
   console.log('[Scribe] Could not load system prompt');
+  systemPrompt = "You are Scribe, a knowledge synthesis expert. Your goal is to provide accurate, well-structured summaries, explanations, and documentation.";
 }
 
 export const scribe = {
   name: 'Scribe',
-  description: 'Knowledge synthesizer for summaries, explanations, and documentation',
+  description: 'Knowledge synthesizer for summaries, explanations, and documentation (Powered by Gemini)',
   systemPrompt,
   
   async handle(prompt: string): Promise<SpecialistResult> {
@@ -30,7 +34,7 @@ export const scribe = {
       
       switch (intent.type) {
         case 'summarize':
-          data = await summarize(intent.content);
+          data = await summarize(intent.content || intent.topic);
           break;
         case 'explain':
           data = await explain(intent.topic, intent.audience);
@@ -56,13 +60,66 @@ export const scribe = {
       console.error('[Scribe] Error:', error.message);
       return {
         success: false,
-        data: { error: 'An error occurred during knowledge synthesis.' },
+        data: { error: `An error occurred during knowledge synthesis: ${error.message}` },
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,
       };
     }
   },
 };
+
+/**
+ * Call Gemini LLM with security wrapping
+ */
+async function callLLM(task: string, userContent: string, context: string = ''): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error('LLM API key (GEMINI_API_KEY or GOOGLE_API_KEY) is missing');
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
+  
+  const fullPrompt = `
+${systemPrompt}
+
+Current Task: ${task}
+
+${context ? `### Context/Sources:\n${context}\n` : ''}
+
+### User Input:
+<user_input>
+${userContent}
+</user_input>
+
+Please provide a detailed, well-structured response based on the above information. 
+If sources were provided, please include citations.
+Use Markdown for formatting.
+`;
+
+  try {
+    const response = await axios.post(url, {
+      contents: [{
+        role: 'user',
+        parts: [{ text: fullPrompt }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      }
+    });
+
+    const text = response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      throw new Error('Empty response from LLM');
+    }
+    return text.trim();
+  } catch (error: any) {
+    console.error('[Scribe] LLM API Error:', error.response?.data || error.message);
+    throw new Error(`LLM generation failed: ${error.message}`);
+  }
+}
 
 /**
  * Parse user intent from prompt
@@ -111,96 +168,57 @@ function parseIntent(prompt: string): {
 /**
  * Summarize content
  */
-async function summarize(content: string): Promise<{
-  summary: string;
-  insight: string;
-  keyPoints: string[];
-  wordCount: { original: number; summary: number };
-  confidence: number;
-  details: { type: string; response: string };
-}> {
-  console.log(`[Scribe] Summarizing content (${content.length} chars)`);
+async function summarize(content: string): Promise<any> {
+  console.log(`[Scribe] Dynamically summarizing content (${content.length} chars)`);
   
-  // Simple extractive summary (in production, use LLM)
-  const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 10);
-  const keyPoints = sentences.slice(0, 3).map(s => s.trim());
+  // Use LLM to generate summary
+  const summaryText = await callLLM('Summarize the provided content. Extract key insights and maintain a concise but informative tone.', content);
   
-  // Generate summary
-  const tldr = keyPoints.length > 0 
-    ? keyPoints[0] + (keyPoints.length > 1 ? ' Additionally, ' + keyPoints[1].toLowerCase() : '')
-    : 'Content summarized successfully.';
-  
-  const summary = `📝 **Summary**\n\n**TL;DR**: ${tldr}\n\n**Key Points**:\n${keyPoints.map((p, i) => `• ${p}`).join('\n')}`;
+  // Simple extraction for compatibility with existing structure
+  const insight = summaryText.split('\n')[0].replace(/[*#]/g, '').trim();
   
   return {
-    summary,
-    insight: tldr,
-    keyPoints,
+    summary: summaryText,
+    insight: insight,
+    keyPoints: summaryText.match(/^[*-] (.*)/gm)?.map(p => p.replace(/^[*-] /, '')) || [],
     wordCount: {
       original: content.split(/\s+/).length,
-      summary: tldr.split(/\s+/).length,
+      summary: summaryText.split(/\s+/).length,
     },
-    confidence: 0.85,
+    confidence: 0.95,
     details: {
       type: 'summary',
-      response: summary,
+      response: summaryText,
     },
   };
 }
 
 /**
- * Explain a concept
+ * Explain a concept with live research
  */
-async function explain(topic: string, audience: string = 'general'): Promise<{
-  summary: string;
-  insight: string;
-  explanation: string;
-  examples: string[];
-  confidence: number;
-  details: { type: string; response: string };
-}> {
-  console.log(`[Scribe] Explaining "${topic}" for ${audience} audience`);
+async function explain(topic: string, audience: string = 'general'): Promise<any> {
+  console.log(`[Scribe] Researching and explaining "${topic}" for ${audience} audience`);
   
-  // Knowledge base for common topics (in production, use LLM or knowledge graph)
-  const explanations: Record<string, { simple: string; technical: string; examples: string[] }> = {
-    'staking': {
-      simple: 'Staking is like putting money in a savings account that helps run a blockchain network. You lock up your crypto, it helps verify transactions, and you earn interest as a reward.',
-      technical: 'Staking is the process of locking cryptocurrency in a Proof-of-Stake (PoS) network to participate in block validation. Validators are selected proportionally to their stake to propose and attest to blocks, earning rewards minus any slashing penalties for misbehavior.',
-      examples: ['Staking 100 SOL at 7% APY earns ~7 SOL per year', 'Ethereum requires 32 ETH to run a validator'],
-    },
-    'defi': {
-      simple: 'DeFi (Decentralized Finance) is like having a bank that runs on code instead of people. You can lend, borrow, and trade without traditional banks.',
-      technical: 'DeFi encompasses financial protocols built on smart contracts that enable permissionless, non-custodial financial services including lending pools, automated market makers, and derivatives without centralized intermediaries.',
-      examples: ['Uniswap lets you trade tokens without an exchange', 'Aave lets you borrow crypto using other crypto as collateral'],
-    },
-    'nft': {
-      simple: 'NFTs (Non-Fungible Tokens) are like digital certificates of authenticity. They prove you own a unique digital item, like art or a collectible.',
-      technical: 'NFTs are cryptographic tokens on a blockchain that represent unique assets. Unlike fungible tokens, each NFT has distinct metadata and token ID, enabling provable ownership and scarcity of digital assets.',
-      examples: ['CryptoPunks are one of the first NFT collections', 'NBA Top Shot sells video clip NFTs'],
-    },
-    'default': {
-      simple: `${topic} is an interesting concept in the crypto/tech space. It refers to a specific technology or methodology used in blockchain systems.`,
-      technical: `${topic} is a technical concept that involves specific protocols and mechanisms within distributed systems architecture.`,
-      examples: ['See documentation for specific examples'],
-    },
-  };
+  // Fetch recent info via Brave Search
+  const search = await braveSearch(`${topic} explanation ${audience === 'technical' ? 'technical details architecture' : 'simple terms beginners'}`);
+  const context = search.results.map(r => `Source: ${r.title} (${r.url})\nSnippet: ${r.description}`).join('\n\n');
   
-  const topicLower = topic.toLowerCase();
-  const info = Object.entries(explanations).find(([key]) => topicLower.includes(key))?.[1] || explanations['default'];
-  
-  const explanation = audience === 'technical' ? info.technical : info.simple;
-  
-  const summary = `📚 **Explaining: ${topic}**\n\n**Simple Version**: ${info.simple}\n\n**How It Works**: ${info.technical}\n\n**Examples**:\n${info.examples.map(e => `• ${e}`).join('\n')}\n\n💡 *Related: blockchain, cryptography, smart contracts*`;
+  const explanation = await callLLM(
+    `Explain the following topic for a ${audience} audience. Use the provided search results as context and cite sources.`,
+    topic,
+    context
+  );
   
   return {
-    summary,
-    insight: explanation,
+    summary: explanation,
+    insight: explanation.split('\n')[0].replace(/[*#]/g, '').trim(),
     explanation,
-    examples: info.examples,
-    confidence: 0.9,
+    examples: explanation.match(/Example: (.*)/g) || [],
+    sources: search.results.map(r => ({ title: r.title, url: r.url })),
+    confidence: 0.92,
     details: {
       type: 'explanation',
-      response: summary,
+      response: explanation,
     },
   };
 }
@@ -208,22 +226,24 @@ async function explain(topic: string, audience: string = 'general'): Promise<{
 /**
  * Generate documentation
  */
-async function document(topic: string): Promise<{
-  summary: string;
-  insight: string;
-  documentation: string;
-  confidence: number;
-  details: { type: string; response: string };
-}> {
-  console.log(`[Scribe] Generating docs for "${topic}"`);
+async function document(topic: string): Promise<any> {
+  console.log(`[Scribe] Generating dynamic docs for "${topic}"`);
   
-  const documentation = `# ${topic}\n\n## Overview\n\nDocumentation for ${topic}.\n\n## Usage\n\n\`\`\`\n// Example usage\n\`\`\`\n\n## API Reference\n\n| Method | Description |\n|--------|-------------|\n| init() | Initialize ${topic} |\n| run()  | Execute main function |\n\n## Examples\n\nSee the examples directory for practical implementations.\n\n## Notes\n\n- This is auto-generated documentation\n- Review and expand based on actual implementation`;
+  const search = await braveSearch(`${topic} technical documentation api reference guide`);
+  const context = search.results.map(r => `Reference: ${r.title} (${r.url})\nInfo: ${r.description}`).join('\n\n');
+  
+  const documentation = await callLLM(
+    `Generate comprehensive, professional documentation for the following topic. Include sections for Overview, Usage, and Examples.`,
+    topic,
+    context
+  );
   
   return {
     summary: `📄 **Documentation Generated**: ${topic}`,
-    insight: `Created structured documentation template for ${topic}`,
+    insight: `Created dynamic documentation for ${topic} using recent sources`,
     documentation,
-    confidence: 0.8,
+    sources: search.results.map(r => ({ title: r.title, url: r.url })),
+    confidence: 0.88,
     details: {
       type: 'documentation',
       response: documentation,
@@ -234,36 +254,23 @@ async function document(topic: string): Promise<{
 /**
  * Draft content
  */
-async function draft(topic: string, format: string = 'general'): Promise<{
-  summary: string;
-  insight: string;
-  draft: string;
-  confidence: number;
-  details: { type: string; response: string };
-}> {
+async function draft(topic: string, format: string = 'general'): Promise<any> {
   console.log(`[Scribe] Drafting ${format} about "${topic}"`);
   
-  let draft = '';
+  const search = await braveSearch(`${topic} recent news updates context`);
+  const context = search.results.map(r => `News: ${r.title}\nContext: ${r.description}`).join('\n\n');
   
-  switch (format) {
-    case 'email':
-      draft = `Subject: Re: ${topic}\n\nHi,\n\nThank you for reaching out about ${topic}.\n\n[Your message here]\n\nBest regards,\n[Your name]`;
-      break;
-    case 'social':
-      draft = `🚀 ${topic}\n\n[Key point or insight]\n\n#crypto #blockchain`;
-      break;
-    case 'message':
-      draft = `Hey! About ${topic} - [your message here]`;
-      break;
-    default:
-      draft = `# ${topic}\n\n[Your content here]\n\n## Key Points\n\n- Point 1\n- Point 2\n- Point 3`;
-  }
+  const draft = await callLLM(
+    `Draft a ${format} based on the topic. The tone should be professional and engaging. Incorporate relevant details from the provided context.`,
+    topic,
+    context
+  );
   
   return {
     summary: `✍️ **Draft Created**: ${format} about ${topic}`,
-    insight: `Created ${format} draft template`,
+    insight: `Created dynamic ${format} draft for ${topic}`,
     draft,
-    confidence: 0.85,
+    confidence: 0.9,
     details: {
       type: 'draft',
       response: draft,
@@ -274,19 +281,22 @@ async function draft(topic: string, format: string = 'general'): Promise<{
 /**
  * General assistance
  */
-async function generalAssist(prompt: string): Promise<{
-  summary: string;
-  insight: string;
-  confidence: number;
-  details: { type: string; response: string };
-}> {
-  console.log(`[Scribe] General assist: "${prompt}"`);
+async function generalAssist(prompt: string): Promise<any> {
+  console.log(`[Scribe] Dynamic general assist: "${prompt}"`);
   
-  const response = `I'm Scribe, your knowledge assistant. I can help you with:\n\n• **Summarize**: "Summarize this article..."\n• **Explain**: "Explain staking in simple terms"\n• **Document**: "Write docs for this API"\n• **Draft**: "Draft an email about..."\n\nHow can I assist you?`;
+  // For general queries, we still check if search helps
+  const search = await braveSearch(prompt);
+  const context = search.results.map(r => `Source: ${r.title}\nSnippet: ${r.description}`).join('\n\n');
+  
+  const response = await callLLM(
+    'You are Scribe, an expert knowledge assistant. Answer the user request accurately and helpfully.',
+    prompt,
+    context
+  );
   
   return {
     summary: response,
-    insight: 'Scribe is ready to assist with knowledge tasks.',
+    insight: 'Synthesized dynamic response for general query',
     confidence: 0.95,
     details: {
       type: 'general',

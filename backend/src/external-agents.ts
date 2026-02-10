@@ -283,19 +283,23 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
+    const requestBody = {
+      prompt,
+      taskType: effectiveType,
+      // For Sentinel-specific audit endpoint
+      contractAddress: extractContractAddress(prompt),
+      chain: 'base-sepolia',
+    };
+
+    console.log(`[ExternalAgents] Calling ${agent.name} at ${url} with body:`, JSON.stringify(requestBody));
+
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-402-Payment': 'demo-payment-signature', // For x402 gating
       },
-      body: JSON.stringify({
-        prompt,
-        taskType: effectiveType,
-        // For Sentinel-specific audit endpoint
-        contractAddress: extractContractAddress(prompt),
-        chain: 'base-sepolia',
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -303,6 +307,7 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
     // Handle 402 (payment required) — expected from x402-gated agents
     if (res.status === 402) {
       const paymentInfo = await res.json() as any;
+      console.log(`[ExternalAgents] ${agent.name} requested payment:`, paymentInfo);
       return {
         success: false,
         data: {
@@ -324,15 +329,35 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
 
     if (!res.ok) {
       const errorText = await res.text();
+      console.error(`[ExternalAgents] ${agent.name} HTTP error ${res.status}:`, errorText);
       throw new Error(`Agent returned ${res.status}: ${errorText}`);
     }
 
     const result = await res.json() as any;
+    console.log(`[ExternalAgents] ${agent.name} response received:`, JSON.stringify(result).slice(0, 500) + '...');
     
+    // Check for null data which indicates a failed or empty analysis
+    if (result === null || (result.data === null && !result.error)) {
+      console.warn(`[ExternalAgents] ${agent.name} returned null data. This usually means contract address was missing.`);
+      return {
+        success: false,
+        data: { 
+          error: `External agent ${agent.name} returned no data. Please ensure your prompt includes a valid contract address (0x...) for auditing.`,
+          agentName: agent.name 
+        },
+        timestamp: new Date(),
+        executionTimeMs: Date.now() - startTime,
+      };
+    }
+
     // Update health status
     agent.healthy = true;
     agent.lastHealthCheck = new Date().toISOString();
     saveAgents();
+
+    // Extract analysis score for confidence (handle nested result.data if present)
+    const agentData = result.data || result;
+    const confidence = agentData.analysis?.score ? agentData.analysis.score / 100 : 0.8;
 
     return {
       success: true,
@@ -341,7 +366,7 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
         externalAgent: agent.name,
         agentId: agent.id,
       },
-      confidence: result.analysis?.score ? result.analysis.score / 100 : 0.8,
+      confidence,
       timestamp: new Date(),
       executionTimeMs: Date.now() - startTime,
       cost: {
