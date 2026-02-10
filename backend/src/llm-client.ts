@@ -11,26 +11,38 @@ const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8402/v1';
 const LLM_API_KEY = process.env.LLM_API_KEY || process.env.CLAWROUTER_API_KEY || 'clawrouter';
 const DEFAULT_MODEL = process.env.LLM_DEFAULT_MODEL || 'google/gemini-2.5-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-// Use global Vertex endpoint for Gemini 3.x model support
+const VERTEX_PROJECT_ID = process.env.VERTEX_PROJECT_ID || process.env.GCP_PROJECT_ID || '';
+const VERTEX_LOCATION = process.env.VERTEX_LOCATION || 'us-central1';
+
+// Vertex AI global endpoint for Gemini 3.x models
+const VERTEX_BASE_URL = VERTEX_PROJECT_ID 
+  ? `https://${VERTEX_LOCATION}-aiplatform.googleapis.com/v1beta1/projects/${VERTEX_PROJECT_ID}/locations/${VERTEX_LOCATION}/endpoints/openapi`
+  : '';
 const GEMINI_FALLBACK_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
 
 // Cost markup for specialist pricing (e.g., 1.5 = 50% markup)
 const COST_MARKUP = parseFloat(process.env.LLM_COST_MARKUP || '1.5');
 
-// Use Gemini direct when no LLM_BASE_URL is explicitly set and we have a Gemini key
-const useGeminiFallback = !process.env.LLM_BASE_URL && !!GEMINI_API_KEY;
-const ACTIVE_BASE_URL = useGeminiFallback ? GEMINI_FALLBACK_URL : LLM_BASE_URL;
-const ACTIVE_API_KEY = useGeminiFallback ? GEMINI_API_KEY : LLM_API_KEY;
+// Priority: Explicit LLM_BASE_URL > Vertex AI (3.x support) > AI Studio fallback
+const useVertex = !process.env.LLM_BASE_URL && !!VERTEX_PROJECT_ID && !!GEMINI_API_KEY;
+const useGeminiFallback = !process.env.LLM_BASE_URL && !!GEMINI_API_KEY && !useVertex;
+const ACTIVE_BASE_URL = process.env.LLM_BASE_URL || (useVertex ? VERTEX_BASE_URL : GEMINI_FALLBACK_URL);
+const ACTIVE_API_KEY = LLM_API_KEY || GEMINI_API_KEY;
+
+// Model mapping - Vertex supports Gemini 3.x models
 const GEMINI_MODEL_MAP: Record<string, string> = {
   'google/gemini-2.5-flash': 'gemini-2.5-flash',
   'google/gemini-2.5-pro': 'gemini-2.5-pro',
-  'google/gemini-3-pro-preview': 'gemini-2.5-pro',  // fallback until 3.x available on this endpoint
-  'nvidia/gpt-oss-120b': 'gemini-2.0-flash',  // fallback to cheapest Gemini
+  'google/gemini-3-pro-preview': 'gemini-3-pro-preview-001',
+  'google/gemini-3-flash-preview': 'gemini-3-flash-preview-001',
+  'nvidia/gpt-oss-120b': 'gemini-2.0-flash',
   'auto': 'gemini-2.5-flash',
 };
 
-if (useGeminiFallback) {
-  console.log('[LLM] ClawRouter not configured — using Gemini OpenAI-compatible endpoint as fallback');
+if (useVertex) {
+  console.log(`[LLM] Using Vertex AI (${VERTEX_LOCATION}) — Gemini 3.x models enabled`);
+} else if (useGeminiFallback) {
+  console.log('[LLM] ClawRouter not configured — using Gemini AI Studio fallback');
 } else {
   console.log(`[LLM] Using ${ACTIVE_BASE_URL}`);
 }
