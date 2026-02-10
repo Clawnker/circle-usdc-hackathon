@@ -1,5 +1,9 @@
-// @ts-nocheck
-import { createPublicClient, http } from 'viem';
+/**
+ * External Agent Registry
+ * Manages registration and communication with external agents.
+ * ERC-8128: Outgoing requests to compatible agents are signed with the Hivemind wallet.
+ */
+
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import * as fs from 'fs';
@@ -7,36 +11,31 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { SpecialistResult, Capability, ExternalAgent, RegisterRequest } from './types';
 
-// Use require to avoid tsc following types into the broken ox dependency
+// Use require to avoid tsc following @slicekit/erc8128's ox dependency types
 const { createSignerClient } = require('@slicekit/erc8128');
 
 const DATA_DIR = path.join(__dirname, '../data');
 const EXTERNAL_AGENTS_FILE = path.join(DATA_DIR, 'external-agents.json');
 
-// Setup signer for outgoing requests
+// ── ERC-8128 Signer (for outgoing requests) ───────────────────────────
 const privateKey = process.env.DEMO_WALLET_PRIVATE_KEY;
-let signer: any = null;
+let signerClient: any = null;
+let signerAddress: string | null = null;
 
 if (privateKey) {
   try {
     const account = privateKeyToAccount(privateKey as `0x${string}`);
-    const publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http(),
-    });
-    
-    signer = createSignerClient({
-      address: account.address,
+    signerAddress = account.address;
+    signerClient = createSignerClient({
       chainId: baseSepolia.id,
-      signMessage: async (message: Uint8Array) => {
-        return await account.signMessage({ 
-          message: { raw: `0x${Buffer.from(message).toString('hex')}` } 
-        });
-      }
+      address: account.address,
+      signMessage: async (message: any) => {
+        return await account.signMessage({ message: { raw: message } });
+      },
     });
-    console.log(`[ExternalAgents] ERC-8128 Signer initialized for address: ${account.address}`);
+    console.log(`[ExternalAgents] ERC-8128 signer ready: ${account.address}`);
   } catch (err) {
-    console.error('[ExternalAgents] Failed to initialize ERC-8128 signer:', err);
+    console.error('[ExternalAgents] Failed to init ERC-8128 signer:', err);
   }
 }
 
@@ -328,7 +327,7 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
       'X-402-Payment': 'demo-payment-signature', // For x402 gating
     };
 
-    // Use ERC-8128 signing if supported and signer is available
+    // Use ERC-8128 signing if the agent supports it and we have a signer
     if (agent.erc8128Support && signerClient) {
       try {
         const signedRequest = await signerClient.signRequest(url, {
@@ -336,15 +335,15 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
           headers,
           body: JSON.stringify(requestBody),
         });
-        // Extract headers from native Request
+        // Extract signed headers from the Request object
         const newHeaders: Record<string, string> = {};
         signedRequest.headers.forEach((v: string, k: string) => {
           newHeaders[k] = v;
         });
         headers = newHeaders;
-        console.log(`[ExternalAgents] Signed request with ERC-8128 for ${agent.name}`);
+        console.log(`[ExternalAgents] ERC-8128 signed request to ${agent.name} (from ${signerAddress})`);
       } catch (err) {
-        console.error(`[ExternalAgents] Failed to sign request with ERC-8128:`, err);
+        console.error(`[ExternalAgents] ERC-8128 signing failed, using unsigned:`, err);
       }
     }
 
