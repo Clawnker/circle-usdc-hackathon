@@ -1094,10 +1094,11 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
     {
       specialist: 'sentinel',
       patterns: [
-        /audit|security|vulnerabilit|exploit|hack|reentrancy|overflow|access.control/,
+        /\b(audit|scan|inspect)\b.*\b(contract|token|address|0x)/i,
         /smart\s*contract.*(?:check|review|scan|inspect|analyz)/,
         /contract.*(?:safe|secure|risk|danger)/,
         /0x[a-fA-F0-9]{40}/, // Contract address pattern
+        /\b(reentrancy|overflow|access.control|exploit|vulnerability)\b/,
       ],
       weight: 1.5, // Higher weight — specific capability
     },
