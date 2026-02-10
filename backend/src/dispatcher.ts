@@ -1005,19 +1005,19 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
   const lower = prompt.toLowerCase();
   const planningMode = process.env.PLANNING_MODE || 'capability';
   
-  // 1. Multi-hop / Complex Query Detection (FIRST)
-  // If query is complex or matches known multi-hop patterns, flag for orchestration
-  if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
-    console.log(`[Router] Complex query or multi-hop pattern detected, routing to multi-hop`);
-    return 'multi-hop' as SpecialistType;
-  }
-  
-  // 1b. Fast-path: contract audit/security queries → sentinel
-  // Match either: contract address + audit keywords, OR contract/solidity code + audit keywords
+  // 1. Fast-path: contract audit/security queries → sentinel (FIRST - before complexity detection)
+  // "audit contract" triggers false positives in complexity detection (security + wallet domains)
   if (/\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(prompt) && 
       (/0x[a-fA-F0-9]{40}/.test(prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(prompt))) {
     console.log(`[Router] Fast-path: contract audit query detected, routing to sentinel`);
     if (!hiredAgents || hiredAgents.includes('sentinel' as SpecialistType)) return 'sentinel' as SpecialistType;
+  }
+  
+  // 1b. Multi-hop / Complex Query Detection
+  // If query is complex or matches known multi-hop patterns, flag for orchestration
+  if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
+    console.log(`[Router] Complex query or multi-hop pattern detected, routing to multi-hop`);
+    return 'multi-hop' as SpecialistType;
   }
   
   // 2. Capability-Based Matching (SECOND)
