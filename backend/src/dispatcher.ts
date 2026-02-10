@@ -1013,6 +1013,20 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     if (!hiredAgents || hiredAgents.includes('sentinel' as SpecialistType)) return 'sentinel' as SpecialistType;
   }
   
+  // 1c. Fast-path: price/market queries → magos (before capability matcher misroutes to scribe)
+  if (/\b(price|value|worth|cost|how much)\b/i.test(prompt) && 
+      /\b(bitcoin|btc|ethereum|eth|solana|sol|bonk|wif|pepe|doge|avax|matic|bnb|jup|crypto|token|coin)\b/i.test(prompt)) {
+    console.log(`[Router] Fast-path: price query detected, routing to magos`);
+    if (!hiredAgents || hiredAgents.includes('magos')) return 'magos';
+  }
+  
+  // 1d. Fast-path: sentiment/social queries → aura
+  if (/\b(saying|discussing|people|think|opinion|sentiment|social|twitter|reddit|talk)\b/i.test(prompt) && 
+      /\b(about|on|regarding)\b/i.test(prompt)) {
+    console.log(`[Router] Fast-path: sentiment/social query detected, routing to aura`);
+    if (!hiredAgents || hiredAgents.includes('aura')) return 'aura';
+  }
+  
   // 1b. Multi-hop / Complex Query Detection
   // If query is complex or matches known multi-hop patterns, flag for orchestration
   if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
