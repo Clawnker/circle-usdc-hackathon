@@ -203,7 +203,13 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   
   // Determine the best specialist for this prompt
   // If >1 step, it's multi-hop. If 1 step, use existing routing logic (Capability/RegExp/etc)
-  const bestSpecialist = request.preferredSpecialist || (isMultiStep ? 'multi-hop' as SpecialistType : await routePrompt(request.prompt, request.hiredAgents));
+  let bestSpecialist = request.preferredSpecialist || (isMultiStep ? 'multi-hop' as SpecialistType : await routePrompt(request.prompt, request.hiredAgents));
+  
+  // Legacy multi-hop detection — check before building fallback chains
+  const legacyHops = isMultiStep ? null : detectMultiHop(request.prompt);
+  if (legacyHops && !request.preferredSpecialist) {
+    bestSpecialist = 'multi-hop' as SpecialistType;
+  }
   
   // Phase 2e: Build fallback chain for single-hop tasks
   let taskFallbackChain: string[] | undefined;
@@ -241,8 +247,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     }
   }
   
-  // Legacy multi-hop detection (deprecated)
-  const legacyHops = isMultiStep ? null : detectMultiHop(request.prompt);
+  // Compute final hops and multi-step status
   const finalHops = isMultiStep ? dagPlan.steps.map(s => s.specialist) : legacyHops;
   const isActuallyMultiStep = isMultiStep || !!legacyHops;
   
@@ -253,7 +258,8 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   const isInSwarm = !request.hiredAgents || request.hiredAgents.includes(bestSpecialist);
   
   // If not in swarm and not approved, check if we need approval
-  const requiresApproval = !isInSwarm && !isApproved && bestSpecialist !== 'general' && bestSpecialist !== 'scribe';
+  // Multi-hop workflows don't need approval — individual hops are checked separately
+  const requiresApproval = !isInSwarm && !isApproved && bestSpecialist !== 'general' && bestSpecialist !== 'scribe' && bestSpecialist !== 'multi-hop';
   
   console.log(`[Dispatcher] Routing decision (DAG):`, {
     bestSpecialist,
@@ -268,14 +274,24 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     const pricing = SPECIALIST_PRICING[bestSpecialist] || { fee: '0', description: 'Unknown' };
     const reputationScore = getReputationScore(bestSpecialist);
     
+    // For multi-hop, show the actual agents involved
+    const displayName = isActuallyMultiStep && finalHops
+      ? finalHops.map(h => getSpecialistDisplayName(h as SpecialistType)).join(' → ')
+      : getSpecialistDisplayName(bestSpecialist);
+    
+    // For multi-hop approval, the specialist should be the first hop agent, not 'multi-hop'
+    const approvalSpecialist = isActuallyMultiStep && finalHops ? finalHops[0] as SpecialistType : bestSpecialist;
+    
     return {
       taskId: '', // No task created yet
       status: 'pending',
-      specialist: bestSpecialist,
+      specialist: approvalSpecialist,
       requiresApproval,
       specialistInfo: {
-        name: getSpecialistDisplayName(bestSpecialist),
-        description: pricing.description,
+        name: displayName,
+        description: isActuallyMultiStep 
+          ? `Multi-agent workflow: ${finalHops?.join(' → ')}` 
+          : pricing.description,
         fee: isMultiStep ? String(dagPlan.totalEstimatedCost) : pricing.fee,
         feeCurrency: 'USDC',
         successRate: Math.round(reputationScore * 100),
