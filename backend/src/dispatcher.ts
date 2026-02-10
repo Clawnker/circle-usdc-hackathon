@@ -127,7 +127,7 @@ function isComplexQuery(prompt: string): boolean {
     { name: 'social', patterns: [/sentiment/, /vibe/, /mood/, /social/, /trending/, /popular/, /alpha/, /gem/, /influencer/, /kol/, /whale/, /twitter/, /fomo/, /fud/, /hype/, /buzz/] },
     { name: 'price', patterns: [/price/, /value/, /worth/, /cost/, /predict/, /forecast/, /chart/, /trend/, /market/, /valuation/, /support/, /resistance/, /technical/] },
     { name: 'security', patterns: [/audit/, /security/, /vulnerabilit/, /exploit/, /hack/, /safe/, /secure/, /risk/, /danger/, /smart\s*contract/] },
-    { name: 'wallet', patterns: [/swap/, /trade/, /buy/, /sell/, /exchange/, /transfer/, /send/, /withdraw/, /deposit/, /balance/, /portfolio/, /dca/] },
+    { name: 'wallet', patterns: [/\bswap\b/, /\btrade\b/, /\bbuy\b/, /\bsell\b/, /\bexchange\b/, /\btransfer\b/, /\bsend\b/, /\bwithdraw\b/, /\bdeposit\b/, /\bbalance\b/, /\bportfolio\b/, /\bdca\b/] },
     { name: 'research', patterns: [/search/, /research/, /find/, /news/, /latest/, /happened/, /google/, /brave/, /internet/, /web/] }
   ];
   
@@ -1069,8 +1069,8 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
   
   // Price queries should go to magos (market analysis), not seeker
   // BUG FIX: Group regex patterns correctly to prevent greedy matching on single keywords
-  if (/(?:price|value|worth|cost).*\b(sol|eth|btc|bonk|wif|pepe|usdc|usdt)\b/i.test(prompt) || 
-      /\b(sol|eth|btc|bonk|wif|pepe)\b.*price/i.test(prompt)) {
+  if (/(?:price|value|worth|cost).*\b(sol|eth|btc|bonk|wif|pepe|usdc|usdt|solana|bitcoin|ethereum)\b/i.test(prompt) || 
+      /\b(sol|eth|btc|bonk|wif|pepe|solana|bitcoin|ethereum)\b.*price/i.test(prompt)) {
     if (!hiredAgents || hiredAgents.includes('magos')) return 'magos';
   }
 

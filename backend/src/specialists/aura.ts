@@ -61,7 +61,7 @@ export const aura = {
       console.error('[Aura] Handler error:', error);
       return {
         success: false,
-        data: { error: error.message },
+        data: { error: 'An error occurred during social sentiment analysis.' },
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,
       };
@@ -125,7 +125,9 @@ async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
   if (BRAVE_API_KEY) {
     try {
       console.log(`[Aura] Performing real social search for: ${topic}`);
-      const query = `${topic} site:twitter.com OR site:reddit.com`;
+      // Sanitize topic to prevent search operator injection
+      const sanitizedTopic = topic.replace(/[^a-zA-Z0-9$ ]/g, ' ').trim();
+      const query = `${sanitizedTopic} site:twitter.com OR site:reddit.com`;
       const response = await axios.get('https://api.search.brave.com/res/v1/web/search', {
         headers: {
           'Accept': 'application/json',
@@ -221,10 +223,18 @@ async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
 }
 
 /**
- * Strip HTML tags
+ * Strip HTML tags and decode common entities
  */
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim();
+  return html
+    .replace(/<[^>]*>/g, '') 
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
 }
 
 /**

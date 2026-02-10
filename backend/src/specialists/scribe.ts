@@ -56,7 +56,7 @@ export const scribe = {
       console.error('[Scribe] Error:', error.message);
       return {
         success: false,
-        data: { error: error.message },
+        data: { error: 'An error occurred during knowledge synthesis.' },
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,
       };

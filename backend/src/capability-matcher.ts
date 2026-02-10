@@ -204,7 +204,7 @@ Example: "Audit this contract 0x123... on Base"
       console.error('[CapabilityMatcher] Intent extraction failed:', err);
       return {
         category: 'generic',
-        requiredCapabilities: [prompt],
+        requiredCapabilities: ['An internal error occurred during intent extraction.'],
         constraints: {},
         entities: {}
       };
@@ -338,7 +338,7 @@ Example: "Audit this contract 0x123... on Base"
     const requestBody = {
       contents: [{
         role: 'user',
-        parts: [{ text: systemPrompt }, { text: `\n\nUser query: "${userPrompt}"` }]
+        parts: [{ text: systemPrompt }, { text: `\n\n<user_query>\n${userPrompt}\n</user_query>` }]
       }],
       generationConfig: { 
         temperature: 0.1, 

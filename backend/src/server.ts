@@ -149,7 +149,7 @@ app.get('/api/agents', (req: Request, res: Response) => {
       chain: 'Base Sepolia (EIP-155:84532)',
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -164,7 +164,7 @@ app.get('/api/agents/:id/registration', (req: Request, res: Response) => {
     }
     res.json(registrations[id]);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -228,7 +228,7 @@ app.post('/api/agents/register', async (req: Request, res: Response) => {
       message: `Agent '${agent.name}' registered successfully. It will now appear in the marketplace.`,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -337,7 +337,7 @@ app.post('/api/reputation/:specialist/sync', async (req: Request, res: Response)
       timestamp: Date.now()
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -380,7 +380,7 @@ app.get('/api/reputation/:specialist/proof', (req: Request, res: Response) => {
       status: 'confirmed'
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -510,7 +510,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
     const result = await callSpecialist(id as SpecialistType, prompt);
     res.json(result);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -556,7 +556,7 @@ app.get('/api/wallet/balances', async (req: Request, res: Response) => {
       explorer: `https://sepolia.basescan.org/address/${treasuryAddress}`,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message, base: { eth: 0, usdc: 0 } });
+    res.status(500).json({ error: "Internal server error", base: { eth: 0, usdc: 0 } });
   }
 });
 
@@ -590,7 +590,7 @@ app.post('/api/vote', (req: Request, res: Response) => {
     
     res.json(result);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -629,7 +629,7 @@ app.get('/status', async (req: Request, res: Response) => {
       uptime: process.uptime(),
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -659,7 +659,7 @@ app.post('/dispatch', async (req: Request, res: Response) => {
 
     res.status(202).json(result);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -718,7 +718,7 @@ app.get('/wallet/balances', async (req: Request, res: Response) => {
       balances,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -743,7 +743,7 @@ app.get('/solana/balance/:address', async (req: Request, res: Response) => {
     const balance = await solana.getBalance(address, network);
     res.json({ address, balance, network });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -760,7 +760,7 @@ app.get('/solana/transactions/:address', async (req: Request, res: Response) => 
     const transactions = await solana.getRecentTransactions(address, limit, network);
     res.json({ address, transactions, count: transactions.length, network });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -798,7 +798,7 @@ app.post('/test/:specialist', async (req: Request, res: Response) => {
 
     res.json({ specialist, result });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

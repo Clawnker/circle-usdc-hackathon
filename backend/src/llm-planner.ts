@@ -160,7 +160,7 @@ RULES:
         estimatedCost: 0.0001
       }],
       totalEstimatedCost: 0.0001,
-      reasoning: `LLM planning failed (${error.message}), falling back to scribe`
+      reasoning: `LLM planning failed, falling back to scribe`
     };
   }
 }
@@ -200,7 +200,7 @@ async function callGeminiFlash(systemPrompt: string, userPrompt: string): Promis
         role: 'user',
         parts: [
           { text: systemPrompt },
-          { text: `\n\nUser query: "${userPrompt}"` }
+          { text: `\n\n<user_query>\n${userPrompt}\n</user_query>` }
         ]
       }
     ],

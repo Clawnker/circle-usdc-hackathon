@@ -23,7 +23,7 @@ const TOKEN_ALIASES: Record<string, string> = {
 
 const TOKEN_MINTS: Record<string, string> = {
   'SOL': 'So11111111111111111111111111111111111111112',
-  'BTC': '3NZ9J7Nkf6W6Y5s5B6d1A866666666666666666666', // WBTC
+  'BTC': '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh', // WBTC (Portal)
   'ETH': '7vf79GH2nU78W973sRbeXfTPhEAtRPRQ8vKyS5FmP9', // WETH
   'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   'USDT': 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
@@ -78,7 +78,7 @@ export const magos = {
       console.error('[Magos] Error:', error.message);
       return {
         success: false,
-        data: { error: error.message },
+        data: { error: 'An error occurred during market analysis.' },
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,
       };
@@ -161,7 +161,7 @@ async function getJupiterPrice(token: string): Promise<{ price: number; mint: st
  * Call LLM or Search for analysis
  */
 async function callLLM(systemPrompt: string, userPrompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (apiKey) {
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`;
@@ -171,7 +171,7 @@ async function callLLM(systemPrompt: string, userPrompt: string): Promise<string
             role: 'user',
             parts: [
               { text: systemPrompt },
-              { text: `\n\nUser request: "${userPrompt}"` }
+              { text: `\n\n<user_request>\n${userPrompt}\n</user_request>` }
             ]
           }
         ],
@@ -246,7 +246,9 @@ async function findTrendingTokens(query: string) {
 async function analyzeSentiment(tokenOrQuery: string) {
   console.log(`[Magos] Analyzing sentiment for: ${tokenOrQuery}`);
   
-  const search = await braveSearch(`${tokenOrQuery} crypto sentiment news`);
+  // Sanitize input to prevent search operator injection
+  const sanitizedQuery = tokenOrQuery.replace(/[^a-zA-Z0-9$ ]/g, ' ').trim();
+  const search = await braveSearch(`${sanitizedQuery} crypto sentiment news`);
   const analysis = await callLLM("Analyze the sentiment (bullish, bearish, or neutral) for the following topic and provide a brief explanation.", 
     `Topic: ${tokenOrQuery}\n\nSearch Results: ${search.results.map(r => r.description).join('\n')}`);
   

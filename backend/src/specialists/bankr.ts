@@ -764,7 +764,7 @@ export const bankr = {
         data: {
           type: 'balance',
           status: 'failed',
-          details: { error: error.message },
+          details: { error: 'An error occurred during wallet operations.' },
         },
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,

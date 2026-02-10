@@ -55,7 +55,7 @@ export const seeker = {
       console.error('[Seeker] Error:', error.message);
       return {
         success: false,
-        data: { error: error.message },
+        data: { error: 'An error occurred during web research.' },
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,
       };
