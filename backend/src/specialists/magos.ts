@@ -42,24 +42,26 @@ export const magos = {
   
   async handle(prompt: string): Promise<SpecialistResult> {
     const startTime = Date.now();
+    const maxRetries = 2;
     
-    try {
-      const intent = parseIntent(prompt);
-      let data: any;
-      
-      switch (intent.type) {
-        case 'trending':
-          data = await findTrendingTokens(prompt);
-          break;
-        case 'predict':
-          data = await predictPrice(intent.token || 'SOL', intent.timeHorizon || '4h');
-          break;
-        case 'risk':
-          data = await assessRisk(intent.token || 'SOL');
-          break;
-        case 'analyze':
-          data = await analyzeToken(intent.token || 'SOL');
-          break;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const intent = parseIntent(prompt);
+        let data: any;
+        
+        switch (intent.type) {
+          case 'trending':
+            data = await findTrendingTokens(prompt);
+            break;
+          case 'predict':
+            data = await predictPrice(intent.token || 'SOL', intent.timeHorizon || '4h');
+            break;
+          case 'risk':
+            data = await assessRisk(intent.token || 'SOL');
+            break;
+          case 'analyze':
+            data = await analyzeToken(intent.token || 'SOL');
+            break;
         case 'sentiment':
           data = await analyzeSentiment(intent.token || prompt);
           break;
@@ -75,7 +77,12 @@ export const magos = {
         executionTimeMs: Date.now() - startTime,
       };
     } catch (error: any) {
-      console.error('[Magos] Error:', error.message);
+      console.error(`[Magos] Error (attempt ${attempt + 1}/${maxRetries + 1}):`, error.message);
+      if (attempt < maxRetries) {
+        console.log(`[Magos] Retrying in 1s...`);
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
       return {
         success: false,
         data: { error: 'An error occurred during market analysis.' },
@@ -83,6 +90,9 @@ export const magos = {
         executionTimeMs: Date.now() - startTime,
       };
     }
+    }
+    // Should never reach here, but TypeScript needs it
+    return { success: false, data: { error: 'Unexpected error' }, timestamp: new Date(), executionTimeMs: Date.now() - startTime };
   },
 };
 
