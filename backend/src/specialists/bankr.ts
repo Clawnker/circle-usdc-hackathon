@@ -558,14 +558,14 @@ function parseIntent(prompt: string): {
   }
   
   if (lower.includes('transfer') || lower.includes('send') || lower.includes('pay')) {
-    const solAddressMatch = prompt.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
     const evmAddressMatch = prompt.match(/0x[a-fA-F0-9]{40}/);
+    const solAddressMatch = !evmAddressMatch ? prompt.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/) : null;
     // Parse asset: "send 5 USDC" or "send 5 SOL" or "transfer 0.1 ETH"
     const assetMatch = prompt.match(/[\d.]+\s*(SOL|USDC|USDT|ETH|BONK|WIF|JUP|RAY)/i);
     const asset = assetMatch ? assetMatch[1].toUpperCase() : 'SOL';
     return { 
       type: 'transfer', 
-      address: solAddressMatch ? solAddressMatch[0] : evmAddressMatch ? evmAddressMatch[0] : undefined,
+      address: evmAddressMatch ? evmAddressMatch[0] : solAddressMatch ? solAddressMatch[0] : undefined,
       amount,
       asset,
     };
