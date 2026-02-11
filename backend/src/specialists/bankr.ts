@@ -747,19 +747,23 @@ export const bankr = {
             const transferAsset = intent.asset || 'SOL';
             // Check if it's an EVM address (0x...)
             if (intent.address.startsWith('0x')) {
+              const transferAmount = intent.amount || '5';
               data = {
                 type: 'transfer',
-                status: 'simulated',
+                status: 'pending_wallet',
+                requiresWalletAction: true,
                 details: {
                   to: intent.address,
-                  amount: intent.amount || '5',
+                  amount: transferAmount,
                   asset: transferAsset,
-                  chain: 'Base',
-                  note: `Base ${transferAsset} transfer queued. In production, this would execute via x402 payment rail on Base.`,
-                  explorer: `https://basescan.org/address/${intent.address}`,
+                  chain: 'Base Sepolia',
+                  network: 'base-sepolia',
+                  usdcContract: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+                  explorer: `https://sepolia.basescan.org/address/${intent.address}`,
+                  note: `Sign with your connected wallet to send ${transferAmount} ${transferAsset} on Base Sepolia.`,
                 },
               };
-              (data as any).summary = `📋 **Base Transfer Queued**\n• Amount: ${intent.amount || '5'} ${transferAsset}\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: Base\n• Status: Simulated (production would settle on-chain via x402)`;
+              (data as any).summary = `💸 **Base Sepolia Transfer Ready**\n• Amount: ${transferAmount} ${transferAsset}\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: Base Sepolia\n• Status: Awaiting wallet signature\n\n_Sign the transaction in your connected wallet to complete._`;
               break;
             }
             // Solana address — check if asset is USDC (SPL token transfer) or SOL

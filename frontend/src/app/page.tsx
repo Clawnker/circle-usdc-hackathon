@@ -107,6 +107,7 @@ export default function CommandCenter() {
     specialistId: string;
     fee: number;
     prompt: string;
+    transferTo?: string;
   } | null>(null);
   
   const {
@@ -217,6 +218,20 @@ export default function CommandCenter() {
                 }
               }
               else if (r.data?.details?.response) content = typeof r.data.details.response === 'string' ? r.data.details.response : JSON.stringify(r.data.details.response);
+            }
+
+            // Check if bankr result requires wallet action (EVM transfer)
+            if (r.data?.requiresWalletAction && r.data?.details) {
+              const d = r.data.details;
+              const transferAmount = parseFloat(d.amount || '0');
+              if (transferAmount > 0 && d.to) {
+                setPaymentRequired({
+                  specialistId: 'bankr',
+                  fee: transferAmount,
+                  prompt: currentPrompt,
+                  transferTo: d.to,
+                });
+              }
             }
             
             const totalCost = payments.reduce((sum, p) => sum + p.amount, 0);
@@ -1037,11 +1052,19 @@ export default function CommandCenter() {
         <PaymentFlow
           specialistId={paymentRequired.specialistId}
           fee={paymentRequired.fee}
+          recipientAddress={paymentRequired.transferTo}
           onPaymentComplete={(txHash) => {
-            (window as any).__pendingPaymentProof = txHash;
-            const prompt = paymentRequired.prompt;
-            setPaymentRequired(null);
-            handleSubmit(prompt);
+            if (paymentRequired.transferTo) {
+              // Direct transfer completed — no need to resubmit query
+              setPaymentRequired(null);
+              setIsLoading(false);
+            } else {
+              // Payment for specialist access — resubmit with proof
+              (window as any).__pendingPaymentProof = txHash;
+              const prompt = paymentRequired.prompt;
+              setPaymentRequired(null);
+              handleSubmit(prompt);
+            }
           }}
           onCancel={() => {
             setPaymentRequired(null);

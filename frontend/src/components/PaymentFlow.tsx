@@ -14,10 +14,13 @@ interface PaymentFlowProps {
   fee: number; // in USD
   onPaymentComplete: (txHash: string) => void;
   onCancel: () => void;
+  recipientAddress?: string; // Custom recipient for transfers (default: treasury)
 }
 
-export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel }: PaymentFlowProps) {
+export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, recipientAddress }: PaymentFlowProps) {
   const { address, isConnected } = useAccount();
+  
+  const recipient = recipientAddress || TREASURY_ADDRESS;
   
   if (!isConnected) {
     return (
@@ -39,8 +42,10 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel }: 
   // ERC-20 transfer call
   const calls = [{
     to: USDC_ADDRESS as `0x${string}`,
-    data: encodeTransferCall(TREASURY_ADDRESS, fee),
+    data: encodeTransferCall(recipient, fee),
   }];
+
+  const isTransfer = !!recipientAddress;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -56,9 +61,21 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel }: 
           <X size={20} />
         </button>
 
-        <h3 className="text-xl font-bold mb-2">Payment Required</h3>
-        <p className="text-[var(--text-secondary)] mb-6">
-          To query the <span className="text-[var(--accent-gold)] font-bold">{specialistId}</span>, a payment of <span className="text-white font-bold">{fee} USDC</span> is required.
+        <h3 className="text-xl font-bold mb-2">{isTransfer ? 'Confirm Transfer' : 'Payment Required'}</h3>
+        <p className="text-[var(--text-secondary)] mb-2">
+          {isTransfer ? (
+            <>Send <span className="text-white font-bold">{fee} USDC</span> to</>
+          ) : (
+            <>To query the <span className="text-[var(--accent-gold)] font-bold">{specialistId}</span>, a payment of <span className="text-white font-bold">{fee} USDC</span> is required.</>
+          )}
+        </p>
+        {isTransfer && (
+          <p className="text-xs text-[var(--text-muted)] font-mono mb-4 break-all">
+            {recipientAddress}
+          </p>
+        )}
+        <p className="text-xs text-[var(--text-muted)] mb-6">
+          Network: Base Sepolia
         </p>
         
         <div className="space-y-4">
