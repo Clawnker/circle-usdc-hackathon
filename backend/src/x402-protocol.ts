@@ -25,14 +25,19 @@ export async function executeDemoPayment(
   
   // Generate a tracking ID for the payment record
   const trackingId = `user-pay-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  // Extract specialist name from endpoint URL
+  const specialistMatch = specialistEndpoint.match(/specialist\/(\w+)/);
+  const specialistName = specialistMatch ? specialistMatch[1] : 'unknown';
   
-  // Log for transaction history display
+  // Log for transaction history display (use standard field names)
   logTransaction({
-    specialistEndpoint,
     amount: String(amountUsdc),
     currency: 'USDC',
-    type: 'x402-user',
-    trackingId,
+    network: 'base-sepolia',
+    recipient: specialistName,
+    txHash: trackingId,
+    status: 'pending',
+    method: 'x402-user',
     timestamp: new Date().toISOString(),
   });
   

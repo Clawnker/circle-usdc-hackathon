@@ -171,9 +171,17 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
         if (res.ok) {
           const data = await res.json();
           if (data.transactions?.length > 0) {
-            const mapped: Payment[] = data.transactions.map((tx: any, i: number) => ({
-              id: tx.txHash || `hist-${i}`,
-              from: tx.recipient ? 'dispatcher' : 'unknown',
+            const mapped: Payment[] = data.transactions
+              .filter((tx: any) => {
+                // Skip fake tracking entries with no real recipient
+                if (tx.trackingId?.startsWith('user-pay-') && !tx.recipient) return false;
+                // Skip if status is pending (not yet paid by user)
+                if (tx.status === 'pending' && tx.method === 'x402-user') return false;
+                return true;
+              })
+              .map((tx: any, i: number) => ({
+              id: tx.txHash || tx.trackingId || `hist-${i}`,
+              from: 'dispatcher',
               to: tx.recipient || 'unknown',
               amount: parseFloat(tx.amount) || 0,
               token: tx.currency || 'USDC',
