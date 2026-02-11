@@ -12,3 +12,5 @@ export { QueryHistory } from './QueryHistory';
 export { ApprovalPopup } from './ApprovalPopup';
 export { TransactionApproval } from './TransactionApproval';
 export { AddToSwarmBanner } from './AddToSwarmBanner';
+export { WalletConnect } from './WalletConnect';
+export { PaymentFlow } from './PaymentFlow';

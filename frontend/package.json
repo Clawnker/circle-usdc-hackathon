@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@coinbase/onchainkit": "^1.1.2",
+    "@tanstack/react-query": "^5.90.21",
     "@xyflow/react": "^12.10.0",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.31.0",
@@ -17,7 +19,9 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "viem": "^2.45.3",
+    "wagmi": "^2.19.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

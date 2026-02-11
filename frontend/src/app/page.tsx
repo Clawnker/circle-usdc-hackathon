@@ -18,6 +18,8 @@ import {
   ApprovalPopup,
   TransactionApproval,
   AddToSwarmBanner,
+  WalletConnect,
+  PaymentFlow,
 } from '@/components';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
@@ -98,6 +100,13 @@ export default function CommandCenter() {
   const [showAddToSwarm, setShowAddToSwarm] = useState<{
     specialist: string;
     specialistName: string;
+  } | null>(null);
+
+  // Payment required state
+  const [paymentRequired, setPaymentRequired] = useState<{
+    specialistId: string;
+    fee: number;
+    prompt: string;
   } | null>(null);
   
   const {
@@ -410,12 +419,20 @@ export default function CommandCenter() {
     }]);
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
+      };
+
+      // Add payment proof if we have it
+      if ((window as any).__pendingPaymentProof) {
+        headers['X-Payment-Proof'] = (window as any).__pendingPaymentProof;
+        delete (window as any).__pendingPaymentProof;
+      }
+
       const response = await fetch(`${API_URL}/dispatch`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
-        },
+        headers,
         body: JSON.stringify({
           prompt,
           userId: process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
@@ -425,6 +442,17 @@ export default function CommandCenter() {
           approvedAgent,  // Pass the approved agent if user approved
         }),
       });
+
+      if (response.status === 402) {
+        const data = await response.json();
+        setIsLoading(false);
+        setPaymentRequired({
+          specialistId: data.specialist,
+          fee: data.fee || 0,
+          prompt,
+        });
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`Request failed: ${response.statusText}`);
@@ -668,6 +696,8 @@ export default function CommandCenter() {
               </button>
             </div>
           
+            <WalletConnect />
+
             {/* List Your Agent CTA */}
             <button
               onClick={() => {
@@ -999,6 +1029,24 @@ export default function CommandCenter() {
           details={pendingTransaction}
           onApprove={handleApproveTransaction}
           onReject={handleRejectTransaction}
+        />
+      )}
+
+      {/* Payment Flow Modal */}
+      {paymentRequired && (
+        <PaymentFlow
+          specialistId={paymentRequired.specialistId}
+          fee={paymentRequired.fee}
+          onPaymentComplete={(txHash) => {
+            (window as any).__pendingPaymentProof = txHash;
+            const prompt = paymentRequired.prompt;
+            setPaymentRequired(null);
+            handleSubmit(prompt);
+          }}
+          onCancel={() => {
+            setPaymentRequired(null);
+            setIsLoading(false);
+          }}
         />
       )}
     </div>
