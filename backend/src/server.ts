@@ -67,39 +67,44 @@ const rateLimiter = (req: Request, res: Response, next: NextFunction) => {
 
 app.use(rateLimiter);
 
-import { paymentMiddleware } from '@x402/express';
-import { getOrCreateServerWallet } from './cdp-wallet';
-
-// Treasury wallet for receiving payments
-const TREASURY_WALLET = process.env.CDP_WALLET_ADDRESS || '0x676fF3d546932dE6558a267887E58e39f405B135';
-
-// Build route pricing config from existing fees config
-const routePricing: Record<string, any> = {};
-for (const [specialist, fee] of Object.entries(config.fees)) {
-  if (fee > 0) {
-    // Both standard and alias routes
-    routePricing[`POST /api/specialist/${specialist}`] = {
-      price: `$${fee}`,
-      network: 'base-sepolia',
-      config: {
-        description: `Query the ${specialist} AI specialist via Hivemind Protocol`,
-      }
-    };
-    routePricing[`POST /api/query/${specialist}`] = {
-      price: `$${fee}`,
-      network: 'base-sepolia',
-      config: {
-        description: `Query the ${specialist} AI specialist via Hivemind Protocol`,
-      }
-    };
-  }
-}
-
-const payment = paymentMiddleware(TREASURY_WALLET, routePricing);
-
 // Treasury wallets for receiving payments
 const TREASURY_WALLET_SOLANA = '5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1';
 const TREASURY_WALLET_EVM = '0x676fF3d546932dE6558a267887E58e39f405B135';
+
+// Manual 402 payment middleware (x402-express v2 API incompatible with simple use)
+const payment = (req: Request, res: Response, next: NextFunction) => {
+  // Check if payment proof header exists
+  const paymentHeader = req.headers['x-payment'] || req.headers['x-402-payment'];
+  if (paymentHeader) {
+    // User already paid — let through
+    return next();
+  }
+
+  // Extract specialist from route
+  const specialist = req.params?.id;
+  const fee = specialist ? (config.fees as any)[specialist] : 0;
+  
+  if (!fee || fee <= 0) {
+    return next(); // No fee required
+  }
+
+  // Return 402 with payment info
+  res.status(402).json({
+    error: 'Payment Required',
+    accepts: [{
+      scheme: 'exact',
+      network: 'base-sepolia',
+      maxAmountRequired: String(Math.round(fee * 1e6)), // USDC has 6 decimals
+      resource: req.originalUrl,
+      description: `Query the ${specialist} AI specialist via Hivemind Protocol`,
+      mimeType: 'application/json',
+      payTo: TREASURY_WALLET_EVM,
+      maxTimeoutSeconds: 300,
+      asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // USDC on Base Sepolia
+    }],
+    x402Version: 1,
+  });
+};
 const DEVNET_USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
 const BASE_USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia USDC
 
@@ -1082,8 +1087,9 @@ async function start() {
   const heliusOk = await solana.testConnection('devnet');
   console.log(`[Hivemind] Helius devnet: ${heliusOk ? '✓' : '✗'}`);
   
-  // Initialize CDP wallet
+  // Initialize CDP wallet (lazy import, non-critical)
   try {
+    const { getOrCreateServerWallet } = await import('./cdp-wallet');
     const cdpClient = await getOrCreateServerWallet();
     console.log(`[Hivemind] CDP Client initialized ✓`);
   } catch (err: any) {
