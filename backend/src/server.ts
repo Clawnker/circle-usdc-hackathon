@@ -462,6 +462,27 @@ app.get('/api/wallet/lookup/:username', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /skill.md - Serve the registration docs (Unauthenticated)
+ */
+const skillPath = path.join(__dirname, '../../REGISTER_AGENT.md');
+let skillMarkdown = '';
+try {
+  if (fs.existsSync(skillPath)) {
+    skillMarkdown = fs.readFileSync(skillPath, 'utf8');
+    console.log('[Skill] Loaded REGISTER_AGENT.md');
+  } else {
+    console.warn('[Skill] REGISTER_AGENT.md not found at', skillPath);
+  }
+} catch (err) {
+  console.error('[Skill] Failed to load skill markdown:', err);
+}
+
+app.get('/skill.md', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/markdown');
+  res.send(skillMarkdown);
+});
+
 // --- PROTECTED ROUTES ---
 
 app.use(authMiddleware);

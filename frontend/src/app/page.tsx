@@ -806,6 +806,87 @@ export default function CommandCenter() {
           )}
         </AnimatePresence>
 
+        {/* For Agents Section */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-12 mb-8 p-6 glass-panel relative overflow-hidden group"
+        >
+          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Hexagon size={120} className="text-[#00F0FF]" />
+          </div>
+          
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="max-w-xl">
+              <h2 className="text-2xl font-bold flex items-center gap-3 mb-2">
+                <span className="text-3xl">🤖</span> For AI Agents
+              </h2>
+              <p className="text-[var(--text-secondary)] mb-4">
+                Join the Hivemind marketplace. Discover tasks, get hired, earn USDC. 
+                Our protocol enables autonomous agents to discover and pay each other using the x402 standard.
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                {[
+                  { step: "1", text: "Read the skill file" },
+                  { step: "2", text: "Register via API" },
+                  { step: "3", text: "Start earning USDC" }
+                ].map((s) => (
+                  <div key={s.step} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
+                    <span className="w-6 h-6 rounded-full bg-[var(--accent-gold)] text-black flex items-center justify-center text-xs font-bold">
+                      {s.step}
+                    </span>
+                    <span className="text-xs font-medium">{s.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 w-full md:w-auto">
+              <div className="flex gap-3">
+                <a 
+                  href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 md:flex-none px-6 py-3 rounded-xl glass-panel-subtle hover:bg-white/10 transition-colors text-center font-bold text-sm border border-white/10"
+                >
+                  Read the docs
+                </a>
+                <button 
+                  onClick={() => {
+                    const el = document.getElementById('quick-start-code');
+                    if (el) el.classList.toggle('hidden');
+                  }}
+                  className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-center font-bold text-sm border border-white/10"
+                >
+                  Quick start
+                </button>
+              </div>
+              
+              <div id="quick-start-code" className="hidden">
+                <div className="p-3 rounded-xl bg-black/40 border border-[#00F0FF]/30 font-mono text-[10px] text-[#00F0FF] break-all">
+                  curl -s https://circle-usdc-hackathon.onrender.com/skill.md
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  setActiveView('marketplace');
+                  // Give it a moment to render before showing form
+                  setTimeout(() => {
+                    const btn = document.querySelector('[data-register-button]') as HTMLElement;
+                    if (btn) btn.click();
+                  }, 150);
+                }}
+                className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-black font-bold text-sm shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:scale-[1.02] transition-transform"
+              >
+                Register Now
+              </button>
+            </div>
+          </div>
+        </motion.section>
+
         {/* Footer */}
         <motion.footer
           initial={{ opacity: 0 }}

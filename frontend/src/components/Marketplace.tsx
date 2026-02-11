@@ -472,6 +472,7 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
           </a>
           <button 
             onClick={() => setShowRegisterForm(true)}
+            data-register-button
             className="text-sm font-bold text-[var(--accent-gold)] hover:underline flex items-center gap-1"
           >
             <Plus size={14} />
