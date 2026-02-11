@@ -148,6 +148,8 @@ const AGENT_METADATA: Record<string, any> = {
 interface MarketplaceProps {
   hiredAgents: string[];
   onHire: (agentId: string) => void;
+  openRegisterForm?: boolean;
+  onRegisterFormOpened?: () => void;
 }
 
 interface RegisterFormData {
@@ -159,7 +161,7 @@ interface RegisterFormData {
   pricing: string;
 }
 
-export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
+export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterFormOpened }: MarketplaceProps) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'popularity' | 'price' | 'reputation'>('popularity');
   const [filterType, setFilterType] = useState<string>('all');
@@ -179,6 +181,13 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
   });
 
   // Fetch registered agents and reputation
+  useEffect(() => {
+    if (openRegisterForm) {
+      setShowRegisterForm(true);
+      onRegisterFormOpened?.();
+    }
+  }, [openRegisterForm, onRegisterFormOpened]);
+
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
     

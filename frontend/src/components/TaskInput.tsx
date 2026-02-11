@@ -18,9 +18,9 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 const SUGGESTED_PROMPTS = [
   { icon: TrendingUp, text: "Find trending meme coins on Base", color: "cyan" },
-  { icon: Zap, text: "Predict price for USDC/ETH", color: "purple" },
-  { icon: Coins, text: "Send 5 USDC to 0x72a...", color: "pink" },
-  { icon: Sparkles, text: "Base sentiment analysis", color: "green" },
+  { icon: Zap, text: "What's the current price of ETH?", color: "purple" },
+  { icon: Coins, text: "Send 5 USDC to 0x676fF3d546932dE6558a267887E58e39f405B135", color: "pink" },
+  { icon: Sparkles, text: "What's the sentiment around Base ecosystem?", color: "green" },
 ];
 
 const SPECIALIST_NAMES: Record<string, string> = {

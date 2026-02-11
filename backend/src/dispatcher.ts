@@ -1021,8 +1021,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
   }
   
   // 1d. Fast-path: sentiment/social queries → aura
-  if (/\b(saying|discussing|people|think|opinion|sentiment|social|twitter|reddit|talk)\b/i.test(prompt) && 
-      /\b(about|on|regarding|around|of|for)\b/i.test(prompt)) {
+  if (/\b(sentiment|vibe|mood|social\s+analysis|what.+saying|what.+think|buzz|hype|fud|fomo)\b/i.test(prompt)) {
     console.log(`[Router] Fast-path: sentiment/social query detected, routing to aura`);
     if (!hiredAgents || hiredAgents.includes('aura')) return 'aura';
   }

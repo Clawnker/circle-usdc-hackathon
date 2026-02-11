@@ -556,10 +556,11 @@ function parseIntent(prompt: string): {
   }
   
   if (lower.includes('transfer') || lower.includes('send') || lower.includes('pay')) {
-    const addressMatch = prompt.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
+    const solAddressMatch = prompt.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
+    const evmAddressMatch = prompt.match(/0x[a-fA-F0-9]{40}/);
     return { 
       type: 'transfer', 
-      address: addressMatch ? addressMatch[0] : undefined,
+      address: solAddressMatch ? solAddressMatch[0] : evmAddressMatch ? evmAddressMatch[0] : undefined,
       amount,
     };
   }
@@ -663,6 +664,23 @@ export const bankr = {
           
         case 'transfer':
           if (intent.address) {
+            // Check if it's an EVM address (0x...)
+            if (intent.address.startsWith('0x')) {
+              data = {
+                type: 'transfer',
+                status: 'simulated',
+                details: {
+                  to: intent.address,
+                  amount: intent.amount || '5',
+                  asset: 'USDC',
+                  chain: 'Base',
+                  note: 'Base USDC transfer queued. In production, this would execute via x402 payment rail on Base.',
+                  explorer: `https://basescan.org/address/${intent.address}`,
+                },
+              };
+              (data as any).summary = `📋 **Base Transfer Queued**\n• Amount: ${intent.amount || '5'} USDC\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: Base\n• Status: Simulated (production would settle on-chain via x402)`;
+              break;
+            }
             try {
               const result = await executeAgentWalletTransfer(
                 intent.address,
