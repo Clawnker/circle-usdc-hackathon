@@ -230,11 +230,11 @@ ${new Date(item.timestamp).toLocaleString()}
                               </div>
                             )}
 
-                            {/* x402 Payments */}
+                            {/* Agent Payments */}
                             <div>
                               <h4 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2">
                                 <Coins size={12} />
-                                x402 Payments
+                                Agent Payments
                               </h4>
                               {item.payments && item.payments.length > 0 ? (
                                 <div className="space-y-1 max-h-40 overflow-y-auto">
@@ -248,6 +248,7 @@ ${new Date(item.timestamp).toLocaleString()}
                                           {payment.amount.toFixed(4)} {payment.currency || 'USDC'}
                                         </span>
                                         <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                          payment.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                                           payment.status === 'confirmed' ? 'bg-green-500/20 text-green-400' : 
                                           payment.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' : 
                                           'bg-red-500/20 text-red-400'

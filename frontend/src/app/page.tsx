@@ -285,7 +285,7 @@ export default function CommandCenter() {
               specialist: p.specialist || specialistId,
               amount: p.amount,
               currency: 'USDC',
-              status: p.status || 'pending',
+              status: 'completed' as const,
             }));
 
             // Add to query history
@@ -1064,16 +1064,36 @@ export default function CommandCenter() {
           recipientAddress={paymentRequired.transferTo}
           onPaymentComplete={(txHash) => {
             if (paymentRequired.transferTo) {
-              // Direct transfer completed — show in history/activity, not payment feed
+              // Direct transfer completed — update history with real result
               const addr = paymentRequired.transferTo;
               const truncAddr = `${addr.slice(0, 6)}…${addr.slice(-4)}`;
               const basescanLink = `https://sepolia.basescan.org/tx/${txHash}`;
+              const completedResult = `✅ **Transfer Complete**\n• Sent ${paymentRequired.fee} USDC to ${truncAddr}\n• Chain: Base Sepolia\n• Tx: [${txHash.slice(0, 10)}…${txHash.slice(-6)}](${basescanLink})`;
               
-              // Update the last result to include tx link
+              // Update the last result display
               setLastResult(prev => prev ? {
                 ...prev,
-                result: `✅ **Transfer Complete**\n• Sent ${paymentRequired.fee} USDC to ${truncAddr}\n• Chain: Base Sepolia\n• [View on Basescan](${basescanLink})`,
+                result: completedResult,
               } : prev);
+              
+              // Update the query history entry with completed result
+              setQueryHistory(prev => {
+                const updated = [...prev];
+                if (updated.length > 0) {
+                  updated[0] = {
+                    ...updated[0],
+                    result: completedResult,
+                    transactions: [{
+                      type: 'transfer',
+                      txHash,
+                      recipient: addr,
+                      inputAmount: paymentRequired.fee,
+                      inputToken: 'USDC',
+                    }],
+                  };
+                }
+                return updated;
+              });
               
               setActivityItems(prev => [...prev, {
                 id: `transfer-${txHash}`,
