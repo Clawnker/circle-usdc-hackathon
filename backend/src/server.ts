@@ -67,42 +67,35 @@ const rateLimiter = (req: Request, res: Response, next: NextFunction) => {
 
 app.use(rateLimiter);
 
-// Persistent Replay Protection
-const USED_SIGNATURES_FILE = path.join(__dirname, '../data/used-signatures.json');
-let usedSignatures = new Set<string>();
+import { paymentMiddleware } from '@x402/express';
+import { getOrCreateServerWallet } from './cdp-wallet';
 
-function loadUsedSignatures() {
-  try {
-    if (fs.existsSync(USED_SIGNATURES_FILE)) {
-      const data = fs.readFileSync(USED_SIGNATURES_FILE, 'utf8');
-      usedSignatures = new Set(JSON.parse(data));
-      console.log(`[x402] Loaded ${usedSignatures.size} used signatures from persistence`);
-    }
-  } catch (err) {
-    console.error('[x402] Failed to load used signatures:', err);
+// Treasury wallet for receiving payments
+const TREASURY_WALLET = process.env.CDP_WALLET_ADDRESS || '0x676fF3d546932dE6558a267887E58e39f405B135';
+
+// Build route pricing config from existing fees config
+const routePricing: Record<string, any> = {};
+for (const [specialist, fee] of Object.entries(config.fees)) {
+  if (fee > 0) {
+    // Both standard and alias routes
+    routePricing[`POST /api/specialist/${specialist}`] = {
+      price: `$${fee}`,
+      network: 'base-sepolia',
+      config: {
+        description: `Query the ${specialist} AI specialist via Hivemind Protocol`,
+      }
+    };
+    routePricing[`POST /api/query/${specialist}`] = {
+      price: `$${fee}`,
+      network: 'base-sepolia',
+      config: {
+        description: `Query the ${specialist} AI specialist via Hivemind Protocol`,
+      }
+    };
   }
 }
 
-function saveUsedSignatures() {
-  try {
-    const dir = path.dirname(USED_SIGNATURES_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(USED_SIGNATURES_FILE, JSON.stringify(Array.from(usedSignatures)), 'utf8');
-  } catch (err) {
-    console.error('[x402] Failed to save used signatures:', err);
-  }
-}
-
-loadUsedSignatures();
-
-// Cleanup old signatures (keep only most recent 10,000 for performance)
-setInterval(() => {
-  if (usedSignatures.size > 10000) {
-    const list = Array.from(usedSignatures);
-    usedSignatures = new Set(list.slice(-5000));
-    saveUsedSignatures();
-  }
-}, 3600000);
+const payment = paymentMiddleware(TREASURY_WALLET, routePricing);
 
 // Treasury wallets for receiving payments
 const TREASURY_WALLET_SOLANA = '5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1';
@@ -488,7 +481,7 @@ app.get('/skill.md', (req: Request, res: Response) => {
 app.use(authMiddleware);
 
 // Specialist endpoints - returns 402 without payment, 200 with payment
-app.post('/api/specialist/:id', async (req: Request, res: Response) => {
+app.post(['/api/specialist/:id', '/api/query/:id'], payment, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { prompt } = req.body;
@@ -512,92 +505,7 @@ app.post('/api/specialist/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    // Check for x402 payment signature
-    const paymentSignature = req.headers['payment-signature'] || req.headers['x-payment'];
-    
-    const fee = (config.fees as any)[resolvedId] || 0;
-
-    if (!paymentSignature && fee > 0) {
-      // Return 402 with payment requirements (x402 v2 format with accepts array)
-      // Base USDC as primary payment option (Circle USDC hackathon focus)
-      
-      const paymentRequired = {
-        x402Version: 2,
-        accepts: [
-          {
-            scheme: 'exact',
-            network: 'eip155:84532',  // Base Sepolia
-            asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // Base Sepolia USDC
-            amount: String(Math.floor(fee * 1_000_000)),
-            payTo: TREASURY_WALLET_EVM,
-            extra: {
-              name: `${resolvedId} specialist`,
-              description: `Query the ${resolvedId} AI specialist via Hivemind Protocol (Base Sepolia)`,
-              feePayer: TREASURY_WALLET_EVM,
-            }
-          },
-          {
-            scheme: 'exact',
-            network: 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
-            asset: DEVNET_USDC_MINT,
-            amount: String(Math.floor(fee * 1_000_000)),
-            payTo: TREASURY_WALLET_SOLANA,
-            extra: {
-              name: `${resolvedId} specialist`,
-              description: `Query the ${resolvedId} AI specialist (fallback)`,
-              feePayer: TREASURY_WALLET_SOLANA,
-            }
-          }
-        ]
-      };
-      
-      // Encode as base64 for header
-      const paymentRequiredBase64 = Buffer.from(JSON.stringify(paymentRequired)).toString('base64');
-      
-      console.log(`[x402] Returning 402 for ${resolvedId}, fee: ${fee} USDC (Base primary)`);
-      res.setHeader('payment-required', paymentRequiredBase64);
-      res.setHeader('x-payment-required', paymentRequiredBase64); // Fallback
-      return res.status(402).json({ 
-        error: 'Payment required',
-        fee: `${fee} USDC`,
-        network: 'Base Sepolia (EIP-155:84532)',
-        fallback: 'Solana (legacy)'
-      });
-    }
-
-    if (fee > 0) {
-      console.log(`[x402] Verifying payment for ${resolvedId}, signature: ${String(paymentSignature).slice(0, 20)}...`);
-      
-      const sig = paymentSignature as string;
-      if (usedSignatures.has(sig)) {
-        return res.status(402).json({ error: 'Payment signature already used (replay protection)' });
-      }
-
-      // x402 payment verification:
-      // 1. Check signature format (must be hex-encoded, min 64 chars for a valid signature)
-      // 2. Verify against known facilitator public keys
-      // 3. In production, verify on-chain settlement
-      
-      const isValidFormat = sig.length >= 20 && /^[a-zA-Z0-9_\-.:=+/]+$/.test(sig);
-      if (!isValidFormat) {
-        return res.status(402).json({ error: 'Invalid payment signature format' });
-      }
-
-      // Verify the payment amount matches the expected fee
-      // In production, this would decode the signed receipt and verify:
-      // - The facilitator's signature against known public keys
-      // - The payment amount >= specialist fee
-      // - The recipient matches our treasury address
-      // - The chain is Base Sepolia (EIP-155:84532)
-      // For hackathon demo, we validate format + replay protection
-      
-      // Mark signature as used and persist (replay protection)
-      usedSignatures.add(sig);
-      saveUsedSignatures();
-      console.log(`[x402] Payment accepted: ${fee} USDC for ${resolvedId}`);
-    }
-    
-    // Payment verified or not required - execute specialist
+    // Payment verified or not required by middleware - execute specialist
     const result = await callSpecialist(resolvedId as SpecialistType, prompt);
     res.json(result);
   } catch (error: any) {
@@ -1174,6 +1082,14 @@ async function start() {
   const heliusOk = await solana.testConnection('devnet');
   console.log(`[Hivemind] Helius devnet: ${heliusOk ? '✓' : '✗'}`);
   
+  // Initialize CDP wallet
+  try {
+    const cdpClient = await getOrCreateServerWallet();
+    console.log(`[Hivemind] CDP Client initialized ✓`);
+  } catch (err: any) {
+    console.warn(`[Hivemind] CDP initialization failed: ${err.message}`);
+  }
+
   const balances = await getBalances();
   console.log(`[Hivemind] AgentWallet balances:`, balances);
 

@@ -12,6 +12,7 @@
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {
+    "@coinbase/cdp-sdk": "^1.44.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
     "@slicekit/erc8128": "^0.1.0",
     "@solana/web3.js": "^1.87.6",
