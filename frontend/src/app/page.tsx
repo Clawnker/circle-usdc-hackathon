@@ -67,7 +67,14 @@ export default function CommandCenter() {
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
-  const [hiredAgents, setHiredAgents] = useState<string[]>(['bankr', 'scribe', 'seeker']);
+  const [hiredAgents, setHiredAgents] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return ['bankr', 'scribe', 'seeker'];
+    try {
+      const saved = localStorage.getItem('hivemind-swarm');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return ['bankr', 'scribe', 'seeker'];
+  });
   const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
   
   // Core agents cannot be removed from the swarm
@@ -124,6 +131,11 @@ export default function CommandCenter() {
     subscribe,
     reset,
   } = useWebSocket();
+
+  // Persist swarm agents
+  useEffect(() => {
+    localStorage.setItem('hivemind-swarm', JSON.stringify(hiredAgents));
+  }, [hiredAgents]);
 
   // Persistence for query history
   useEffect(() => {
@@ -465,7 +477,12 @@ export default function CommandCenter() {
               const delegation = getDelegationState();
               const remaining = delegation ? Math.max(0, delegation.allowance - delegation.spent) : 0;
               
-              if (delegation?.enabled && remaining >= preview.fee) {
+              console.log('[pre-pay] Delegation check:', { 
+                enabled: delegation?.enabled, remaining, fee: preview.fee, 
+                onchainAddress, hasAddress: !!onchainAddress 
+              });
+              
+              if (delegation?.enabled && remaining >= preview.fee && onchainAddress) {
                 // Auto-pay via delegated approval (transferFrom)
                 try {
                   const delegateRes = await fetch(`${API_URL}/api/delegate-pay`, {

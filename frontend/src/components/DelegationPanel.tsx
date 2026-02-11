@@ -48,6 +48,8 @@ export function recordDelegationSpend(amount: number) {
     state.enabled = false; // Exhausted
   }
   localStorage.setItem('hivemind-delegation', JSON.stringify(state));
+  // Trigger re-render in DelegationPanel via storage event
+  window.dispatchEvent(new Event('delegation-updated'));
 }
 
 export function DelegationPanel() {
@@ -61,6 +63,13 @@ export function DelegationPanel() {
 
   useEffect(() => {
     setDelegation(getDelegationState());
+  }, []);
+
+  // Re-read state when delegation spend happens
+  useEffect(() => {
+    const handler = () => setDelegation(getDelegationState());
+    window.addEventListener('delegation-updated', handler);
+    return () => window.removeEventListener('delegation-updated', handler);
   }, []);
 
   useEffect(() => {
