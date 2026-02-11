@@ -129,6 +129,86 @@ app.post('/api/route-preview', async (req: Request, res: Response) => {
 });
 
 /**
+ * Delegated payment — pull USDC from user via transferFrom
+ * Requires user to have approved treasury address on USDC contract
+ */
+app.post('/api/delegate-pay', async (req: Request, res: Response) => {
+  try {
+    const { userAddress, amount, specialist } = req.body;
+    if (!userAddress || !amount) {
+      return res.status(400).json({ error: 'userAddress and amount required' });
+    }
+    
+    const privateKey = process.env.DEMO_WALLET_PRIVATE_KEY;
+    if (!privateKey) {
+      return res.status(500).json({ error: 'Treasury wallet not configured' });
+    }
+
+    const { createWalletClient, createPublicClient, http, parseUnits, encodeFunctionData } = await import('viem');
+    const { privateKeyToAccount } = await import('viem/accounts');
+    const { baseSepolia } = await import('viem/chains');
+
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    const walletClient = createWalletClient({
+      account,
+      chain: baseSepolia,
+      transport: http(),
+    });
+    const publicClient = createPublicClient({
+      chain: baseSepolia,
+      transport: http(),
+    });
+
+    const USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
+    const amountWei = parseUnits(String(amount), 6);
+
+    // Call transferFrom(user, treasury, amount)
+    const hash = await walletClient.writeContract({
+      address: USDC,
+      abi: [{
+        name: 'transferFrom',
+        type: 'function',
+        stateMutability: 'nonpayable',
+        inputs: [
+          { name: 'from', type: 'address' },
+          { name: 'to', type: 'address' },
+          { name: 'amount', type: 'uint256' },
+        ],
+        outputs: [{ type: 'bool' }],
+      }],
+      functionName: 'transferFrom',
+      args: [userAddress as `0x${string}`, account.address, amountWei],
+    });
+
+    // Wait for confirmation
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+    console.log(`[delegate-pay] ${amount} USDC from ${userAddress} → ${account.address} | tx: ${hash}`);
+
+    // Log the transaction
+    logTransaction({
+      amount: String(amount),
+      currency: 'USDC',
+      network: 'base-sepolia',
+      recipient: specialist || 'unknown',
+      txHash: hash,
+      status: 'completed',
+      method: 'delegated',
+      timestamp: new Date().toISOString(),
+    });
+
+    res.json({ 
+      success: true, 
+      txHash: hash,
+      explorer: `https://sepolia.basescan.org/tx/${hash}`,
+    });
+  } catch (err: any) {
+    console.error('[delegate-pay] Failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * Health check
  */
 app.get('/health', (req: Request, res: Response) => {

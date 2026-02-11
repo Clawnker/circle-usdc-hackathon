@@ -21,6 +21,8 @@ import {
   WalletConnect,
   PaymentFlow,
 } from '@/components';
+import { DelegationPanel, getDelegationState, recordDelegationSpend } from '@/components/DelegationPanel';
+import { useAccount } from 'wagmi';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -61,6 +63,7 @@ export default function CommandCenter() {
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { wallet: connectedWallet } = useWallet();
+  const { address: onchainAddress } = useAccount();
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
@@ -458,13 +461,77 @@ export default function CommandCenter() {
           if (previewRes.ok) {
             const preview = await previewRes.json();
             if (preview.fee > 0) {
-              // Show payment popup — dispatch will resume after payment
-              setPaymentRequired({
-                specialistId: preview.specialist,
-                fee: preview.fee,
-                prompt,
-              });
-              return; // Stop here — PaymentFlow onComplete will re-call handleSubmit with proof
+              // Check for delegation (auto-pay)
+              const delegation = getDelegationState();
+              const remaining = delegation ? Math.max(0, delegation.allowance - delegation.spent) : 0;
+              
+              if (delegation?.enabled && remaining >= preview.fee) {
+                // Auto-pay via delegated approval (transferFrom)
+                try {
+                  const delegateRes = await fetch(`${API_URL}/api/delegate-pay`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userAddress: onchainAddress,
+                      amount: preview.fee,
+                      specialist: preview.specialist,
+                    }),
+                  });
+                  if (delegateRes.ok) {
+                    const delegateData = await delegateRes.json();
+                    headers['X-Payment-Proof'] = delegateData.txHash;
+                    recordDelegationSpend(preview.fee);
+                    
+                    // Record in Agent Payments
+                    const feePayment = {
+                      id: `delegate-${Date.now()}`,
+                      from: 'user',
+                      to: preview.specialist,
+                      amount: preview.fee,
+                      token: 'USDC' as const,
+                      txSignature: delegateData.txHash,
+                      timestamp: new Date(),
+                      method: 'on-chain' as const,
+                      specialist: preview.specialist,
+                    };
+                    window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
+                    setActivityItems(prev => [...prev, {
+                      id: `payment-${delegateData.txHash}`,
+                      type: 'payment',
+                      message: `Auto-paid ${preview.fee} USDC to ${preview.specialist}`,
+                      specialist: preview.specialist,
+                      timestamp: new Date(),
+                      link: delegateData.explorer,
+                    }]);
+                    // Continue to dispatch with proof
+                  } else {
+                    // Delegation failed — fall back to manual payment
+                    console.warn('[delegate] transferFrom failed, showing manual payment');
+                    setPaymentRequired({
+                      specialistId: preview.specialist,
+                      fee: preview.fee,
+                      prompt,
+                    });
+                    return;
+                  }
+                } catch (delegateErr) {
+                  console.warn('[delegate] Error:', delegateErr);
+                  setPaymentRequired({
+                    specialistId: preview.specialist,
+                    fee: preview.fee,
+                    prompt,
+                  });
+                  return;
+                }
+              } else {
+                // No delegation — show manual payment popup
+                setPaymentRequired({
+                  specialistId: preview.specialist,
+                  fee: preview.fee,
+                  prompt,
+                });
+                return;
+              }
             }
           }
         } catch (previewErr) {
@@ -870,6 +937,7 @@ export default function CommandCenter() {
                     transition={{ delay: 0.3 }}
                   >
                     <WalletPanel />
+                    <DelegationPanel />
                   </motion.div>
 
                   {/* Payment Feed */}
