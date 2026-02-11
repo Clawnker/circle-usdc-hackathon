@@ -71,7 +71,7 @@ What shipped for the hackathon:
 - [x] Aura refactored to use shared `braveSearch` with mock fallback
 - [x] CoinGecko integration verified (live BTC/ETH prices)
 - [x] Vertex AI global endpoint support for Gemini 3.x models
-- [ ] Fix DAG multi-hop scribe synthesis step (carries forward)
+- [x] Fix DAG multi-hop scribe synthesis step ✅ (Done 2026-02-10)
 
 ---
 

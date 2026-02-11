@@ -33,6 +33,9 @@ export const scribe = {
       let data: any;
       
       switch (intent.type) {
+        case 'synthesize':
+          data = await synthesize(prompt);
+          break;
         case 'summarize':
           data = await summarize(intent.content || intent.topic);
           break;
@@ -109,6 +112,21 @@ function parseIntent(prompt: string): {
 } {
   const lower = prompt.toLowerCase();
   
+  // Detect synthesis patterns for multi-hop DAG results
+  const synthesisPatterns = [
+    '{{step-',
+    'based on the following data',
+    'synthesize',
+    'combine these results',
+    'analyze the results from',
+    '"data": {',
+    '"results": ['
+  ];
+  
+  if (synthesisPatterns.some(p => lower.includes(p)) || (prompt.length > 500 && (prompt.includes('{') || prompt.includes('[')))) {
+    return { type: 'synthesize', topic: 'Data Synthesis' };
+  }
+
   // Extract the main topic/content
   let topic = prompt;
   
@@ -139,6 +157,32 @@ function parseIntent(prompt: string): {
   }
   
   return { type: 'general', topic };
+}
+
+/**
+ * Synthesize pre-collected data from prior steps
+ */
+async function synthesize(data: string): Promise<any> {
+  console.log(`[Scribe] Synthesizing pre-collected data (${data.length} chars)`);
+  
+  const synthesis = await callLLM(
+    'You are Scribe, a knowledge synthesis expert. You have been provided with data from previous steps in a pipeline. ' +
+    'Your goal is to synthesize this information into a coherent, well-structured response. ' +
+    'Analyze the data, extract key insights, and present the findings clearly. ' +
+    'Do NOT perform any external searches. Focus entirely on the provided data.',
+    data
+  );
+  
+  return {
+    summary: synthesis,
+    insight: synthesis.split('\n')[0].replace(/[*#]/g, '').trim().substring(0, 200),
+    confidence: 0.98,
+    details: {
+      type: 'synthesis',
+      dataLength: data.length,
+      response: synthesis,
+    },
+  };
 }
 
 /**
