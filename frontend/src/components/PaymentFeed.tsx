@@ -37,7 +37,7 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
   const from = getAgentDisplay(payment.from || payment.specialist || 'unknown');
   const to = getAgentDisplay(payment.to || 'agent');
   
-  const isX402 = payment.method === 'x402' || (payment.txSignature && !payment.txSignature.startsWith('0x'));
+  const isX402 = payment.method === 'x402';
 
   const sig = payment.txSignature || '';
   const hasOnChainTx = sig.startsWith('0x') && sig.length > 20;
@@ -110,8 +110,23 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
       <div className="flex items-center justify-between mt-2 text-xs text-[var(--text-muted)]">
         <span>{formatTime(payment.createdAt || payment.timestamp || new Date().toISOString())}</span>
         <div className="flex items-center gap-2">
-          {/* Always show AgentWallet link */}
-          {payment.txSignature && (
+          {/* Basescan link for on-chain user transactions */}
+          {hasOnChainTx && (
+            <motion.button
+              onClick={() => window.open(`https://sepolia.basescan.org/tx/${sig}`, '_blank')}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="flex items-center gap-1 hover:text-orange-400 transition-colors"
+              title="View on Basescan"
+            >
+              <code className="font-mono">
+                {sig.slice(0, 8)}…{sig.slice(-4)}
+              </code>
+              <ExternalLink size={10} />
+            </motion.button>
+          )}
+          {/* AgentWallet link for x402 payments only */}
+          {payment.txSignature && !hasOnChainTx && !payment.txSignature.startsWith('user-pay-') && (
             <motion.button
               onClick={() => window.open('https://agentwallet.mcpay.tech/u/claw', '_blank')}
               whileHover={{ scale: 1.1 }}
@@ -125,19 +140,6 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
               <ExternalLink size={10} />
             </motion.button>
           )}
-          {/* Also show Basescan link for on-chain txs */}
-          {hasOnChainTx && (
-            <motion.button
-              onClick={() => window.open(`https://sepolia.basescan.org/tx/${sig}`, '_blank')}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              className="flex items-center gap-1 hover:text-orange-400 transition-colors"
-              title="View on Basescan"
-            >
-              <span className="text-[10px]">⛓</span>
-              <ExternalLink size={10} />
-            </motion.button>
-          )}
         </div>
       </div>
     </motion.div>
@@ -147,7 +149,18 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
 export function PaymentFeed({ payments: realtimePayments, className = '' }: PaymentFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [historicPayments, setHistoricPayments] = useState<Payment[]>([]);
+  const [userPayments, setUserPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Listen for user wallet payments (real on-chain txs)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const payment = (e as CustomEvent).detail as Payment;
+      setUserPayments(prev => [payment, ...prev]);
+    };
+    window.addEventListener('hivemind-payment', handler);
+    return () => window.removeEventListener('hivemind-payment', handler);
+  }, []);
 
   // Fetch persisted payment history from backend
   useEffect(() => {
@@ -180,13 +193,23 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
     fetchHistory();
   }, []);
 
-  // Merge historic + realtime, dedup by txSignature
+  // Merge user payments + historic, dedup by txSignature
+  // User payments (real on-chain) take priority over dispatcher fake payments
   const allPayments = (() => {
     const seen = new Set<string>();
     const merged: Payment[] = [];
     
-    // Realtime first (newer)
+    // User wallet payments first (real on-chain txs)
+    for (const p of userPayments) {
+      const key = p.txSignature || p.id || `up-${merged.length}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push(p);
+      }
+    }
+    // Realtime from dispatcher (skip fake tracking IDs)
     for (const p of realtimePayments) {
+      if (p.txSignature?.startsWith('user-pay-')) continue; // Skip fake payments
       const key = p.txSignature || p.id || `rt-${merged.length}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -195,6 +218,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
     }
     // Then historic
     for (const p of historicPayments) {
+      if (p.txSignature?.startsWith('user-pay-')) continue; // Skip fake payments
       const key = p.txSignature || p.id || `hist-${merged.length}`;
       if (!seen.has(key)) {
         seen.add(key);

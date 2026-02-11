@@ -235,6 +235,15 @@ export default function CommandCenter() {
             }
             
             const totalCost = payments.reduce((sum, p) => sum + p.amount, 0);
+            
+            // If there are specialist fees and no transfer action, trigger payment from connected wallet
+            if (totalCost > 0 && !r.data?.requiresWalletAction) {
+              setPaymentRequired({
+                specialistId: currentStep?.specialist || 'dispatcher',
+                fee: totalCost,
+                prompt: currentPrompt,
+              });
+            }
             const specialistId = currentStep?.specialist || 'dispatcher';
             
             setLastResult({
@@ -1055,15 +1064,54 @@ export default function CommandCenter() {
           recipientAddress={paymentRequired.transferTo}
           onPaymentComplete={(txHash) => {
             if (paymentRequired.transferTo) {
-              // Direct transfer completed — no need to resubmit query
+              // Direct transfer completed — add to payment feed with real tx
+              const transferPayment = {
+                id: `user-tx-${Date.now()}`,
+                from: 'user',
+                to: paymentRequired.transferTo.slice(0, 6) + '…' + paymentRequired.transferTo.slice(-4),
+                amount: paymentRequired.fee,
+                token: 'USDC' as const,
+                txSignature: txHash,
+                timestamp: new Date(),
+                method: 'on-chain' as const,
+                specialist: 'bankr',
+              };
+              setActivityItems(prev => [...prev, {
+                id: `payment-${txHash}`,
+                type: 'payment',
+                message: `Sent ${paymentRequired.fee} USDC to ${paymentRequired.transferTo!.slice(0, 6)}…${paymentRequired.transferTo!.slice(-4)}`,
+                specialist: 'bankr',
+                timestamp: new Date(),
+                link: `https://sepolia.basescan.org/tx/${txHash}`,
+              }]);
+              // Inject into payment feed via a custom event
+              window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: transferPayment }));
               setPaymentRequired(null);
               setIsLoading(false);
             } else {
-              // Payment for specialist access — resubmit with proof
-              (window as any).__pendingPaymentProof = txHash;
-              const prompt = paymentRequired.prompt;
+              // Specialist fee payment completed — record real tx in payment feed
+              const feePayment = {
+                id: `user-tx-${Date.now()}`,
+                from: 'user',
+                to: paymentRequired.specialistId,
+                amount: paymentRequired.fee,
+                token: 'USDC' as const,
+                txSignature: txHash,
+                timestamp: new Date(),
+                method: 'on-chain' as const,
+                specialist: paymentRequired.specialistId,
+              };
+              setActivityItems(prev => [...prev, {
+                id: `payment-${txHash}`,
+                type: 'payment',
+                message: `Paid ${paymentRequired.fee} USDC to ${paymentRequired.specialistId}`,
+                specialist: paymentRequired.specialistId,
+                timestamp: new Date(),
+                link: `https://sepolia.basescan.org/tx/${txHash}`,
+              }]);
+              window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
               setPaymentRequired(null);
-              handleSubmit(prompt);
+              setIsLoading(false);
             }
           }}
           onCancel={() => {
