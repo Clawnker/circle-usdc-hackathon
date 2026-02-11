@@ -236,14 +236,7 @@ export default function CommandCenter() {
             
             const totalCost = payments.reduce((sum, p) => sum + p.amount, 0);
             
-            // If there are specialist fees and no transfer action, trigger payment from connected wallet
-            if (totalCost > 0 && !r.data?.requiresWalletAction) {
-              setPaymentRequired({
-                specialistId: currentStep?.specialist || 'dispatcher',
-                fee: totalCost,
-                prompt: currentPrompt,
-              });
-            }
+            // Pre-pay handles specialist fees before dispatch — no post-pay needed
             const specialistId = currentStep?.specialist || 'dispatcher';
             
             setLastResult({
@@ -448,10 +441,35 @@ export default function CommandCenter() {
         'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
       };
 
-      // Add payment proof if we have it
+      // Add payment proof if we have it (from pre-pay flow)
       if ((window as any).__pendingPaymentProof) {
         headers['X-Payment-Proof'] = (window as any).__pendingPaymentProof;
         delete (window as any).__pendingPaymentProof;
+      }
+
+      // Pre-pay: check fee before dispatching
+      if (!headers['X-Payment-Proof']) {
+        try {
+          const previewRes = await fetch(`${API_URL}/api/route-preview`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt }),
+          });
+          if (previewRes.ok) {
+            const preview = await previewRes.json();
+            if (preview.fee > 0) {
+              // Show payment popup — dispatch will resume after payment
+              setPaymentRequired({
+                specialistId: preview.specialist,
+                fee: preview.fee,
+                prompt,
+              });
+              return; // Stop here — PaymentFlow onComplete will re-call handleSubmit with proof
+            }
+          }
+        } catch (previewErr) {
+          console.warn('[pre-pay] Route preview failed, proceeding without pre-pay:', previewErr);
+        }
       }
 
       const response = await fetch(`${API_URL}/dispatch`, {
@@ -1106,7 +1124,7 @@ export default function CommandCenter() {
               setPaymentRequired(null);
               setIsLoading(false);
             } else {
-              // Specialist fee payment — show in Agent Payments feed
+              // Specialist fee payment completed — record in Agent Payments, then dispatch
               const feePayment = {
                 id: `user-tx-${Date.now()}`,
                 from: 'user',
@@ -1127,8 +1145,12 @@ export default function CommandCenter() {
                 link: `https://sepolia.basescan.org/tx/${txHash}`,
               }]);
               window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
+              
+              // Store proof and re-dispatch the original query
+              (window as any).__pendingPaymentProof = txHash;
+              const prompt = paymentRequired.prompt;
               setPaymentRequired(null);
-              setIsLoading(false);
+              handleSubmit(prompt);
             }
           }}
           onCancel={() => {
