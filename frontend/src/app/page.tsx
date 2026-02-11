@@ -1064,32 +1064,29 @@ export default function CommandCenter() {
           recipientAddress={paymentRequired.transferTo}
           onPaymentComplete={(txHash) => {
             if (paymentRequired.transferTo) {
-              // Direct transfer completed — add to payment feed with real tx
-              const transferPayment = {
-                id: `user-tx-${Date.now()}`,
-                from: 'user',
-                to: paymentRequired.transferTo.slice(0, 6) + '…' + paymentRequired.transferTo.slice(-4),
-                amount: paymentRequired.fee,
-                token: 'USDC' as const,
-                txSignature: txHash,
-                timestamp: new Date(),
-                method: 'on-chain' as const,
-                specialist: 'bankr',
-              };
+              // Direct transfer completed — show in history/activity, not payment feed
+              const addr = paymentRequired.transferTo;
+              const truncAddr = `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+              const basescanLink = `https://sepolia.basescan.org/tx/${txHash}`;
+              
+              // Update the last result to include tx link
+              setLastResult(prev => prev ? {
+                ...prev,
+                result: `✅ **Transfer Complete**\n• Sent ${paymentRequired.fee} USDC to ${truncAddr}\n• Chain: Base Sepolia\n• [View on Basescan](${basescanLink})`,
+              } : prev);
+              
               setActivityItems(prev => [...prev, {
-                id: `payment-${txHash}`,
-                type: 'payment',
-                message: `Sent ${paymentRequired.fee} USDC to ${paymentRequired.transferTo!.slice(0, 6)}…${paymentRequired.transferTo!.slice(-4)}`,
+                id: `transfer-${txHash}`,
+                type: 'result',
+                message: `Sent ${paymentRequired.fee} USDC to ${truncAddr}`,
                 specialist: 'bankr',
                 timestamp: new Date(),
-                link: `https://sepolia.basescan.org/tx/${txHash}`,
+                link: basescanLink,
               }]);
-              // Inject into payment feed via a custom event
-              window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: transferPayment }));
               setPaymentRequired(null);
               setIsLoading(false);
             } else {
-              // Specialist fee payment completed — record real tx in payment feed
+              // Specialist fee payment — show in Agent Payments feed
               const feePayment = {
                 id: `user-tx-${Date.now()}`,
                 from: 'user',

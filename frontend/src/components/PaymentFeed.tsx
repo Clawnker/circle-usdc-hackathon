@@ -199,8 +199,9 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
     const seen = new Set<string>();
     const merged: Payment[] = [];
     
-    // User wallet payments first (real on-chain txs)
+    // User wallet payments first (real on-chain txs) — only specialist fees, not transfers
     for (const p of userPayments) {
+      if (p.to && p.to.startsWith('0x')) continue; // Skip direct transfers
       const key = p.txSignature || p.id || `up-${merged.length}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -255,7 +256,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--glass-border)]">
         <div className="flex items-center gap-2">
           <CreditCard size={16} className="text-[var(--accent-purple)]" />
-          <span className="text-sm font-medium text-[var(--text-primary)]">x402 Payments</span>
+          <span className="text-sm font-medium text-[var(--text-primary)]">Agent Payments</span>
         </div>
         {allPayments.length > 0 && (
           <motion.div
