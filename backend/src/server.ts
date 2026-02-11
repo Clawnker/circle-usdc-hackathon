@@ -705,10 +705,10 @@ app.get('/status', async (req: Request, res: Response) => {
 
 /**
  * Submit a task to the dispatcher
- * POST /dispatch
+ * POST /dispatch (canonical) or POST /api/query (alias)
  * Body: { prompt: string, userId?: string, preferredSpecialist?: string, dryRun?: boolean }
  */
-app.post('/dispatch', async (req: Request, res: Response) => {
+const dispatchHandler = async (req: Request, res: Response) => {
   try {
     const { prompt, userId, preferredSpecialist, dryRun, callbackUrl, hiredAgents, approvedAgent, previewOnly } = req.body as DispatchRequest;
 
@@ -731,7 +731,9 @@ app.post('/dispatch', async (req: Request, res: Response) => {
   } catch (error: any) {
     res.status(500).json({ error: "Internal server error" });
   }
-});
+};
+app.post('/dispatch', dispatchHandler);
+app.post('/api/query', dispatchHandler);
 
 /**
  * Get task status by ID
