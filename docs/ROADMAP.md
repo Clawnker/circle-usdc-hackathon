@@ -1,7 +1,7 @@
 # Hivemind Protocol — V2 Roadmap
 
 > **Status:** Post-hackathon. Building toward production-grade product.
-> **Last updated:** 2026-02-10
+> **Last updated:** 2026-02-11
 
 ---
 
@@ -73,6 +73,16 @@ What shipped for the hackathon:
 - [x] Vertex AI global endpoint support for Gemini 3.x models
 - [x] Fix DAG multi-hop scribe synthesis step ✅ (Done 2026-02-10)
 
+### 2g. UX & Reliability (Sprint 9, 2026-02-11) ✅
+- [x] Sentiment fast-path no longer requires preposition (broader matching)
+- [x] EVM address parsing added to bankr specialist
+- [x] Asset parsing fix — bankr parses USDC/SOL/ETH from prompt instead of hardcoding SOL
+- [x] "X worth" pattern + expanded multi-hop patterns ("find...buy", "talked about", "most hyped")
+- [x] Transaction approval flow — balance checks before swap/transfer, two-phase execution
+- [x] TransactionApproval.tsx modal with WebSocket `transaction_approval` event
+- [x] Example queries fixed on frontend
+- [x] "For Agents" section + "List your agent" nav button on homepage
+
 ---
 
 ## Phase 3: Agent Discovery & Onboarding
@@ -101,12 +111,34 @@ What shipped for the hackathon:
 
 ## Phase 4: Payments & Economics
 
-### 4a. Mainnet Deployment
+### 4a. Standard x402 Infrastructure (Sprint 9, 2026-02-11) ✅
+- [x] Sentinel migrated to `x402-express` middleware (v2.0.0, Gemini 2.5 Pro)
+- [x] Sentinel discoverable via `awal x402 details` / x402 bazaar
+- [x] Coinbase CDP SDK integrated into Hivemind backend
+- [x] CDP API key provisioned (ECDSA, Trade+Transfer+View+Manage)
+- [x] Custom x402 header handling replaced with `x402-express` paymentMiddleware
+- [x] Real payment verification (replaces format-only checks)
+- [x] Environment: `CDP_API_KEY_NAME`, `CDP_API_KEY_SECRET` on Render
+
+### 4b. Mainnet Deployment
 - [ ] Move from Base Sepolia to Base mainnet
 - [ ] Real USDC payments
 - [ ] Gas optimization for payment transactions
 
-### 4b. MCPay Proxy Integration
+### 4c. Agent Identity & Auth
+- [ ] SIWA (Sign In With Agent) — ERC-8004 + ERC-8128 HTTP signatures
+  - Repo: https://github.com/builders-garden/siwa
+  - Agents prove identity via NFT ownership, then use signed HTTP requests
+  - Keyring proxy keeps private keys out of agent process
+- [ ] Combine all four layers: Discovery + Identity + Payments + Reputation
+
+### 4d. x402 Bazaar Integration
+- [ ] List all Hivemind specialists on x402 bazaar
+- [ ] Route queries to cheaper bazaar agents when quality is comparable
+- [ ] Bazaar price comparison in routing decisions
+- [ ] Import bazaar agents as Hivemind specialists automatically
+
+### 4e. MCPay Proxy Integration
 - [ ] Backend acts as x402 proxy — user's MCP client pays, we verify receipt and serve result
 - [ ] AgentWallet delegated spending API (when MCPay ships it)
 - [ ] Users never share keys with us — all payment signing happens client-side
@@ -162,10 +194,12 @@ What shipped for the hackathon:
 
 **Current stack:**
 - Backend: TypeScript/Node.js on Render
-- Frontend: Next.js on Vercel
-- Payments: Base Sepolia USDC via x402 + AgentWallet
+- Frontend: Next.js on Vercel (auto-deploy from GitHub)
+- Payments: Base Sepolia USDC via x402-express + Coinbase CDP SDK
 - Identity: ERC-8004 registries (Base Sepolia)
 - External agents: HTTP proxy via dispatcher
+- Wallet: Coinbase CDP SDK (server-side), awal CLI (client-side/desktop)
+- Auth (planned): SIWA (Sign In With Agent) for agent identity verification
 
 **Key files:**
 - `backend/src/dispatcher.ts` — routing brain
