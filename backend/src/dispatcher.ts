@@ -147,9 +147,14 @@ function isComplexQuery(prompt: string): boolean {
 function detectMultiHop(prompt: string): SpecialistType[] | null {
   const lower = prompt.toLowerCase();
   
-  // Pattern: "buy" + "trending" = aura → bankr
-  if (lower.includes('buy') && (lower.includes('trending') || lower.includes('popular') || lower.includes('hot') || lower.includes('sentiment'))) {
+  // Pattern: "buy" + "trending/popular/talked about/most hyped" = aura → bankr
+  if (lower.includes('buy') && (lower.includes('trending') || lower.includes('popular') || lower.includes('hot') || lower.includes('sentiment') || lower.includes('talked about') || lower.includes('most hyped') || lower.includes('most popular'))) {
     return ['aura', 'bankr'];
+  }
+
+  // Pattern: "find" + "buy" = seeker/aura → bankr (research then execute)
+  if ((lower.includes('find') || lower.includes('discover') || lower.includes('what')) && lower.includes('buy')) {
+    return ['seeker', 'bankr'];
   }
   
   // Pattern: "analyze" + "buy" = magos → bankr  

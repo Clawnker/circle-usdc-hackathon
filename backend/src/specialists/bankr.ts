@@ -493,6 +493,7 @@ function parseIntent(prompt: string): {
   to?: string;
   amount?: string;
   address?: string;
+  asset?: string;
 } {
   // First check for compound "buy X and send to Y" pattern
   const compound = parseCompoundIntent(prompt);
@@ -503,9 +504,10 @@ function parseIntent(prompt: string): {
   
   const lower = prompt.toLowerCase();
   
-  // Extract amount
-  const amountMatch = prompt.match(/([\d.]+)\s*(SOL|USDC|USDT|BONK|WIF|JUP|RAY)/i);
-  const amount = amountMatch ? amountMatch[1] : '0.1';
+  // Extract amount - also match "X worth" pattern like "buy 5 usdc worth"
+  const amountMatch = prompt.match(/([\d.]+)\s*(SOL|USDC|USDT|ETH|BONK|WIF|JUP|RAY)/i);
+  const worthMatch = prompt.match(/([\d.]+)\s*(SOL|USDC|USDT|ETH)\s*worth/i);
+  const amount = amountMatch ? amountMatch[1] : worthMatch ? worthMatch[1] : '0.1';
   
   // Detect intent
   const isAdvice = lower.includes('good') || lower.includes('should') || lower.includes('recommend');
@@ -558,10 +560,14 @@ function parseIntent(prompt: string): {
   if (lower.includes('transfer') || lower.includes('send') || lower.includes('pay')) {
     const solAddressMatch = prompt.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/);
     const evmAddressMatch = prompt.match(/0x[a-fA-F0-9]{40}/);
+    // Parse asset: "send 5 USDC" or "send 5 SOL" or "transfer 0.1 ETH"
+    const assetMatch = prompt.match(/[\d.]+\s*(SOL|USDC|USDT|ETH|BONK|WIF|JUP|RAY)/i);
+    const asset = assetMatch ? assetMatch[1].toUpperCase() : 'SOL';
     return { 
       type: 'transfer', 
       address: solAddressMatch ? solAddressMatch[0] : evmAddressMatch ? evmAddressMatch[0] : undefined,
       amount,
+      asset,
     };
   }
   
@@ -664,6 +670,7 @@ export const bankr = {
           
         case 'transfer':
           if (intent.address) {
+            const transferAsset = intent.asset || 'SOL';
             // Check if it's an EVM address (0x...)
             if (intent.address.startsWith('0x')) {
               data = {
@@ -672,34 +679,54 @@ export const bankr = {
                 details: {
                   to: intent.address,
                   amount: intent.amount || '5',
-                  asset: 'USDC',
+                  asset: transferAsset,
                   chain: 'Base',
-                  note: 'Base USDC transfer queued. In production, this would execute via x402 payment rail on Base.',
+                  note: `Base ${transferAsset} transfer queued. In production, this would execute via x402 payment rail on Base.`,
                   explorer: `https://basescan.org/address/${intent.address}`,
                 },
               };
-              (data as any).summary = `📋 **Base Transfer Queued**\n• Amount: ${intent.amount || '5'} USDC\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: Base\n• Status: Simulated (production would settle on-chain via x402)`;
+              (data as any).summary = `📋 **Base Transfer Queued**\n• Amount: ${intent.amount || '5'} ${transferAsset}\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: Base\n• Status: Simulated (production would settle on-chain via x402)`;
               break;
             }
+            // Solana address — check if asset is USDC (SPL token transfer) or SOL
+            const isSolTransfer = transferAsset === 'SOL';
             try {
-              const result = await executeAgentWalletTransfer(
-                intent.address,
-                intent.amount || '0.01',
-                'sol'
-              );
-              txSignature = result.txHash;
-              data = {
-                type: 'transfer',
-                status: 'confirmed',
-                txSignature,
-                details: {
-                  to: intent.address,
-                  amount: intent.amount,
-                  explorer: result.explorer,
-                  network: 'devnet',
-                },
-              };
-              (data as any).summary = `✅ Successfully sent ${intent.amount} SOL to ${intent.address?.slice(0, 8)}...`;
+              if (isSolTransfer) {
+                const result = await executeAgentWalletTransfer(
+                  intent.address,
+                  intent.amount || '0.01',
+                  'sol'
+                );
+                txSignature = result.txHash;
+                data = {
+                  type: 'transfer',
+                  status: 'confirmed',
+                  txSignature,
+                  details: {
+                    to: intent.address,
+                    amount: intent.amount,
+                    asset: 'SOL',
+                    explorer: result.explorer,
+                    network: 'devnet',
+                  },
+                };
+                (data as any).summary = `✅ Successfully sent ${intent.amount} SOL to ${intent.address?.slice(0, 8)}...`;
+              } else {
+                // SPL token transfer (USDC, etc.) — simulated for now
+                data = {
+                  type: 'transfer',
+                  status: 'simulated',
+                  details: {
+                    to: intent.address,
+                    amount: intent.amount || '5',
+                    asset: transferAsset,
+                    chain: 'Solana',
+                    note: `${transferAsset} SPL token transfer queued. In production, this would execute via AgentWallet SPL transfer.`,
+                    explorer: `https://explorer.solana.com/address/${intent.address}?cluster=devnet`,
+                  },
+                };
+                (data as any).summary = `📋 **Solana ${transferAsset} Transfer Queued**\n• Amount: ${intent.amount || '5'} ${transferAsset}\n• To: ${intent.address.slice(0, 8)}...\n• Chain: Solana Devnet\n• Status: Simulated (SPL token transfers coming soon)`;
+              }
             } catch (transferError: any) {
               console.error('[bankr] Transfer execution failed:', transferError.message);
               data = {
@@ -707,7 +734,8 @@ export const bankr = {
                 status: 'failed',
                 details: { 
                   error: transferError.response?.data?.error || transferError.message,
-                  note: 'Check if devnet wallet has sufficient SOL for gas'
+                  asset: transferAsset,
+                  note: `Check if devnet wallet has sufficient ${isSolTransfer ? 'SOL' : transferAsset} for transfer`
                 },
               };
               (data as any).summary = `❌ Transfer failed: ${transferError.message}`;
