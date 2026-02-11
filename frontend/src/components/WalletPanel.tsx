@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, Copy, Check, ExternalLink, RefreshCw, Activity, ChevronDown, ChevronUp, LogIn, LogOut, User, Loader2 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
+import { useAccount, useBalance } from 'wagmi';
+import { baseSepolia } from 'wagmi/chains';
 
 interface WalletPanelProps {
   className?: string;
@@ -18,6 +20,7 @@ interface TokenBalance {
 
 const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135';
 const AGENTWALLET_USERNAME = 'claw';
+const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
 
 const TOKEN_CONFIG: Record<string, { icon: string; color: string; decimals: number }> = {
   ETH: { icon: 'Ξ', color: 'from-[#627EEA] to-[#627EEA]', decimals: 4 },
@@ -28,6 +31,21 @@ const TOKEN_CONFIG: Record<string, { icon: string; color: string; decimals: numb
 
 export function WalletPanel({ className = '' }: WalletPanelProps) {
   const { wallet: userWallet, isConnecting, error: walletError, connect, disconnect } = useWallet();
+  
+  // OnchainKit / wagmi connected wallet
+  const { address: onchainAddress, isConnected: isOnchainConnected } = useAccount();
+  const { data: ethBalance, refetch: refetchEth } = useBalance({
+    address: onchainAddress,
+    chainId: baseSepolia.id,
+    query: { enabled: isOnchainConnected },
+  });
+  const { data: usdcBalance, refetch: refetchUsdc } = useBalance({
+    address: onchainAddress,
+    token: USDC_ADDRESS,
+    chainId: baseSepolia.id,
+    query: { enabled: isOnchainConnected },
+  });
+
   const [tokens, setTokens] = useState<TokenBalance[]>([
     { symbol: 'ETH', amount: 0, icon: 'Ξ', color: 'from-[#627EEA] to-[#627EEA]' },
     { symbol: 'USDC', amount: 0, icon: '$', color: 'from-[#2775CA] to-[#2775CA]' },
@@ -39,9 +57,10 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
   const [showConnect, setShowConnect] = useState(false);
   const [connectInput, setConnectInput] = useState('');
 
-  const displayAddress = userWallet?.evmAddress || TREASURY_ADDRESS;
-  const displayUsername = userWallet?.username || AGENTWALLET_USERNAME;
-  const isUserConnected = !!userWallet;
+  // Prefer OnchainKit wallet, fall back to legacy AgentWallet, then treasury
+  const displayAddress = isOnchainConnected ? (onchainAddress || '') : (userWallet?.evmAddress || TREASURY_ADDRESS);
+  const displayUsername = isOnchainConnected ? '' : (userWallet?.username || AGENTWALLET_USERNAME);
+  const isUserConnected = isOnchainConnected || !!userWallet;
 
   const truncateAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -53,8 +72,40 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Update tokens when OnchainKit balances change
+  useEffect(() => {
+    if (isOnchainConnected) {
+      const newTokens: TokenBalance[] = [
+        {
+          symbol: 'ETH',
+          amount: ethBalance ? parseFloat(ethBalance.formatted) : 0,
+          icon: TOKEN_CONFIG.ETH.icon,
+          color: TOKEN_CONFIG.ETH.color,
+        },
+        {
+          symbol: 'USDC',
+          amount: usdcBalance ? parseFloat(usdcBalance.formatted) : 0,
+          icon: TOKEN_CONFIG.USDC.icon,
+          color: TOKEN_CONFIG.USDC.color,
+        },
+      ];
+      setTokens(newTokens);
+      setLastUpdated(new Date());
+    }
+  }, [isOnchainConnected, ethBalance, usdcBalance]);
+
   const fetchBalance = useCallback(async () => {
     setIsRefreshing(true);
+    
+    // If OnchainKit wallet is connected, refetch on-chain balances
+    if (isOnchainConnected) {
+      await Promise.all([refetchEth(), refetchUsdc()]);
+      setLastUpdated(new Date());
+      setIsRefreshing(false);
+      return;
+    }
+
+    // Legacy: fetch from backend API
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
       const response = await fetch(`${apiUrl}/api/wallet/balances`);
@@ -87,7 +138,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
       console.error('Failed to fetch balance:', error);
     }
     setIsRefreshing(false);
-  }, []);
+  }, [isOnchainConnected, refetchEth, refetchUsdc]);
 
   const openBasescan = () => {
     window.open(`https://sepolia.basescan.org/address/${displayAddress}`, '_blank');
@@ -244,7 +295,12 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
         {/* Address */}
         <div className="flex items-center justify-between">
           <span className="text-xs text-[var(--text-muted)]">
-            {isUserConnected ? (
+            {isOnchainConnected ? (
+              <span className="flex items-center gap-1">
+                <User size={10} />
+                Smart Wallet
+              </span>
+            ) : isUserConnected ? (
               <span className="flex items-center gap-1">
                 <User size={10} />
                 {displayUsername}
