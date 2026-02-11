@@ -2,6 +2,8 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, ArrowRightLeft, Send, Wallet, Info } from 'lucide-react';
+import { useAccount, useBalance } from 'wagmi';
+import { baseSepolia } from 'wagmi/chains';
 
 export interface TransactionDetails {
   type: 'swap' | 'transfer';
@@ -14,6 +16,8 @@ export interface TransactionDetails {
   feeEstimate?: string;
   currentBalance?: string;
 }
+
+const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
 
 interface TransactionApprovalProps {
   isOpen: boolean;
@@ -28,10 +32,44 @@ export function TransactionApproval({
   onApprove,
   onReject,
 }: TransactionApprovalProps) {
+  // Get connected wallet balance
+  const { address: onchainAddress, isConnected: isOnchainConnected } = useAccount();
+  const { data: usdcBalance } = useBalance({
+    address: onchainAddress,
+    token: USDC_ADDRESS,
+    chainId: baseSepolia.id,
+    query: { enabled: isOnchainConnected },
+  });
+  const { data: ethBalance } = useBalance({
+    address: onchainAddress,
+    chainId: baseSepolia.id,
+    query: { enabled: isOnchainConnected },
+  });
+
   if (!isOpen || !details) return null;
 
   const isSwap = details.type === 'swap';
   const isHighValue = parseFloat(details.amount) > 10 && details.asset === 'USDC';
+
+  // Use connected wallet balance if available, otherwise fall back to backend-provided
+  const displayBalance = isOnchainConnected
+    ? (details.asset === 'USDC' 
+        ? `${parseFloat(usdcBalance?.formatted || '0').toFixed(4)}`
+        : `${parseFloat(ethBalance?.formatted || '0').toFixed(4)}`)
+    : details.currentBalance || '0';
+
+  // Truncate address properly: 0x1234...5678
+  const truncateAddr = (addr: string | undefined) => {
+    if (!addr) return '—';
+    if (addr.startsWith('0x') && addr.length >= 42) {
+      return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+    }
+    // Solana-style
+    if (addr.length >= 32) {
+      return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+    }
+    return addr;
+  };
 
   return (
     <AnimatePresence>
@@ -108,7 +146,7 @@ export function TransactionApproval({
                   ) : (
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400 text-sm">To</span>
-                      <span className="text-gray-300 text-xs font-mono">{details.to?.slice(0, 8)}...{details.to?.slice(-8)}</span>
+                      <span className="text-gray-300 text-xs font-mono">{truncateAddr(details.to)}</span>
                     </div>
                   )}
 
@@ -117,13 +155,13 @@ export function TransactionApproval({
                       <span className="text-gray-400 text-xs flex items-center gap-1">
                         <Wallet className="w-3 h-3" /> Available Balance
                       </span>
-                      <span className="text-gray-300 text-xs">{details.currentBalance} {details.asset}</span>
+                      <span className="text-gray-300 text-xs">{displayBalance} {details.asset}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400 text-xs flex items-center gap-1">
-                        <Info className="w-3 h-3" /> Est. Network Fee
+                        <Info className="w-3 h-3" /> Network
                       </span>
-                      <span className="text-gray-300 text-xs">{details.feeEstimate}</span>
+                      <span className="text-gray-300 text-xs">Base Sepolia</span>
                     </div>
                   </div>
                 </div>
