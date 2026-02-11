@@ -546,7 +546,7 @@ export default function CommandCenter() {
       <div className="animated-bg" />
       
       {/* Main Content */}
-      <div className="relative z-10 lg:min-h-screen flex flex-col p-3 sm:p-6 max-w-7xl mx-auto w-full">
+      <div className="relative z-10 flex flex-col p-3 sm:p-6 max-w-7xl mx-auto w-full">
         {/* Header */}
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
