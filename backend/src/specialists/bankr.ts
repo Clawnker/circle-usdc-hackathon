@@ -614,7 +614,7 @@ export const bankr = {
   name: 'bankr',
   description: 'DeFi specialist using Jupiter routing and AgentWallet for transactions',
   
-  async handle(prompt: string): Promise<SpecialistResult> {
+  async handle(prompt: string, context?: any): Promise<SpecialistResult> {
     const startTime = Date.now();
     
     try {
@@ -622,11 +622,85 @@ export const bankr = {
       const compoundActions = parseCompoundIntent(prompt);
       if (compoundActions.length > 1) {
         console.log(`[bankr] Compound intent detected: ${compoundActions.length} actions`);
-        return await this.handleCompoundActions(prompt, compoundActions, startTime);
+        return await this.handleCompoundActions(prompt, compoundActions, startTime, context);
       }
       
       const intent = parseIntent(prompt);
       console.log(`[bankr] Intent: ${intent.type}`, intent);
+
+      // --- BALANCE CHECK & APPROVAL FLOW ---
+      if (intent.type === 'swap' || intent.type === 'transfer') {
+        const state = await syncWithRealBalance();
+        const fromToken = intent.type === 'swap' ? intent.from! : (intent.asset || 'SOL');
+        const amount = parseFloat(intent.amount || '0');
+        const currentBalance = state.balances[fromToken.toUpperCase()] || 0;
+
+        // 1. Check Balance
+        if (currentBalance < amount) {
+          return {
+            success: false,
+            data: {
+              type: intent.type,
+              status: 'failed',
+              details: {
+                error: 'Insufficient balance',
+                available: currentBalance.toFixed(4),
+                required: amount.toFixed(4),
+                asset: fromToken.toUpperCase()
+              }
+            },
+            timestamp: new Date(),
+            executionTimeMs: Date.now() - startTime,
+          };
+        }
+
+        // 2. Check for Approval
+        const isApproved = context?.metadata?.transactionApproved === true;
+        if (!isApproved) {
+          console.log(`[bankr] Transaction requires approval: ${intent.type} ${amount} ${fromToken}`);
+          
+          let estimatedOutput = '0';
+          let route = 'Direct';
+          let feeEstimate = '0.000005 SOL';
+
+          if (intent.type === 'swap') {
+            const inputMint = TOKEN_MINTS[intent.from!.toUpperCase()] || intent.from!;
+            const outputMint = TOKEN_MINTS[intent.to!.toUpperCase()] || intent.to!;
+            const decimals = intent.from!.toUpperCase() === 'SOL' ? 9 : 6;
+            const quote = await getJupiterQuote(inputMint, outputMint, intent.amount!, decimals);
+            
+            if (quote && quote.outAmount) {
+              const outputDecimals = intent.to!.toUpperCase() === 'SOL' ? 9 : 6;
+              estimatedOutput = (parseInt(quote.outAmount) / Math.pow(10, outputDecimals)).toFixed(6);
+              route = formatRoutePlan(quote).route;
+            } else {
+              estimatedOutput = estimateOutput(intent.from!, intent.to!, intent.amount!);
+              route = 'Mock (Quote Unavailable)';
+            }
+          }
+
+          return {
+            success: true,
+            data: {
+              type: intent.type,
+              requiresApproval: true,
+              details: {
+                type: intent.type,
+                amount: intent.amount,
+                from: intent.from,
+                to: intent.to || intent.address,
+                asset: fromToken.toUpperCase(),
+                estimatedOutput: intent.type === 'swap' ? estimatedOutput : undefined,
+                route: intent.type === 'swap' ? route : undefined,
+                feeEstimate,
+                currentBalance: currentBalance.toFixed(4),
+              }
+            },
+            timestamp: new Date(),
+            executionTimeMs: Date.now() - startTime,
+          };
+        }
+      }
       
       // Handle reset command
       if (prompt.toLowerCase().includes('reset balance') || prompt.toLowerCase().includes('sync balance')) {
@@ -824,12 +898,45 @@ export const bankr = {
   async handleCompoundActions(
     prompt: string,
     actions: ParsedAction[],
-    startTime: number
+    startTime: number,
+    context?: any
   ): Promise<SpecialistResult> {
     const results: any[] = [];
     let lastSwapOutput: { token: string; amount: number } | null = null;
     let state = await syncWithRealBalance();
     
+    // Check for approval if any step is swap or transfer
+    const isApproved = context?.metadata?.transactionApproved === true;
+    if (!isApproved) {
+      // Return approval requirement for the first action that needs it
+      const firstAction = actions[0];
+      if (firstAction.type === 'swap' || firstAction.type === 'transfer') {
+        const fromToken = firstAction.type === 'swap' ? firstAction.from! : (firstAction.token || 'SOL');
+        const amount = parseFloat(firstAction.amount || '0');
+        const currentBalance = state.balances[fromToken.toUpperCase()] || 0;
+        
+        return {
+          success: true,
+          data: {
+            type: 'compound',
+            requiresApproval: true,
+            details: {
+              type: 'compound',
+              amount: firstAction.amount,
+              from: firstAction.from,
+              to: firstAction.address || 'Multiple steps',
+              asset: fromToken.toUpperCase(),
+              feeEstimate: '0.00001 SOL (estimated)',
+              currentBalance: currentBalance.toFixed(4),
+              note: `This multi-step transaction involves ${actions.length} actions.`
+            }
+          },
+          timestamp: new Date(),
+          executionTimeMs: Date.now() - startTime,
+        };
+      }
+    }
+
     for (let i = 0; i < actions.length; i++) {
       const action = actions[i];
       console.log(`[bankr] Executing step ${i + 1}/${actions.length}: ${action.type}`);

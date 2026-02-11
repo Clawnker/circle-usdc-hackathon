@@ -16,6 +16,7 @@ import {
   ResultCard,
   QueryHistory,
   ApprovalPopup,
+  TransactionApproval,
   AddToSwarmBanner,
 } from '@/components';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
@@ -106,6 +107,7 @@ export default function CommandCenter() {
     messages,
     payments,
     result,
+    pendingTransaction,
     subscribe,
     reset,
   } = useWebSocket();
@@ -480,6 +482,51 @@ export default function CommandCenter() {
     setPendingApproval(null);
     setIsLoading(false);
   }, []);
+
+  // Handle transaction approval flow
+  const handleApproveTransaction = useCallback(async () => {
+    if (!pendingTransaction) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/api/transactions/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
+        },
+        body: JSON.stringify({ taskId: pendingTransaction.taskId }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to approve transaction');
+      }
+    } catch (err) {
+      console.error('Failed to approve transaction:', err);
+      setError('Failed to approve transaction');
+    }
+  }, [pendingTransaction]);
+
+  const handleRejectTransaction = useCallback(async () => {
+    if (!pendingTransaction) return;
+    
+    try {
+      const response = await fetch(`${API_URL}/api/transactions/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
+        },
+        body: JSON.stringify({ taskId: pendingTransaction.taskId }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to reject transaction');
+      }
+    } catch (err) {
+      console.error('Failed to reject transaction:', err);
+      setError('Failed to reject transaction');
+    }
+  }, [pendingTransaction]);
 
   const handleNewQuery = useCallback(() => {
     setLastResult(null);
@@ -942,6 +989,16 @@ export default function CommandCenter() {
           prompt={pendingApproval.prompt}
           onApprove={handleApproveAgent}
           onCancel={handleCancelApproval}
+        />
+      )}
+
+      {/* Transaction Approval Modal */}
+      {pendingTransaction && (
+        <TransactionApproval
+          isOpen={true}
+          details={pendingTransaction}
+          onApprove={handleApproveTransaction}
+          onReject={handleRejectTransaction}
         />
       )}
     </div>

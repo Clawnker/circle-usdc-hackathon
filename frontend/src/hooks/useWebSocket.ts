@@ -27,6 +27,7 @@ export interface UseWebSocketReturn {
   messages: AgentMessage[];
   payments: Payment[];
   result: unknown;
+  pendingTransaction: any | null;
   subscribe: (taskId: string) => void;
   unsubscribe: (taskId: string) => void;
   reset: () => void;
@@ -40,6 +41,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [result, setResult] = useState<unknown>(null);
+  const [pendingTransaction, setPendingTransaction] = useState<any | null>(null);
   const subscribedTaskRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -112,6 +114,17 @@ export function useWebSocket(): UseWebSocketReturn {
                   if (task.status === 'completed' && task.result) {
                     setResult(task.result);
                   }
+
+                  // Handle transaction approval
+                  if (task.metadata?.requiresTransactionApproval) {
+                    setPendingTransaction({
+                      taskId: task.id,
+                      ...task.metadata.transactionDetails
+                    });
+                  } else {
+                    setPendingTransaction(null);
+                  }
+
                   // Add payments if present
                   if (task.payments?.length > 0) {
                     setPayments(task.payments.map((p: any, i: number) => ({
@@ -203,6 +216,17 @@ export function useWebSocket(): UseWebSocketReturn {
         const task = await res.json();
         
         if (task.status) setTaskStatus(task.status);
+        
+        // Handle transaction approval in polling
+        if (task.metadata?.requiresTransactionApproval) {
+          setPendingTransaction({
+            taskId: task.id,
+            ...task.metadata.transactionDetails
+          });
+        } else {
+          setPendingTransaction(null);
+        }
+
         if (task.specialist) {
           const activeSpecialist = task.metadata?.activeSpecialist || task.specialist;
           setCurrentStep({ specialist: activeSpecialist, action: task.status });
@@ -272,6 +296,7 @@ export function useWebSocket(): UseWebSocketReturn {
     messages,
     payments,
     result,
+    pendingTransaction,
     subscribe,
     unsubscribe,
     reset,

@@ -421,7 +421,7 @@ function getSpecialistDisplayName(specialist: SpecialistType): string {
 /**
  * Execute a task
  */
-async function executeTask(task: Task, dryRun: boolean): Promise<void> {
+export async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   // Demo delay for visual effect
   await new Promise(resolve => setTimeout(resolve, 500));
   
@@ -722,8 +722,18 @@ async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       };
     } else {
       circuitBreaker.recordCall(task.specialist);
-      result = await callSpecialistGated(task.specialist, task.prompt);
+      result = await callSpecialistGated(task.specialist, task.prompt, task);
       
+      // Handle transaction approval flow
+      if (result.data?.requiresApproval) {
+        console.log(`[Dispatcher] Task ${task.id} requires transaction approval`);
+        updateTaskStatus(task, 'pending', { 
+          requiresTransactionApproval: true, 
+          transactionDetails: result.data.details 
+        });
+        return;
+      }
+
       if (result.success) {
         circuitBreaker.recordSuccess(task.specialist);
       } else {
@@ -990,7 +1000,7 @@ function formatResultForCallback(result: SpecialistResult): { summary: string; d
 /**
  * Update task status and emit event
  */
-function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<string, any>): void {
+export function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<string, any>): void {
   task.status = status;
   task.updatedAt = new Date();
   if (extra) {
@@ -1245,7 +1255,7 @@ async function checkPaymentRequired(specialist: SpecialistType): Promise<boolean
  * Call a specialist through the x402-gated endpoint
  * Handles 402 responses and provides payment instructions
  */
-export async function callSpecialistGated(specialistId: string, prompt: string): Promise<SpecialistResult> {
+export async function callSpecialistGated(specialistId: string, prompt: string, context?: any): Promise<SpecialistResult> {
   const startTime = Date.now();
   
   try {
@@ -1261,7 +1271,7 @@ export async function callSpecialistGated(specialistId: string, prompt: string):
     // In actual implementation: const response = await axios.post(`/api/specialist/${specialistId}`, { prompt });
     
     // For demo purposes, we call the specialist directly but log the x402 flow
-    const result = await callSpecialist(specialistId as SpecialistType, prompt);
+    const result = await callSpecialist(specialistId as SpecialistType, prompt, context);
     
     return {
       ...result,
@@ -1281,7 +1291,7 @@ export async function callSpecialistGated(specialistId: string, prompt: string):
  * Call the appropriate specialist
  * Checks external agents first, then falls back to built-in specialists
  */
-export async function callSpecialist(specialist: SpecialistType, prompt: string): Promise<SpecialistResult> {
+export async function callSpecialist(specialist: SpecialistType, prompt: string, context?: any): Promise<SpecialistResult> {
   const startTime = Date.now();
   
   // Check if this is an external agent (registered via marketplace)
@@ -1302,7 +1312,7 @@ export async function callSpecialist(specialist: SpecialistType, prompt: string)
       break;
     
     case 'bankr':
-      result = await bankr.handle(prompt);
+      result = await bankr.handle(prompt, context);
       break;
     
     case 'scribe':

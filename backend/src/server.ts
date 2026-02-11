@@ -13,7 +13,7 @@ import * as path from 'path';
 
 import config from './config';
 import { authMiddleware } from './middleware/auth';
-import dispatcher, { dispatch, getTask, getRecentTasks, subscribeToTask, getSpecialists, callSpecialist } from './dispatcher';
+import dispatcher, { dispatch, getTask, getRecentTasks, subscribeToTask, getSpecialists, callSpecialist, executeTask, updateTaskStatus } from './dispatcher';
 import { getBalances, getTransactionLog } from './x402';
 import { getSimulatedBalances } from './specialists/bankr';
 import { submitVote, getVote, getReputationStats, getAllReputation, updateSyncStatus } from './reputation';
@@ -775,6 +775,74 @@ app.get('/status/:taskId', (req: Request, res: Response) => {
   }
 
   res.json(task);
+});
+
+/**
+ * Approve a pending transaction
+ * POST /api/transactions/approve
+ */
+app.post('/api/transactions/approve', async (req: Request, res: Response) => {
+  try {
+    const { taskId } = req.body;
+    const task = getTask(taskId);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    console.log(`[API] Transaction approved for task ${taskId}`);
+    
+    // Update task metadata and status
+    task.metadata = { 
+      ...task.metadata, 
+      transactionApproved: true,
+      requiresTransactionApproval: false 
+    };
+    
+    // Resume task execution
+    updateTaskStatus(task, 'processing');
+    executeTask(task, task.metadata?.dryRun || false);
+
+    res.json({ success: true, status: 'processing' });
+  } catch (error: any) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Reject a pending transaction
+ * POST /api/transactions/reject
+ */
+app.post('/api/transactions/reject', async (req: Request, res: Response) => {
+  try {
+    const { taskId } = req.body;
+    const task = getTask(taskId);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    console.log(`[API] Transaction rejected for task ${taskId}`);
+    
+    task.metadata = { 
+      ...task.metadata, 
+      transactionApproved: false,
+      requiresTransactionApproval: false 
+    };
+    
+    task.result = {
+      success: false,
+      data: { error: 'Transaction rejected by user' },
+      timestamp: new Date(),
+      executionTimeMs: 0
+    };
+    
+    updateTaskStatus(task, 'failed');
+
+    res.json({ success: true, status: 'failed' });
+  } catch (error: any) {
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 /**

@@ -10,4 +10,5 @@ export { AgentRegistry } from './AgentRegistry';
 export { ResultCard } from './ResultCard';
 export { QueryHistory } from './QueryHistory';
 export { ApprovalPopup } from './ApprovalPopup';
+export { TransactionApproval } from './TransactionApproval';
 export { AddToSwarmBanner } from './AddToSwarmBanner';
