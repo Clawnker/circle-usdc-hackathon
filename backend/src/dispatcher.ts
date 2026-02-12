@@ -949,23 +949,9 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     if (!hiredAgents || hiredAgents.includes('silverback')) return 'silverback';
   }
   
-  // 0b. Intent Classifier (LLM-powered with cache)
-  try {
-    const intent = await classifyIntent(prompt);
-    if (intent && intent.confidence >= 0.7) {
-      const specialist = intent.specialist;
-      if (!hiredAgents || hiredAgents.includes(specialist)) {
-        console.log(`[Intent Classifier] ${intent.category} → ${specialist} (${(intent.confidence * 100).toFixed(0)}%)`);
-        return specialist;
-      }
-    }
-  } catch (e: any) {
-    console.log(`[Intent Classifier] Error: ${e.message}, falling through`);
-  }
-  
   // 1. Capability-Based Matching (FIRST — external agents get priority)
-  // This runs before fast-paths so that external agents with real capabilities
-  // (e.g. Silverback for "swap route for ETH") beat internal fast-paths (e.g. bankr)
+  // This runs before Intent Classifier so that external agents with real capabilities
+  // (e.g. Minara for "market analysis") beat internal legacy defaults (e.g. Magos/Seeker)
   if (planningMode === 'capability') {
     try {
       const intent = await capabilityMatcher.extractIntent(prompt);
@@ -990,6 +976,20 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     } catch (error: any) {
       console.error(`[Capability Matcher] Error:`, error.message, '- falling back to fast-paths');
     }
+  }
+
+  // 0b. Intent Classifier (LLM-powered with cache)
+  try {
+    const intent = await classifyIntent(prompt);
+    if (intent && intent.confidence >= 0.7) {
+      const specialist = intent.specialist;
+      if (!hiredAgents || hiredAgents.includes(specialist)) {
+        console.log(`[Intent Classifier] ${intent.category} → ${specialist} (${(intent.confidence * 100).toFixed(0)}%)`);
+        return specialist;
+      }
+    }
+  } catch (e: any) {
+    console.log(`[Intent Classifier] Error: ${e.message}, falling through`);
   }
   
   // 2. Fast-path: contract audit/security queries → sentinel
