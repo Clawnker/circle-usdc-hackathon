@@ -12,23 +12,20 @@ import {
   Eye, 
   Compass,
   Sparkles,
-  Newspaper,
   FileText,
   Cpu,
-  Plus,
-  X,
   ExternalLink,
-  Loader2
 } from 'lucide-react';
 import { AgentCard } from './AgentCard';
 
 // Metadata for registered agents (visuals only)
+// Prices synced with backend config.fees ($0.10 per specialist, $2.50 Sentinel)
 const AGENT_METADATA: Record<string, any> = {
   'Bankr': {
     id: 'bankr',
     tagline: 'Execution Engine',
     icon: Coins,
-    price: 0.0001,
+    price: 0.10,
     successRate: 99,
     responseTime: '0.8s',
     tasksCompleted: 89000,
@@ -41,7 +38,7 @@ const AGENT_METADATA: Record<string, any> = {
     id: 'scribe',
     tagline: 'General Assistant',
     icon: FileText,
-    price: 0.0001,
+    price: 0.10,
     successRate: 95,
     responseTime: '1.5s',
     tasksCompleted: 12500,
@@ -54,7 +51,7 @@ const AGENT_METADATA: Record<string, any> = {
     id: 'seeker',
     tagline: 'Web Research',
     icon: Search,
-    price: 0.0001,
+    price: 0.10,
     successRate: 92,
     responseTime: '2.5s',
     tasksCompleted: 8400,
@@ -63,11 +60,11 @@ const AGENT_METADATA: Record<string, any> = {
     tier: 'core',
     erc8004Id: 'agent:base:0x99a...c55'
   },
-  'Market Oracle': { // Magos
+  'Market Oracle': {
     id: 'magos',
     tagline: 'Predictive Oracle',
     icon: Compass,
-    price: 0.001,
+    price: 0.10,
     successRate: 94,
     responseTime: '2.4s',
     tasksCompleted: 15420,
@@ -76,11 +73,11 @@ const AGENT_METADATA: Record<string, any> = {
     tier: 'marketplace',
     erc8004Id: 'agent:base:0x72a...f42'
   },
-  'Magos': { // Magos alias
+  'Magos': {
     id: 'magos',
     tagline: 'Predictive Oracle',
     icon: Compass,
-    price: 0.001,
+    price: 0.10,
     successRate: 94,
     responseTime: '2.4s',
     tasksCompleted: 15420,
@@ -89,11 +86,11 @@ const AGENT_METADATA: Record<string, any> = {
     tier: 'marketplace',
     erc8004Id: 'agent:base:0x72a...f42'
   },
-  'Social Analyst': { // Aura
+  'Social Analyst': {
     id: 'aura',
     tagline: 'Social Sentinel',
     icon: Eye,
-    price: 0.0005,
+    price: 0.10,
     successRate: 89,
     responseTime: '1.2s',
     tasksCompleted: 42100,
@@ -102,11 +99,11 @@ const AGENT_METADATA: Record<string, any> = {
     tier: 'marketplace',
     erc8004Id: 'agent:base:0x31b...a12'
   },
-  'Aura': { // Aura alias
+  'Aura': {
     id: 'aura',
     tagline: 'Social Sentinel',
     icon: Eye,
-    price: 0.0005,
+    price: 0.10,
     successRate: 89,
     responseTime: '1.2s',
     tasksCompleted: 42100,
@@ -148,45 +145,15 @@ const AGENT_METADATA: Record<string, any> = {
 interface MarketplaceProps {
   hiredAgents: string[];
   onHire: (agentId: string) => void;
-  openRegisterForm?: boolean;
-  onRegisterFormOpened?: () => void;
 }
 
-interface RegisterFormData {
-  name: string;
-  description: string;
-  endpoint: string;
-  wallet: string;
-  capabilities: string;
-  pricing: string;
-}
-
-export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterFormOpened }: MarketplaceProps) {
+export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'popularity' | 'price' | 'reputation'>('popularity');
   const [filterType, setFilterType] = useState<string>('all');
   const [reputationData, setReputationData] = useState<Record<string, { successRate: number; upvotes: number; downvotes: number }>>({});
   const [agents, setAgents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showRegisterForm, setShowRegisterForm] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [registerResult, setRegisterResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [formData, setFormData] = useState<RegisterFormData>({
-    name: '',
-    description: '',
-    endpoint: '',
-    wallet: '',
-    capabilities: '',
-    pricing: '',
-  });
-
-  // Fetch registered agents and reputation
-  useEffect(() => {
-    if (openRegisterForm) {
-      setShowRegisterForm(true);
-      onRegisterFormOpened?.();
-    }
-  }, [openRegisterForm, onRegisterFormOpened]);
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -206,13 +173,13 @@ export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterF
         
         // Map API agents to card format using metadata
         const mappedAgents = agentsData.agents
-          .filter((a: any) => a.name !== 'Hivemind Dispatcher') // Hide system agent
+          .filter((a: any) => a.name !== 'Hivemind Dispatcher')
           .map((a: any) => {
             const meta = AGENT_METADATA[a.name] || {
               id: a.name.toLowerCase().replace(/\s+/g, ''),
               tagline: 'New Specialist',
               icon: Sparkles,
-              price: 0.001,
+              price: 0.10,
               successRate: 0,
               responseTime: '?',
               tasksCompleted: 0,
@@ -226,18 +193,17 @@ export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterF
               ...meta,
               name: a.name,
               description: a.description,
-              isVerified: true, // All API agents are registered
+              isVerified: true,
               capabilities: meta.capabilities || a.capabilities || ['general'],
               external: a.external || false,
               endpoint: a.services?.[0]?.endpoint,
             };
           });
 
-        // Also add external agents that may not be in registrations.json yet
+        // Also add external agents
         if (externalRes && externalRes.ok) {
           const externalData = await externalRes.json();
           for (const ext of (externalData.agents || [])) {
-            // Skip if already in the mapped list
             if (mappedAgents.some((a: any) => a.id === ext.id)) continue;
             
             const meta = AGENT_METADATA[ext.name] || {
@@ -277,7 +243,6 @@ export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterF
     fetchData();
   }, []);
 
-  // Merge reputation data with agent data
   const agentsWithReputation = useMemo(() => {
     return agents.map(agent => ({
       ...agent,
@@ -292,9 +257,7 @@ export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterF
       const matchesSearch = agent.name.toLowerCase().includes(search.toLowerCase()) || 
                             agent.description.toLowerCase().includes(search.toLowerCase()) ||
                             agent.capabilities.some((c: string) => c.includes(search.toLowerCase()));
-      
       const matchesFilter = filterType === 'all' || agent.capabilities.includes(filterType);
-      
       return matchesSearch && matchesFilter;
     });
 
@@ -309,60 +272,11 @@ export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterF
 
   const allCapabilities = Array.from(new Set(agents.flatMap(a => a.capabilities)));
 
-  const handleRegister = async () => {
-    setIsRegistering(true);
-    setRegisterResult(null);
-    
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    
-    try {
-      // Parse capabilities and pricing
-      const capabilities = formData.capabilities.split(',').map(c => c.trim()).filter(Boolean);
-      let pricing: Record<string, number> = {};
-      if (formData.pricing) {
-        formData.pricing.split(',').forEach(p => {
-          const [cap, fee] = p.split(':').map(s => s.trim());
-          if (cap && fee) pricing[cap] = parseFloat(fee);
-        });
-      }
-      
-      const res = await fetch(`${apiUrl}/api/agents/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description,
-          endpoint: formData.endpoint,
-          wallet: formData.wallet,
-          capabilities,
-          pricing,
-          chain: 'base-sepolia',
-        }),
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok && data.success) {
-        setRegisterResult({ success: true, message: data.message });
-        // Refresh agent list
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      } else {
-        setRegisterResult({ success: false, message: data.error || 'Registration failed' });
-      }
-    } catch (err: any) {
-      setRegisterResult({ success: false, message: err.message });
-    } finally {
-      setIsRegistering(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--accent-gold)]"></div>
-        <p className="mt-4 text-[var(--text-muted)]">Loading registry...</p>
+        <p className="mt-4 text-[var(--text-muted)]">Loading marketplace...</p>
       </div>
     );
   }
@@ -377,7 +291,7 @@ export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterF
             Agent Marketplace
           </h2>
           <p className="text-[var(--text-secondary)]">
-            Discover and add specialized autonomous agents to your Hivemind swarm.
+            Internal specialists powering the Hivemind swarm.
           </p>
         </div>
 
@@ -456,186 +370,22 @@ export function Marketplace({ hiredAgents, onHire, openRegisterForm, onRegisterF
         )}
       </div>
 
-      {/* Bottom CTA */}
+      {/* Bottom CTA — points to Bazaar tab for external agents */}
       <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex -space-x-2">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="w-8 h-8 rounded-full border-2 border-[var(--bg-primary)] bg-[var(--bg-tertiary)] flex items-center justify-center text-[10px] font-bold">
-                A{i}
-              </div>
-            ))}
-          </div>
-          <span className="text-sm text-[var(--text-muted)]">Join 150+ agents in the open marketplace</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <a
-            href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center gap-1"
-          >
-            <FileText size={14} />
-            Registration Guide
-            <ExternalLink size={12} />
-          </a>
-          <button 
-            onClick={() => setShowRegisterForm(true)}
-            data-register-button
-            className="text-sm font-bold text-[var(--accent-gold)] hover:underline flex items-center gap-1"
-          >
-            <Plus size={14} />
-            List your agent &rarr;
-          </button>
-        </div>
+        <span className="text-sm text-[var(--text-muted)]">
+          These are Hivemind&apos;s built-in specialists. Browse the <strong>Bazaar</strong> tab for external agents.
+        </span>
+        <a
+          href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-[var(--accent-cyan)] hover:underline flex items-center gap-1"
+        >
+          <FileText size={14} />
+          Agent Registration Guide
+          <ExternalLink size={12} />
+        </a>
       </div>
-
-      {/* Registration Modal */}
-      <AnimatePresence>
-        {showRegisterForm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowRegisterForm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="glass-panel gradient-border max-w-lg w-full p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                  <Shield className="text-[var(--accent-gold)]" size={20} />
-                  Register External Agent
-                </h3>
-                <button onClick={() => setShowRegisterForm(false)} className="text-[var(--text-muted)] hover:text-white">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <p className="text-sm text-[var(--text-secondary)] mb-6">
-                Register your autonomous agent on the Hivemind marketplace. Your agent will receive queries via HTTP and earn USDC through x402 payments.
-                {' '}
-                <a
-                  href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[var(--accent-cyan)] hover:underline inline-flex items-center gap-1"
-                >
-                  Full registration guide <ExternalLink size={12} />
-                </a>
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Agent Name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
-                    placeholder="e.g. Sentinel"
-                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm focus:outline-none focus:border-[var(--accent-cyan)]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Description</label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
-                    placeholder="Security audit agent powered by Gemini"
-                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm focus:outline-none focus:border-[var(--accent-cyan)]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                    Endpoint URL
-                    <ExternalLink size={12} className="inline ml-1" />
-                  </label>
-                  <input
-                    type="url"
-                    value={formData.endpoint}
-                    onChange={(e) => setFormData(f => ({ ...f, endpoint: e.target.value }))}
-                    placeholder="https://your-agent.run.app"
-                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Payment Wallet</label>
-                  <input
-                    type="text"
-                    value={formData.wallet}
-                    onChange={(e) => setFormData(f => ({ ...f, wallet: e.target.value }))}
-                    placeholder="0x..."
-                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Capabilities (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={formData.capabilities}
-                    onChange={(e) => setFormData(f => ({ ...f, capabilities: e.target.value }))}
-                    placeholder="security-audit, compliance-check"
-                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm focus:outline-none focus:border-[var(--accent-cyan)]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Pricing (capability:fee, comma-separated)</label>
-                  <input
-                    type="text"
-                    value={formData.pricing}
-                    onChange={(e) => setFormData(f => ({ ...f, pricing: e.target.value }))}
-                    placeholder="security-audit:2.50, compliance-check:1.00"
-                    className="w-full glass-panel-subtle px-3 py-2 mt-1 text-sm focus:outline-none focus:border-[var(--accent-cyan)]"
-                  />
-                </div>
-              </div>
-
-              {registerResult && (
-                <div className={`mt-4 p-3 rounded-lg text-sm ${registerResult.success ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
-                  {registerResult.message}
-                </div>
-              )}
-
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => setShowRegisterForm(false)}
-                  className="flex-1 px-4 py-2 rounded-lg border border-white/10 text-[var(--text-secondary)] hover:bg-white/5 transition-colors text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRegister}
-                  disabled={isRegistering || !formData.name || !formData.endpoint || !formData.wallet}
-                  className="flex-1 btn-primary flex items-center justify-center gap-2 text-sm disabled:opacity-50"
-                >
-                  {isRegistering ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Registering...
-                    </>
-                  ) : (
-                    <>
-                      <Shield size={16} />
-                      Register on Marketplace
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

@@ -107,7 +107,7 @@ export default function CommandCenter() {
   } | null>(null);
   
   // Post-task add to swarm state
-  const [openRegisterForm, setOpenRegisterForm] = useState(false);
+  // Register form removed — agents register via Bazaar or API
   const [showAddToSwarm, setShowAddToSwarm] = useState<{
     specialist: string;
     specialistName: string;
@@ -845,15 +845,12 @@ export default function CommandCenter() {
           
             <WalletConnect />
 
-            {/* List Your Agent CTA */}
+            {/* Browse Bazaar CTA */}
             <button
-              onClick={() => {
-                setActiveView('marketplace');
-                setOpenRegisterForm(true);
-              }}
+              onClick={() => setActiveView('registry')}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#00F0FF]/20 to-[#00A3FF]/20 border border-[#00F0FF]/40 hover:border-[#00F0FF]/80 hover:from-[#00F0FF]/30 hover:to-[#00A3FF]/30 transition-all duration-300 text-[#00F0FF] text-xs sm:text-sm font-bold cursor-pointer"
             >
-              🤖 <span className="hidden sm:inline">List your agent</span><span className="sm:hidden">Join</span> →
+              🌐 <span className="hidden sm:inline">Browse Bazaar</span><span className="sm:hidden">Bazaar</span> →
             </button>
 
             {/* Connection Status */}
@@ -1016,8 +1013,6 @@ export default function CommandCenter() {
               <Marketplace 
                 hiredAgents={hiredAgents} 
                 onHire={handleAddAgentToSwarm}
-                openRegisterForm={openRegisterForm}
-                onRegisterFormOpened={() => setOpenRegisterForm(false)}
               />
             </motion.div>
           ) : activeView === 'registry' ? (
@@ -1113,13 +1108,10 @@ export default function CommandCenter() {
               </div>
 
               <button 
-                onClick={() => {
-                  setActiveView('marketplace');
-                  setOpenRegisterForm(true);
-                }}
+                onClick={() => setActiveView('registry')}
                 className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-black font-bold text-sm shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:scale-[1.02] transition-transform"
               >
-                Register Now
+                Browse the Bazaar
               </button>
             </div>
           </div>
