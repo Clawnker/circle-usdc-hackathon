@@ -22,7 +22,9 @@ import {
   PaymentFlow,
 } from '@/components';
 import { DelegationPanel, getDelegationState, recordDelegationSpend, getDelegationTotalSpent } from '@/components/DelegationPanel';
-import { useAccount } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseUnits } from 'viem';
+import { baseSepolia } from 'wagmi/chains';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -30,6 +32,20 @@ import type { SpecialistType, QueryHistoryItem } from '@/types';
 import { LayoutGrid, Zap } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
+const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135' as `0x${string}`;
+
+const USDC_TRANSFER_ABI = [{
+  name: 'transfer',
+  type: 'function',
+  stateMutability: 'nonpayable',
+  inputs: [
+    { name: 'to', type: 'address' },
+    { name: 'amount', type: 'uint256' },
+  ],
+  outputs: [{ type: 'bool' }],
+}] as const;
 
 const SPECIALIST_NAMES: Record<string, string> = {
   aura: 'Social Analyst',
@@ -63,7 +79,8 @@ export default function CommandCenter() {
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { wallet: connectedWallet } = useWallet();
-  const { address: onchainAddress } = useAccount();
+  const { address: onchainAddress, isConnected: isWalletConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
@@ -482,57 +499,45 @@ export default function CommandCenter() {
                 onchainAddress, hasAddress: !!onchainAddress 
               });
               
-              if (delegation?.enabled && remaining >= preview.fee && onchainAddress) {
-                // Auto-pay via delegated approval (transferFrom)
+              if (delegation?.enabled && remaining >= preview.fee && onchainAddress && isWalletConnected) {
+                // Auto-pay via user's connected smart wallet
                 try {
-                  const delegateRes = await fetch(`${API_URL}/api/delegate-pay`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      userAddress: onchainAddress,
-                      amount: preview.fee,
-                      specialist: preview.specialist,
-                    }),
+                  const amountWei = parseUnits(String(preview.fee), 6);
+                  const txHash = await writeContractAsync({
+                    address: USDC_ADDRESS,
+                    abi: USDC_TRANSFER_ABI,
+                    functionName: 'transfer',
+                    args: [TREASURY_ADDRESS, amountWei],
+                    chainId: baseSepolia.id,
                   });
-                  if (delegateRes.ok) {
-                    const delegateData = await delegateRes.json();
-                    headers['X-Payment-Proof'] = delegateData.txHash;
-                    recordDelegationSpend(preview.fee, preview.specialist, delegateData.txHash);
-                    
-                    // Record in Agent Payments
-                    const feePayment = {
-                      id: `delegate-${Date.now()}`,
-                      from: 'user',
-                      to: preview.specialist,
-                      amount: preview.fee,
-                      token: 'USDC' as const,
-                      txSignature: delegateData.txHash,
-                      timestamp: new Date(),
-                      method: 'on-chain' as const,
-                      specialist: preview.specialist,
-                    };
-                    window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
-                    setActivityItems(prev => [...prev, {
-                      id: `payment-${delegateData.txHash}`,
-                      type: 'payment',
-                      message: `Auto-paid ${preview.fee} USDC to ${preview.specialist}`,
-                      specialist: preview.specialist,
-                      timestamp: new Date(),
-                      link: delegateData.explorer,
-                    }]);
-                    // Continue to dispatch with proof
-                  } else {
-                    // Delegation failed — fall back to manual payment
-                    console.warn('[delegate] transferFrom failed, showing manual payment');
-                    setPaymentRequired({
-                      specialistId: preview.specialist,
-                      fee: preview.fee,
-                      prompt,
-                    });
-                    return;
-                  }
-                } catch (delegateErr) {
-                  console.warn('[delegate] Error:', delegateErr);
+                  
+                  headers['X-Payment-Proof'] = txHash;
+                  recordDelegationSpend(preview.fee, preview.specialist, txHash);
+                  
+                  // Record in Agent Payments
+                  const feePayment = {
+                    id: `delegate-${Date.now()}`,
+                    from: 'user',
+                    to: preview.specialist,
+                    amount: preview.fee,
+                    token: 'USDC' as const,
+                    txSignature: txHash,
+                    timestamp: new Date(),
+                    method: 'on-chain' as const,
+                    specialist: preview.specialist,
+                  };
+                  window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
+                  setActivityItems(prev => [...prev, {
+                    id: `payment-${txHash}`,
+                    type: 'payment',
+                    message: `Auto-paid ${preview.fee} USDC to ${preview.specialist}`,
+                    specialist: preview.specialist,
+                    timestamp: new Date(),
+                    link: `https://sepolia.basescan.org/tx/${txHash}`,
+                  }]);
+                  // Continue to dispatch with proof
+                } catch (walletErr) {
+                  console.warn('[auto-pay] Wallet transaction failed, showing manual payment:', walletErr);
                   setPaymentRequired({
                     specialistId: preview.specialist,
                     fee: preview.fee,
@@ -621,7 +626,7 @@ export default function CommandCenter() {
       setError(err instanceof Error ? err.message : 'Failed to submit task');
       setIsLoading(false);
     }
-  }, [reset, subscribe, customInstructions, hiredAgents]);
+  }, [reset, subscribe, customInstructions, hiredAgents, onchainAddress, isWalletConnected, writeContractAsync]);
 
   // Handle approval from popup
   const handleApproveAgent = useCallback(() => {
