@@ -20,7 +20,7 @@ router.get('/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     service: 'Hivemind Protocol',
-    version: '0.4.0',
+    version: '0.5.0',
     chain: 'Base Sepolia (EIP-155:84532)',
     trustLayer: 'ERC-8004',
     auth: ['api-key', 'erc8128'],
