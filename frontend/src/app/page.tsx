@@ -76,6 +76,13 @@ export default function CommandCenter() {
     return ['bankr', 'scribe', 'seeker'];
   });
   const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
+  // Store metadata for external registry agents (description, capabilities, color)
+  const [registryMeta, setRegistryMeta] = useState<Record<string, {
+    name: string;
+    description: string;
+    capabilities: string[];
+    color: string;
+  }>>({}); 
 
   // Core agents cannot be removed from the swarm
   const CORE_AGENTS = ['bankr', 'scribe', 'seeker'];
@@ -727,22 +734,61 @@ export default function CommandCenter() {
 
   // Bazaar: register external agent with backend, then add to local swarm
   const handleBazaarAdd = useCallback(async (agentPayload: any) => {
+    const agentId = agentPayload.name.toLowerCase().replace(/\s+/g, '-');
+    
+    // Extract capabilities from description keywords
+    const desc = (agentPayload.description || '').toLowerCase();
+    const capabilityMap: Record<string, string[]> = {
+      'defi': ['DeFi', 'Swap routing', 'Liquidity analysis'],
+      'trading': ['Trading', 'Market analysis'],
+      'security': ['Security audit', 'Vulnerability scanning'],
+      'audit': ['Smart contract audit', 'Risk assessment'],
+      'coding': ['Code generation', 'Development'],
+      'developer': ['Software development', 'Code review'],
+      'research': ['Research', 'Data analysis'],
+      'creative': ['Creative writing', 'Content generation'],
+      'portfolio': ['Portfolio management', 'Rebalancing'],
+      'fact-check': ['Fact checking', 'Verification'],
+      'market': ['Market intelligence', 'Price analysis'],
+      'cloud': ['Cloud architecture', 'Infrastructure'],
+      'frontend': ['Frontend development', 'UI/UX'],
+      'backend': ['Backend development', 'API design'],
+    };
+    const capabilities: string[] = [];
+    for (const [keyword, caps] of Object.entries(capabilityMap)) {
+      if (desc.includes(keyword)) capabilities.push(...caps);
+    }
+    if (capabilities.length === 0) capabilities.push('General purpose agent');
+    // Deduplicate
+    const uniqueCaps = [...new Set(capabilities)].slice(0, 5);
+
+    // Derive color using same hash as SwarmGraph
+    const hashCode = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; } return Math.abs(h); };
+    const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#A78BFA', '#F97316', '#06D6A0', '#E879F9', '#38BDF8'];
+    const color = colors[hashCode(agentId) % colors.length];
+
+    // Store metadata for the modal
+    setRegistryMeta(prev => ({
+      ...prev,
+      [agentId]: {
+        name: agentPayload.name,
+        description: agentPayload.description || 'External ERC-8004 agent',
+        capabilities: uniqueCaps,
+        color,
+      }
+    }));
+
     try {
       const res = await fetch(`${API_URL}/api/agents/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(agentPayload),
+        body: JSON.stringify({ ...agentPayload, capabilities: uniqueCaps }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Registration failed');
-
-      // Use the agent's name (lowercased) as the swarm ID
-      const agentId = agentPayload.name.toLowerCase().replace(/\s+/g, '-');
       handleAddAgentToSwarm(agentId);
     } catch (err: any) {
       console.error('[Bazaar] Add failed:', err);
-      // Still add locally so the UI updates
-      const agentId = agentPayload.name.toLowerCase().replace(/\s+/g, '-');
       handleAddAgentToSwarm(agentId);
     }
   }, [handleAddAgentToSwarm]);
@@ -1208,6 +1254,7 @@ export default function CommandCenter() {
             setSelectedAgent(null);
           }}
           fee={SPECIALIST_FEES[selectedAgent]}
+          registryMeta={registryMeta[selectedAgent]}
         />
       )}
 

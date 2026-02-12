@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Brain, Sparkles, LineChart, Wallet, Settings, Save, FileText, Search } from 'lucide-react';
+import { X, Brain, Sparkles, LineChart, Wallet, Settings, Save, FileText, Search, Globe } from 'lucide-react';
 import type { SpecialistType } from '@/types';
 import { AgentBadge } from './AgentBadge';
 
@@ -16,6 +16,12 @@ interface AgentDetailModalProps {
   onUpdateInstructions?: (instructions: string) => void;
   onRemove?: () => void;
   fee?: number;
+  registryMeta?: {
+    name: string;
+    description: string;
+    capabilities: string[];
+    color: string;
+  };
 }
 
 const SPECIALIST_INFO: Record<SpecialistType, {
@@ -206,20 +212,22 @@ export function AgentDetailModal({
   customInstructions = '',
   onUpdateInstructions,
   onRemove,
-  fee
+  fee,
+  registryMeta
 }: AgentDetailModalProps) {
   const [tempInstructions, setTempInstructions] = useState(customInstructions);
   const [isHoveredRemove, setIsHoveredRemove] = useState(false);
 
   if (!specialist) return null;
 
+  const isExternal = !SPECIALIST_INFO[specialist];
   const info = SPECIALIST_INFO[specialist] || {
-    name: specialist.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+    name: registryMeta?.name || specialist.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
     description: 'External Agent (ERC-8004)',
-    fullDescription: `An external agent from the ERC-8004 registry, added to your swarm. Queries will be routed via x402 USDC payments.`,
-    icon: Sparkles,
-    color: '#FFD700',
-    capabilities: ['x402 payments', 'ERC-8004 identity'],
+    fullDescription: registryMeta?.description || 'An external agent from the ERC-8004 registry, added to your swarm. Queries will be routed via x402 USDC payments.',
+    icon: Globe,
+    color: registryMeta?.color || '#FFD700',
+    capabilities: registryMeta?.capabilities || ['General purpose agent'],
     defaultPrompt: '',
   };
   const Icon = info.icon;
