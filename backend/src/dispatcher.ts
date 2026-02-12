@@ -119,7 +119,7 @@ const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: str
  * Complexity heuristic: detects if a query covers multiple domains
  * Flags queries that mention 2+ distinct domains as multi-hop
  */
-function isComplexQuery(prompt: string): boolean {
+export function isComplexQuery(prompt: string): boolean {
   const lower = prompt.toLowerCase();
   const domains = [
     { name: 'social', patterns: [/sentiment/, /vibe/, /mood/, /social/, /trending/, /popular/, /alpha/, /gem/, /influencer/, /kol/, /whale/, /twitter/, /fomo/, /fud/, /hype/, /buzz/] },

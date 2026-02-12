@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import dispatcher, { dispatch, getTask, getRecentTasks, executeTask, updateTaskStatus } from '../dispatcher';
+import dispatcher, { dispatch, getTask, getRecentTasks, executeTask, updateTaskStatus, routePrompt, isComplexQuery } from '../dispatcher';
 import { DispatchRequest, SpecialistType } from '../types';
 import config from '../config';
 import { planDAG } from '../llm-planner';
@@ -9,7 +9,7 @@ const router = Router();
 
 /**
  * Route preview — returns specialist + fee without executing.
- * For multi-step DAG queries, returns total cost across all steps.
+ * Uses fast-path routing first, falls back to DAG planning for complex queries.
  */
 router.post('/route-preview', async (req: Request, res: Response) => {
   try {
@@ -18,28 +18,32 @@ router.post('/route-preview', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'prompt required' });
     }
     
-    // Try DAG planning first to get accurate multi-step cost
-    const dagPlan = await planDAG(prompt);
+    // Fast-path: check complexity first
+    const isComplex = isComplexQuery(prompt);
     
-    if (dagPlan.steps.length > 1) {
-      // Multi-step: return total cost and first specialist
-      const totalFee = dagPlan.totalEstimatedCost || dagPlan.steps.reduce((sum, s) => sum + (s.estimatedCost || 0), 0);
-      const specialists = dagPlan.steps.map(s => s.specialist);
-      res.json({ 
-        specialist: specialists.join(' → '), 
-        specialists,
-        fee: totalFee, 
-        currency: 'USDC', 
-        network: 'base-sepolia',
-        isMultiStep: true,
-        steps: dagPlan.steps.length,
-      });
-    } else {
-      // Single step
-      const specialist = dagPlan.steps[0]?.specialist || 'scribe';
-      const fee = dagPlan.steps[0]?.estimatedCost || (config.fees as any)[specialist] || 0;
-      res.json({ specialist, fee, currency: 'USDC', network: 'base-sepolia' });
+    if (isComplex) {
+      // Complex query — use DAG planning for accurate multi-step cost
+      const dagPlan = await planDAG(prompt);
+      
+      if (dagPlan.steps.length > 1) {
+        const totalFee = dagPlan.totalEstimatedCost || dagPlan.steps.reduce((sum, s) => sum + (s.estimatedCost || 0), 0);
+        const specialists = dagPlan.steps.map(s => s.specialist);
+        return res.json({ 
+          specialist: specialists.join(' → '), 
+          specialists,
+          fee: totalFee, 
+          currency: 'USDC', 
+          network: 'base-sepolia',
+          isMultiStep: true,
+          steps: dagPlan.steps.length,
+        });
+      }
     }
+    
+    // Simple query — use fast routing
+    const specialist = await routePrompt(prompt);
+    const fee = Number((config.fees as any)[specialist]) || 0;
+    res.json({ specialist, fee, currency: 'USDC', network: 'base-sepolia' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
