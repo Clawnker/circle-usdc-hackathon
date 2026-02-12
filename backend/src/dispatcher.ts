@@ -77,15 +77,26 @@ function loadTasks(): void {
 }
 
 /**
- * Save tasks to disk
+ * Save tasks to disk (debounced async write, capped at 100 recent tasks)
  */
+let saveTimer: NodeJS.Timeout | null = null;
 function saveTasks(): void {
-  try {
-    const data = JSON.stringify(Object.fromEntries(tasks), null, 2);
-    fs.writeFileSync(TASKS_FILE, data, 'utf8');
-  } catch (error: any) {
-    console.error(`[Dispatcher] Failed to save tasks:`, error.message);
-  }
+  // Debounce: only write once per 2 seconds (avoids hammering disk)
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      // Keep only the 100 most recent tasks to prevent unbounded growth
+      const allTasks = Array.from(tasks.entries())
+        .sort(([, a], [, b]) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, 100);
+      const data = JSON.stringify(Object.fromEntries(allTasks), null, 2);
+      fs.writeFile(TASKS_FILE, data, 'utf8', (err) => {
+        if (err) console.error(`[Dispatcher] Failed to save tasks:`, err.message);
+      });
+    } catch (error: any) {
+      console.error(`[Dispatcher] Failed to save tasks:`, error.message);
+    }
+  }, 2000);
 }
 
 // Initial load
