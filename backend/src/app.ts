@@ -109,6 +109,12 @@ app.post('/dispatch', (req, res, next) => {
   dispatchRoutes(req, res, next);
 });
 
+// Task status polling at root (public — taskId is the auth)
+app.get('/status/:taskId', (req, res, next) => {
+  req.url = `/status/${req.params.taskId}`;
+  dispatchRoutes(req, res, next);
+});
+
 // Status (authenticated, includes treasury balance)
 app.get('/status', async (_req: Request, res: Response) => {
   try {
