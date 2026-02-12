@@ -19,7 +19,13 @@ interface MagosCardProps {
 }
 
 const MagosCard: React.FC<MagosCardProps> = ({ data }) => {
-  const isPriceUp = data.price.change24h >= 0;
+  // Graceful fallbacks for missing data
+  const price = data?.price || { current: 0, change24h: 0, formatted: 'N/A' };
+  const sentiment = data?.sentiment || { label: 'neutral', score: 0, confidence: 0 };
+  const sources = data?.sources || [];
+  const summary = data?.summary || '';
+  
+  const isPriceUp = (price.change24h || 0) >= 0;
   const priceChangeColor = isPriceUp ? 'text-green-500' : 'text-red-500';
   const priceChangeIcon = isPriceUp ? <ArrowUp size={16} /> : <ArrowDown size={16} />;
 
@@ -38,14 +44,14 @@ const MagosCard: React.FC<MagosCardProps> = ({ data }) => {
 
   return (
     <div className="glass-panel p-4 rounded-lg gradient-border flex flex-col gap-4">
-      <h3 className="text-xl font-bold text-text-primary">{data.token} Market Data</h3>
+      <h3 className="text-xl font-bold text-text-primary">{data?.token || "Token"} Market Data</h3>
 
       {/* Price Display */}
       <div className="flex items-baseline gap-2">
-        <span className="text-4xl font-bold text-text-primary">{data.price.formatted}</span>
+        <span className="text-4xl font-bold text-text-primary">{price.formatted}</span>
         <span className={`flex items-center gap-1 ${priceChangeColor}`}>
           {priceChangeIcon}
-          {Math.abs(data.price.change24h).toFixed(2)}% (24h)
+          {Math.abs(price.change24h).toFixed(2)}% (24h)
         </span>
       </div>
 
@@ -61,10 +67,10 @@ const MagosCard: React.FC<MagosCardProps> = ({ data }) => {
       {/* Sentiment Badge */}
       <div className="flex items-center gap-2">
         <span className="text-text-secondary">Sentiment:</span>
-        <span className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${getSentimentColor(data.sentiment.label)}`}>
-          {data.sentiment.label} ({data.sentiment.score.toFixed(2)})
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold text-white ${getSentimentColor(sentiment.label)}`}>
+          {sentiment.label} ({sentiment.score.toFixed(2)})
         </span>
-        <span className="text-text-muted text-xs">Confidence: {(data.sentiment.confidence * 100).toFixed(0)}%</span>
+        <span className="text-text-muted text-xs">Confidence: {(sentiment.confidence * 100).toFixed(0)}%</span>
       </div>
 
       {/* Prediction Section */}
@@ -99,16 +105,16 @@ const MagosCard: React.FC<MagosCardProps> = ({ data }) => {
       {data.summary && (
         <div className="text-text-secondary text-sm">
           <h4 className="font-semibold text-text-primary mb-1">Summary:</h4>
-          <p>{data.summary}</p>
+          <p>{summary}</p>
         </div>
       )}
 
       {/* Sources List */}
-      {data.sources && data.sources.length > 0 && (
+      {sources && sources.length > 0 && (
         <div className="text-text-muted text-xs">
           <h4 className="font-semibold text-text-primary mb-1">Sources:</h4>
           <ul>
-            {data.sources.map((source, index) => (
+            {sources.map((source, index) => (
               <li key={index}>{source}</li>
             ))}
           </ul>

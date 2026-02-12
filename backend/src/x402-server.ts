@@ -11,7 +11,7 @@
  * 4. Middleware verifies via Coinbase facilitator → settles on-chain → passes through
  */
 
-import { paymentMiddleware, x402ResourceServer, type RoutesConfig } from '@x402/express';
+import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { HTTPFacilitatorClient } from '@x402/core/server';
 import { registerExactEvmScheme } from '@x402/evm/exact/server';
 import config from './config';

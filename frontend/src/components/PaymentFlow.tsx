@@ -80,6 +80,30 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, re
           Network: Base Sepolia
         </p>
         
+        <button 
+          onClick={() => setShowExplainer(!showExplainer)}
+          className="text-xs text-[var(--accent-cyan)] hover:underline mb-4 flex items-center gap-1"
+        >
+          <HelpCircle size={12} />
+          {showExplainer ? 'Hide details' : 'How does this work?'}
+        </button>
+        <AnimatePresence>
+          {showExplainer && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden mb-4"
+            >
+              <div className="p-3 rounded-lg bg-white/5 text-xs text-[var(--text-secondary)] space-y-2">
+                <p>🔐 <strong>x402 Protocol:</strong> Your payment is sent as USDC on Base Sepolia directly to the specialist agent.</p>
+                <p>⚡ <strong>Instant Settlement:</strong> The agent verifies payment on-chain before responding — no middleman.</p>
+                <p>🧾 <strong>Transparent Pricing:</strong> Each specialist sets their own price based on compute cost and data quality.</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         <div className="space-y-4">
           <Transaction
             chainId={baseSepolia.id}

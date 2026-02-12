@@ -774,11 +774,11 @@ export const bankr = {
           data = await executeJupiterSwap(intent.from!, intent.to!, intent.amount!);
           
           if (data.status === 'failed') {
-            (data as any).summary = `❌ **Swap Failed**\n• ${data.details.error}\n• Available: ${data.details.available} ${intent.from}\n• Required: ${data.details.required} ${intent.from}`;
+            data.summary = `❌ **Swap Failed**\n• ${data.details.error}\n• Available: ${data.details.available} ${intent.from}\n• Required: ${data.details.required} ${intent.from}`;
           } else {
             const routeInfo = data.details.route || 'Direct';
             const impactWarning = data.details.priceImpactWarning ? `\n⚠️ ${data.details.priceImpactWarning}` : '';
-            (data as any).summary = `🔄 **Swap Executed via Jupiter**\n` +
+            data.summary = `🔄 **Swap Executed via Jupiter**\n` +
               `• Input: ${intent.amount} ${intent.from}\n` +
               `• Output: ${data.details.estimatedOutput} ${intent.to}\n` +
               `• Min. Received: ${data.details.minimumReceived || data.details.estimatedOutput} ${intent.to}\n` +
@@ -813,7 +813,7 @@ export const bankr = {
                   note: `Sign with your connected wallet to send ${transferAmount} ${transferAsset} on Base Sepolia.`,
                 },
               };
-              (data as any).summary = `💸 **Base Sepolia Transfer Ready**\n• Amount: ${transferAmount} ${transferAsset}\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: Base Sepolia\n• Status: Awaiting wallet signature\n\n_Sign the transaction in your connected wallet to complete._`;
+              data.summary = `💸 **Base Sepolia Transfer Ready**\n• Amount: ${transferAmount} ${transferAsset}\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: Base Sepolia\n• Status: Awaiting wallet signature\n\n_Sign the transaction in your connected wallet to complete._`;
               break;
             }
             // Solana address — check if asset is USDC (SPL token transfer) or SOL
@@ -838,7 +838,7 @@ export const bankr = {
                     network: 'devnet',
                   },
                 };
-                (data as any).summary = `✅ Successfully sent ${intent.amount} SOL to ${intent.address?.slice(0, 8)}...`;
+                data.summary = `✅ Successfully sent ${intent.amount} SOL to ${intent.address?.slice(0, 8)}...`;
               } else {
                 // SPL token transfer (USDC, etc.) — simulated for now
                 data = {
@@ -853,7 +853,7 @@ export const bankr = {
                     explorer: `https://explorer.solana.com/address/${intent.address}?cluster=devnet`,
                   },
                 };
-                (data as any).summary = `📋 **Solana ${transferAsset} Transfer Queued**\n• Amount: ${intent.amount || '5'} ${transferAsset}\n• To: ${intent.address.slice(0, 8)}...\n• Chain: Solana Devnet\n• Status: Simulated (SPL token transfers coming soon)`;
+                data.summary = `📋 **Solana ${transferAsset} Transfer Queued**\n• Amount: ${intent.amount || '5'} ${transferAsset}\n• To: ${intent.address.slice(0, 8)}...\n• Chain: Solana Devnet\n• Status: Simulated (SPL token transfers coming soon)`;
               }
             } catch (transferError: any) {
               console.error('[bankr] Transfer execution failed:', transferError.message);
@@ -866,7 +866,7 @@ export const bankr = {
                   note: `Check if devnet wallet has sufficient ${isSolTransfer ? 'SOL' : transferAsset} for transfer`
                 },
               };
-              (data as any).summary = `❌ Transfer failed: ${transferError.message}`;
+              data.summary = `❌ Transfer failed: ${transferError.message}`;
             }
           } else {
             data = {
@@ -874,7 +874,7 @@ export const bankr = {
               status: 'failed',
               details: { error: 'No recipient address provided.' },
             };
-            (data as any).summary = `❌ Transfer failed: No recipient address provided.`;
+            data.summary = `❌ Transfer failed: No recipient address provided.`;
           }
           break;
           
@@ -897,7 +897,7 @@ export const bankr = {
               note: 'DCA simulation — in production, this would create a recurring order via Jupiter DCA.',
             },
           };
-          (data as any).summary = `⏳ **DCA Order Simulation**\n` +
+          data.summary = `⏳ **DCA Order Simulation**\n` +
             `• Investing ${dcaAmount} ${dcaFrom} into ${dcaTo}\n` +
             `• Frequency: ${dcaInterval}\n` +
             `• Est. Monthly Spend: ${parseFloat(dcaAmount) * (dcaInterval === 'daily' ? 30 : dcaInterval === 'weekly' ? 4 : 720)} ${dcaFrom}\n` +
@@ -945,7 +945,7 @@ export const bankr = {
             },
           };
           
-          (data as any).summary = `💰 **Wallet Balance** (Devnet)\n` +
+          data.summary = `💰 **Wallet Balance** (Devnet)\n` +
             `📍 \`${SOLANA_ADDRESS.slice(0, 8)}...${SOLANA_ADDRESS.slice(-4)}\`\n\n` +
             `**Balances:**\n${balanceLines || '• No tokens'}\n\n` +
             `**Recent Activity:**\n${txLines}`;

@@ -153,7 +153,7 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
   saveAgents();
 
   // Trigger embedding sync (non-blocking)
-  import('./capability-matcher').then(({ capabilityMatcher }) => {
+  import('./capability-matcher.js').then(({ capabilityMatcher }) => {
     capabilityMatcher.syncAgentEmbeddings(id, structuredCapabilities).catch(err => {
       console.error(`[ExternalAgents] Failed to sync embeddings for ${id}:`, err);
     });

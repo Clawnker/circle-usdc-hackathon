@@ -11,6 +11,7 @@ export interface PlanStep {
   promptTemplate: string;   // The prompt for this agent. Supports variable substitution (e.g., "Analyze the sentiment for {{token}}")
   dependencies: string[];   // IDs of steps that must complete before this one starts
   estimatedCost: number;    // Estimated cost in USDC for this specific step
+  timeoutMs?: number;       // Timeout for this specific step
 }
 
 export interface DAGPlan {
@@ -19,6 +20,7 @@ export interface DAGPlan {
   steps: PlanStep[];
   totalEstimatedCost: number;
   reasoning: string;        // LLM reasoning for this plan
+  timeoutMs?: number;       // Total timeout for the DAG execution
 }
 
 export interface PlanResult {
@@ -169,11 +171,17 @@ export interface AuraSentiment {
 
 export interface BankrAction {
   type: 'swap' | 'transfer' | 'balance' | 'dca' | 'monitor';
-  status: 'executed' | 'pending' | 'simulated' | 'confirmed' | 'failed';
+  status: 'executed' | 'pending' | 'simulated' | 'confirmed' | 'failed' | 'quote';
   txSignature?: string;
   requiresWalletAction?: boolean;
   requiresApproval?: boolean;
   details: Record<string, any>;
+  summary?: string;
+  gasEstimate?: string;
+  quote?: Record<string, any>;
+  balanceBefore?: Record<string, string>;
+  balanceAfter?: Record<string, string>;
+  params?: Record<string, any>;
 }
 
 // WebSocket event types

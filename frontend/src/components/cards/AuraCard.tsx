@@ -39,23 +39,23 @@ const AuraCard: React.FC<AuraCardProps> = ({ data }) => {
 
   return (
     <div className="glass-panel p-4 rounded-lg gradient-border flex flex-col gap-4">
-      <h3 className="text-xl font-bold text-text-primary">Aura Sentiment for: {data.topic}</h3>
+      <h3 className="text-xl font-bold text-text-primary">Aura Sentiment for: {data?.topic || 'Unknown'}</h3>
 
       {/* Overall Sentiment Gauge */}
       <div className="flex flex-col gap-2">
-        <div className="text-text-secondary">Overall Sentiment: <span className="font-semibold text-text-primary">{data.overallSentiment}</span></div>
+        <div className="text-text-secondary">Overall Sentiment: <span className="font-semibold text-text-primary">{data?.overallSentiment || "neutral"}</span></div>
         <div className="w-full bg-gray-700 rounded-full h-2.5 relative">
           <div
-            className={`h-2.5 rounded-full absolute ${getSentimentGaugeColor(data.score)}`}
+            className={`h-2.5 rounded-full absolute ${getSentimentGaugeColor((data?.score || 0))}`}
             style={{
               width: `50%`, // The gauge should visually represent -1 to 1, so 0 is center
-              left: `calc(50% + ${(data.score * 50).toFixed(2)}%)`,
+              left: `calc(50% + ${((data?.score || 0) * 50).toFixed(2)}%)`,
               transform: `translateX(-50%)`,
             }}
           ></div>
           <div
             className="h-4 w-1 bg-white absolute rounded-full -mt-1"
-            style={{ left: `calc(50% + ${(data.score * 50).toFixed(2)}%)`, transform: `translateX(-50%)` }}
+            style={{ left: `calc(50% + ${((data?.score || 0) * 50).toFixed(2)}%)`, transform: `translateX(-50%)` }}
           ></div>
         </div>
         <div className="flex justify-between text-xs text-text-muted mt-1">
@@ -63,23 +63,23 @@ const AuraCard: React.FC<AuraCardProps> = ({ data }) => {
           <span>Neutral (0.0)</span>
           <span>Bullish (1.0)</span>
         </div>
-        <div className="text-text-primary text-lg font-bold">Score: {data.score.toFixed(2)}</div>
+        <div className="text-text-primary text-lg font-bold">Score: {(data?.score || 0).toFixed(2)}</div>
       </div>
 
       {/* Confidence Indicator */}
       <div className="flex items-center gap-2">
         <span className="text-text-secondary">Confidence:</span>
         <div className="w-32 bg-gray-700 rounded-full h-2.5">
-          <div className="bg-accent-cyan h-2.5 rounded-full" style={{ width: `${(data.confidence * 100).toFixed(0)}%` }}></div>
+          <div className="bg-accent-cyan h-2.5 rounded-full" style={{ width: `${((data?.confidence || 0) * 100).toFixed(0)}%` }}></div>
         </div>
-        <span className="text-text-primary font-bold">{(data.confidence * 100).toFixed(0)}%</span>
+        <span className="text-text-primary font-bold">{((data?.confidence || 0) * 100).toFixed(0)}%</span>
       </div>
 
       {/* Trend Direction */}
       <div className="flex items-center gap-2 text-text-secondary">
         <span>Trend:</span>
-        {getTrendIcon(data.trendDirection)}
-        <span className="font-semibold text-text-primary">{data.trendDirection}</span>
+        {getTrendIcon(data?.trendDirection || "stable")}
+        <span className="font-semibold text-text-primary">{data?.trendDirection || "stable"}</span>
       </div>
 
       {/* Entity List */}

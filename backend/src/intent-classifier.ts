@@ -116,7 +116,8 @@ Respond with a JSON object in the format:
     });
 
     // Ensure specialist is valid
-    if (!Object.values(specialistMap).includes(data.specialist as any)) {
+    const validSpecialists = Object.values(specialistMap) as string[];
+    if (!validSpecialists.includes(data.specialist)) {
       console.warn(`[Intent Classifier] LLM returned invalid specialist: ${data.specialist}. Defaulting to 'general'.`);
       data.specialist = 'general';
     }

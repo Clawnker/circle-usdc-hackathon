@@ -36,6 +36,51 @@ function detectCardType(result: any, specialist: string): string {
   return 'generic';
 }
 
+// Data adapters: map backend specialist responses to card-expected shapes
+function adaptBankrData(data: any) {
+  if (!data) return data;
+  return {
+    transactionSummary: {
+      inputAmount: data.details?.amount || data.quote?.inputAmount || '0',
+      inputToken: data.details?.from || data.quote?.inputToken || '?',
+      outputAmount: data.details?.estimatedOutput || data.quote?.outputAmount || '0',
+      outputToken: data.details?.to || data.quote?.outputToken || '?',
+    },
+    route: data.details?.routePlan?.map((h: any) => h.dex) || [],
+    priceImpact: data.details?.priceImpact ? parseFloat(data.details.priceImpact) / 100 : undefined,
+    feeEstimate: {
+      gasCost: data.details?.gasEstimate || data.gasEstimate || '~0.000005 SOL',
+      currency: 'SOL',
+    },
+    balanceBefore: data.details?.balancesBefore 
+      ? Object.entries(data.details.balancesBefore).map(([token, amount]) => ({ token, amount: String(amount) }))
+      : undefined,
+    balanceAfter: data.details?.balancesAfter
+      ? Object.entries(data.details.balancesAfter).map(([token, amount]) => ({ token, amount: String(amount) }))
+      : undefined,
+    requiresApproval: data.requiresApproval,
+    status: data.status,
+    summary: data.summary,
+  };
+}
+
+function adaptSeekerData(data: any) {
+  if (!data) return data;
+  return {
+    query: data.details?.query || '',
+    keyFindings: data.results?.slice(0, 5).map((r: any) => ({
+      title: r.title || 'Untitled',
+      content: r.description || '',
+    })) || [],
+    citations: data.results?.map((r: any) => ({
+      title: r.title || 'Untitled',
+      url: r.url || '#',
+      source: 'web' as const,
+    })) || [],
+    summary: data.summary || data.insight || '',
+  };
+}
+
 // Component to delegate rendering to the correct specialist card
 const SpecialistCard = ({ type, data }: { type: string; data: any }) => {
   switch (type) {
@@ -44,13 +89,13 @@ const SpecialistCard = ({ type, data }: { type: string; data: any }) => {
     case 'aura':
       return <AuraCard data={data} />;
     case 'bankr':
-      return <BankrCard data={data} />;
+      return <BankrCard data={adaptBankrData(data)} />;
     case 'seeker':
-      return <SeekerCard data={data} />;
+      return <SeekerCard data={adaptSeekerData(data)} />;
     case 'multi-hop':
       return <MultiHopCard data={data} />;
     default:
-      return null; // Should not happen if detectCardType is correct
+      return null;
   }
 };
 
