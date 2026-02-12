@@ -8,7 +8,8 @@ import axios from 'axios';
 
 // --- Configuration ---
 const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://127.0.0.1:8402/v1';
-const LLM_API_KEY = process.env.LLM_API_KEY || process.env.CLAWROUTER_API_KEY || 'clawrouter';
+const LLM_API_KEY = process.env.LLM_API_KEY || process.env.CLAWROUTER_API_KEY || '';
+const LLM_BASE_URL_EXPLICIT = process.env.LLM_BASE_URL; // Only set if user explicitly configured it
 const DEFAULT_MODEL = process.env.LLM_DEFAULT_MODEL || 'google/gemini-2.5-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
 const VERTEX_PROJECT_ID = process.env.VERTEX_PROJECT_ID || process.env.GCP_PROJECT_ID || '';
@@ -24,10 +25,10 @@ const GEMINI_FALLBACK_URL = 'https://generativelanguage.googleapis.com/v1beta/op
 const COST_MARKUP = parseFloat(process.env.LLM_COST_MARKUP || '1.5');
 
 // Priority: Explicit LLM_BASE_URL > Vertex AI (3.x support) > AI Studio fallback
-const useVertex = !process.env.LLM_BASE_URL && !!VERTEX_PROJECT_ID && !!GEMINI_API_KEY;
-const useGeminiFallback = !process.env.LLM_BASE_URL && !!GEMINI_API_KEY && !useVertex;
-const ACTIVE_BASE_URL = process.env.LLM_BASE_URL || (useVertex ? VERTEX_BASE_URL : GEMINI_FALLBACK_URL);
-const ACTIVE_API_KEY = LLM_API_KEY || GEMINI_API_KEY;
+const useVertex = !LLM_BASE_URL_EXPLICIT && !!VERTEX_PROJECT_ID && !!GEMINI_API_KEY;
+const useGeminiFallback = !LLM_BASE_URL_EXPLICIT && !!GEMINI_API_KEY && !useVertex;
+const ACTIVE_BASE_URL = LLM_BASE_URL_EXPLICIT || (useVertex ? VERTEX_BASE_URL : GEMINI_FALLBACK_URL);
+const ACTIVE_API_KEY = useGeminiFallback ? GEMINI_API_KEY : (LLM_API_KEY || GEMINI_API_KEY);
 
 // Model mapping - Vertex supports Gemini 3.x models
 const GEMINI_MODEL_MAP: Record<string, string> = {

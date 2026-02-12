@@ -291,16 +291,29 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
           <span className="text-sm font-medium text-[var(--text-primary)]">Agent Payments</span>
         </div>
         {allPayments.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-1 px-2 py-1 rounded-full glass-panel-subtle"
-          >
-            <Coins size={12} className="text-[var(--accent-green)]" />
-            <span className="text-xs text-[var(--text-secondary)]">
-              ${totalSpent.toFixed(3)} spent
-            </span>
-          </motion.div>
+          <div className="flex items-center gap-2">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center gap-1 px-2 py-1 rounded-full glass-panel-subtle"
+            >
+              <Coins size={12} className="text-[var(--accent-green)]" />
+              <span className="text-xs text-[var(--text-secondary)]">
+                ${totalSpent.toFixed(3)} spent
+              </span>
+            </motion.div>
+            <button
+              onClick={() => {
+                setUserPayments([]);
+                setHistoricPayments([]);
+                localStorage.removeItem('hivemind-user-payments');
+              }}
+              className="text-[10px] text-[var(--text-muted)] hover:text-red-400 transition-colors"
+              title="Clear payment history"
+            >
+              ✕
+            </button>
+          </div>
         )}
       </div>
 
