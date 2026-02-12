@@ -90,6 +90,7 @@ export default function CommandCenter() {
     cost: number;
     specialist: string;
     taskId?: string;
+    rawResult?: any;
   } | null>(null);
   
   // Approval popup state
@@ -261,7 +262,8 @@ export default function CommandCenter() {
                 : r.data?.isDAG ? (r.data.steps || []).map((s: any) => (SPECIALIST_NAMES[s.specialist] || s.specialist)).join(' → ')
                 : (SPECIALIST_NAMES[specialistId] || specialistId),
               taskId: currentTaskId || undefined,
-              isMultiHop: r.data?.isMultiHop
+              isMultiHop: r.data?.isMultiHop,
+              rawResult: r,
             } as any);
 
             // Extract transaction details from bankr results
@@ -325,6 +327,7 @@ export default function CommandCenter() {
             cost: totalCostFailed,
             specialist: SPECIALIST_NAMES[specialistIdFailed] || specialistIdFailed,
             taskId: currentTaskId || undefined,
+            rawResult: null,
           });
 
           // Add to query history

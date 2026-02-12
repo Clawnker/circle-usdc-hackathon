@@ -5,6 +5,9 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle, ArrowRight, RotateCcw, Coins, Sparkles, ThumbsUp, ThumbsDown, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
+// Import all specialist cards
+import { MagosCard, AuraCard, BankrCard, SeekerCard, MultiHopCard } from './cards';
+
 interface ResultCardProps {
   query: string;
   status: 'success' | 'failure';
@@ -15,11 +18,41 @@ interface ResultCardProps {
   onNewQuery: () => void;
   onViewDetails?: () => void;
   isMultiHop?: boolean;
+  rawResult?: any; // Add rawResult prop to receive structured data
 }
 
 const USER_ID = 'demo-user'; // In production, this would come from auth
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
+// Detect specialist type from result data
+function detectCardType(result: any, specialist: string): string {
+  if (result?.isDAG || result?.isMultiHop) return 'multi-hop'; // Check directly on result.data
+  const s = specialist?.toLowerCase();
+  if (s?.includes('magos') || s?.includes('market')) return 'magos';
+  if (s?.includes('aura') || s?.includes('sentiment')) return 'aura';
+  if (s?.includes('bankr') || s?.includes('defi')) return 'bankr';
+  if (s?.includes('seeker') || s?.includes('research')) return 'seeker';
+  return 'generic';
+}
+
+// Component to delegate rendering to the correct specialist card
+const SpecialistCard = ({ type, data }: { type: string; data: any }) => {
+  switch (type) {
+    case 'magos':
+      return <MagosCard data={data} />;
+    case 'aura':
+      return <AuraCard data={data} />;
+    case 'bankr':
+      return <BankrCard data={data} />;
+    case 'seeker':
+      return <SeekerCard data={data} />;
+    case 'multi-hop':
+      return <MultiHopCard data={data} />;
+    default:
+      return null; // Should not happen if detectCardType is correct
+  }
+};
 
 export function ResultCard({
   query,
@@ -30,7 +63,8 @@ export function ResultCard({
   taskId,
   onNewQuery,
   onViewDetails,
-  isMultiHop
+  isMultiHop,
+  rawResult, // Destructure rawResult
 }: ResultCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
@@ -42,6 +76,57 @@ export function ResultCard({
   const truncateLength = result.includes('**') || result.includes('🔍') ? 500 : 200;
   const summary = result.length > truncateLength ? result.substring(0, truncateLength) + '...' : result;
   const displayResult = isExpanded ? result : summary;
+
+  // Detect card type early
+  const cardType = detectCardType(rawResult?.data, specialist); // Pass rawResult.data to detectCardType
+
+  // If we have structured data and a specialist card, render it
+  if (cardType !== 'generic' && rawResult?.data) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="glass-panel gradient-border p-6 w-full max-w-2xl mx-auto overflow-hidden relative"
+      >
+        <SpecialistCard type={cardType} data={rawResult.data} />
+        {/* Keep voting, download, and Ask Another functionality */}
+        {/* Re-implementing simplified footer for specialist cards */}
+        <div className="mt-6 flex flex-col sm:flex-row items-center gap-4">
+          <motion.button
+            onClick={onNewQuery}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full sm:flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-[var(--accent-gold)] to-[#FFD700] text-black font-bold flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,191,0,0.3)]"
+          >
+            <RotateCcw size={18} />
+            <span>Ask Another</span>
+          </motion.button>
+
+          <motion.button
+            onClick={() => {
+              // This download should download the raw JSON for specialist cards
+              const filename = `hivemind-data-${specialist.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+              const blob = new Blob([JSON.stringify(rawResult.data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = filename;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+            }}
+            whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.1)' }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full sm:w-auto py-3 px-8 rounded-xl bg-white/5 border border-white/10 text-[var(--text-primary)] font-bold flex items-center justify-center gap-2 transition-colors"
+          >
+            <Download size={18} />
+            <span>Download Raw Data</span>
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  }
 
   // Fetch existing vote and stats on mount
   useEffect(() => {
@@ -100,23 +185,7 @@ export function ResultCard({
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `hivemind-report-${specialist.toLowerCase().replace(/\s+/g, '-')}-${timestamp}.md`;
     
-    const content = `# Hivemind Protocol Report
-
-## Query
-${query}
-
-## Specialist
-${specialist}
-
-## Result
-${result}
-
-## Cost
-${cost.toFixed(2)} USDC
-
-## Timestamp
-${new Date().toLocaleString()}
-`;
+    const content = `# Hivemind Protocol Report\n\n## Query\n${query}\n\n## Specialist\n${specialist}\n\n## Result\n${result}\n\n## Cost\n${cost.toFixed(2)} USDC\n\n## Timestamp\n${new Date().toLocaleString()}\n`;
 
     const blob = new Blob([content], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);

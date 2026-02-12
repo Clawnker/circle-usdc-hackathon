@@ -66,11 +66,15 @@ async function expandQueries(prompt: string): Promise<string[]> {
   Output:`;
 
   try {
-    const expandedQueries = await chatJSON<string[]>(queryExpansionPrompt, {
-      model: MODELS.flash,
-      temperature: 0.2,
-      caller: 'seeker',
-    });
+    const { data: expandedQueries } = await chatJSON<string[]>(
+      'You are a search query expansion assistant. Return ONLY a JSON array of strings.',
+      queryExpansionPrompt,
+      {
+        model: MODELS.fast,
+        temperature: 0.2,
+        caller: 'seeker',
+      }
+    );
     
     // Ensure the original prompt is always included and limit to max 3 total
     const allQueries = [...new Set([prompt, ...expandedQueries])].slice(0, 3);
@@ -162,11 +166,15 @@ async function deepSearch(
     
     Your comprehensive summary and (if applicable) verdict:`;
 
-    const llmResponse = await chatText(synthesisPrompt, {
-      model: MODELS.flash,
-      temperature: 0.3,
-      caller: 'seeker',
-    });
+    const llmResponse = await chatText(
+      'You are a research assistant. Synthesize search results into a comprehensive summary with citations.',
+      synthesisPrompt,
+      {
+        model: MODELS.fast,
+        temperature: 0.3,
+        caller: 'seeker',
+      }
+    );
 
     // Extract verdict if present (simple heuristic for now)
     const verdictMatch = llmResponse.match(/Verdict:\s*(true|false|mixed|unverified)/i);
@@ -260,7 +268,7 @@ async function braveSearch(query: string, count: number = 5, freshness?: 'pd' | 
   }
   
   // Fallback to direct web search with freshness filter
-  const fallbackResult = await braveSearchFallback.search(query, { count, freshness });
+  const fallbackResult = await braveSearchFallback.search(query, { count, freshness: freshness as any });
   return { results: fallbackResult.results };
 }
 
