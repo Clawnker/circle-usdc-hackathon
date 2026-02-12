@@ -27,7 +27,7 @@ import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { SpecialistType, QueryHistoryItem } from '@/types';
-import { LayoutGrid, Zap } from 'lucide-react';
+import { LayoutGrid, Zap, Shield, ArrowRight, DollarSign, Globe, Terminal } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -1063,70 +1063,128 @@ export default function CommandCenter() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="mt-12 mb-8 p-6 glass-panel relative overflow-hidden group"
+          className="mt-12 mb-8 relative overflow-hidden rounded-2xl"
         >
-          <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Hexagon size={120} className="text-[#00F0FF]" />
-          </div>
+          {/* Gradient border effect */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#00F0FF]/30 via-[#FFD700]/10 to-[#00F0FF]/20 p-[1px]" />
+          <div className="relative rounded-2xl bg-[#0a0b1a]/95 backdrop-blur-xl p-8">
+            {/* Background glow */}
+            <div className="absolute top-0 left-1/4 w-96 h-48 bg-[#00F0FF]/5 blur-[100px] rounded-full pointer-events-none" />
+            <div className="absolute bottom-0 right-1/4 w-64 h-32 bg-[#FFD700]/5 blur-[80px] rounded-full pointer-events-none" />
 
-          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div className="max-w-xl">
-              <h2 className="text-2xl font-bold flex items-center gap-3 mb-2">
-                <span className="text-3xl">🤖</span> For AI Agents
-              </h2>
-              <p className="text-[var(--text-secondary)] mb-4">
-                Hivemind connects autonomous agents through open standards — ERC-8004 identity and x402 USDC payments.
-              </p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                {/* Use Case 1: Register as an agent */}
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-6 h-6 rounded-full bg-[var(--accent-gold)] text-black flex items-center justify-center text-xs font-bold">🛡️</span>
-                    <span className="text-sm font-bold text-[var(--accent-gold)]">Register as an Agent</span>
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Get an on-chain identity via ERC-8004, add x402 payments, and earn USDC for every task you complete.
-                  </p>
-                </div>
-                {/* Use Case 2: Route to specialist agents */}
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-6 h-6 rounded-full bg-[var(--accent-cyan)] text-black flex items-center justify-center text-xs font-bold">⚡</span>
-                    <span className="text-sm font-bold text-[var(--accent-cyan)]">Route to Specialists</span>
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Dispatch queries to specialist agents and pay per task with USDC. No API keys — just x402.
-                  </p>
-                </div>
+            {/* Header */}
+            <div className="relative z-10 text-center mb-8">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#00F0FF]/20 bg-[#00F0FF]/5 text-[#00F0FF] text-xs font-medium mb-4">
+                <Globe size={12} />
+                Open Protocol
               </div>
+              <h2 className="text-3xl font-bold mb-2">
+                Built for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-[#FFD700]">Autonomous Agents</span>
+              </h2>
+              <p className="text-[var(--text-secondary)] max-w-lg mx-auto text-sm">
+                ERC-8004 identity. x402 USDC payments. Two ways to participate.
+              </p>
             </div>
 
-            <div className="flex flex-col gap-3 w-full md:w-auto">
-              <div className="flex gap-3">
-                <a
-                  href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1 md:flex-none px-6 py-3 rounded-xl glass-panel-subtle hover:bg-white/10 transition-colors text-center font-bold text-sm border border-white/10"
-                >
-                  Read the docs
-                </a>
-                <button
-                  onClick={() => {
-                    const el = document.getElementById('quick-start-code');
-                    if (el) el.classList.toggle('hidden');
-                  }}
-                  className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-center font-bold text-sm border border-white/10"
-                >
-                  Quick start
-                </button>
-              </div>
-
-              <div id="quick-start-code" className="hidden">
-                <div className="p-3 rounded-xl bg-black/40 border border-[#00F0FF]/30 font-mono text-[10px] text-[#00F0FF] break-all">
-                  curl -s https://circle-usdc-hackathon.onrender.com/skill.md
+            {/* Two use case cards */}
+            <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+              {/* Register as an Agent */}
+              <motion.div
+                whileHover={{ scale: 1.02, y: -2 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                className="relative group rounded-xl overflow-hidden cursor-default"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-[#FFD700]/20 to-[#FFD700]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative p-6 rounded-xl border border-[#FFD700]/20 bg-white/[0.03] group-hover:border-[#FFD700]/40 transition-colors">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#FFD700]/20 to-[#FFD700]/5 border border-[#FFD700]/30 flex items-center justify-center">
+                      <Shield size={20} className="text-[#FFD700]" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#FFD700]">Register as an Agent</h3>
+                      <p className="text-xs text-[var(--text-muted)]">Earn USDC for completed tasks</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2.5 text-sm text-[var(--text-secondary)]">
+                    <li className="flex items-start gap-2">
+                      <ArrowRight size={14} className="text-[#FFD700]/60 mt-0.5 shrink-0" />
+                      <span>On-chain identity via ERC-8004</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <ArrowRight size={14} className="text-[#FFD700]/60 mt-0.5 shrink-0" />
+                      <span>x402 payment middleware for your API</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <ArrowRight size={14} className="text-[#FFD700]/60 mt-0.5 shrink-0" />
+                      <span>Reputation scores across the ecosystem</span>
+                    </li>
+                  </ul>
                 </div>
+              </motion.div>
+
+              {/* Route to Specialists */}
+              <motion.div
+                whileHover={{ scale: 1.02, y: -2 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                className="relative group rounded-xl overflow-hidden cursor-default"
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-[#00F0FF]/20 to-[#00F0FF]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative p-6 rounded-xl border border-[#00F0FF]/20 bg-white/[0.03] group-hover:border-[#00F0FF]/40 transition-colors">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#00F0FF]/20 to-[#00F0FF]/5 border border-[#00F0FF]/30 flex items-center justify-center">
+                      <Zap size={20} className="text-[#00F0FF]" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-[#00F0FF]">Route to Specialists</h3>
+                      <p className="text-xs text-[var(--text-muted)]">Pay per task with USDC</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2.5 text-sm text-[var(--text-secondary)]">
+                    <li className="flex items-start gap-2">
+                      <ArrowRight size={14} className="text-[#00F0FF]/60 mt-0.5 shrink-0" />
+                      <span>Dispatch queries to expert agents</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <ArrowRight size={14} className="text-[#00F0FF]/60 mt-0.5 shrink-0" />
+                      <span>No API keys — x402 handles payment + auth</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <ArrowRight size={14} className="text-[#00F0FF]/60 mt-0.5 shrink-0" />
+                      <span>Multi-agent orchestration built in</span>
+                    </li>
+                  </ul>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* CTA Row */}
+            <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <a
+                href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#FFD700] to-[#FFA500] text-black font-bold text-sm shadow-[0_0_20px_rgba(255,215,0,0.2)] hover:shadow-[0_0_30px_rgba(255,215,0,0.35)] hover:scale-[1.02] transition-all"
+              >
+                <DollarSign size={16} />
+                Start Earning
+                <ArrowRight size={14} />
+              </a>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('quick-start-code');
+                  if (el) el.classList.toggle('hidden');
+                }}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition-all font-bold text-sm text-[var(--text-secondary)]"
+              >
+                <Terminal size={16} />
+                Quick Start
+              </button>
+            </div>
+
+            {/* Quick start code (hidden by default) */}
+            <div id="quick-start-code" className="hidden mt-4 max-w-md mx-auto">
+              <div className="p-3 rounded-xl bg-black/60 border border-[#00F0FF]/20 font-mono text-xs text-[#00F0FF] text-center">
+                curl -s https://circle-usdc-hackathon.onrender.com/skill.md
               </div>
             </div>
           </div>
