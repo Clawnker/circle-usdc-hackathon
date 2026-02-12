@@ -32,15 +32,18 @@ Revenue flows from users to agents via real on-chain USDC transfers. External ag
 │  │TaskInput│ │SwarmGraph │ │WalletPanel│ │DelegationPanel │  │
 │  └────┬────┘ └───────────┘ └──────────┘ └───────┬────────┘  │
 │       │                                         │            │
-│       │ POST /dispatch        approve(spender,  │            │
-│       │ POST /api/route-preview  amount) ────────┘            │
-│       │ POST /api/delegate-pay                               │
-│       │ WS /ws (subscribe)                                   │
-└───────┼──────────────────────────────────────────────────────┘
+│  ┌────┴────────────────────────────────────┐    │            │
+│  │ Dispatch │ Marketplace │ Registry │ History │ │            │
+│  │          │ (internal)  │ (bazaar) │         │ │            │
+│  └──────────┴─────────────┴──────────┴────┘    │            │
+│                                                              │
+│  POST /dispatch · POST /api/route-preview · WS /ws           │
+│  POST /api/delegate-pay · approve(spender, amount)           │
+└──────────────────────────────────────────────────────────────┘
         │
 ┌───────▼──────────────────────────────────────────────────────┐
 │                       BACKEND (Render)                       │
-│  Express · WebSocket · Gemini Flash LLM · viem               │
+│  Express + @x402/express middleware · WebSocket · viem        │
 │                                                              │
 │  ┌──────────┐  ┌───────────┐  ┌─────────────┐               │
 │  │ Planner  │→ │ Dispatcher │→ │ DAG Executor│               │
@@ -49,21 +52,30 @@ Revenue flows from users to agents via real on-chain USDC transfers. External ag
 │                      │               │                       │
 │  ┌───────┬───────┬───┴──┬────────┬───┴──┐                    │
 │  │Magos  │Aura   │Bankr │Seeker  │Scribe│  ← Internal       │
-│  │Oracle │Social │DeFi  │Search  │Synth │    Specialists     │
+│  │Oracle │Social │DeFi  │Search  │Synth │    (x402 routes)   │
 │  └───────┴───────┴──────┴────────┴──────┘                    │
 │                                                              │
 │  ┌─────────────────────────────────────────┐                 │
-│  │ External Agent Registry                 │  ← Self-register│
-│  │ Sentinel (Cloud Run) · Custom agents    │    via POST     │
-│  └─────────────────────────────────────────┘                 │
+│  │ x402 Bazaar Discovery                   │                 │
+│  │ GET facilitator/discovery/resources      │  ← Browse       │
+│  │ External agents: Sentinel, custom, etc.  │    external     │
+│  └─────────────────────────────────────────┘    services     │
 │                                                              │
-│  ┌────────────────────────────────┐                          │
-│  │ Payment Layer                  │                          │
-│  │ • ERC-20 transferFrom (deleg.) │  ← Base Sepolia USDC    │
-│  │ • ERC-20 transfer (manual)     │                          │
-│  │ • x402 protocol (agent-agent)  │                          │
-│  └────────────────────────────────┘                          │
+│  ┌────────────────────────────────────────┐                  │
+│  │ Payment Layer (Real x402)              │                  │
+│  │ • x402 facilitator (verify + settle)   │  ← USDC on Base │
+│  │ • ERC-20 approve/transferFrom (deleg.) │                  │
+│  │ • Smart Wallet signatures              │                  │
+│  └────────────────────────────────────────┘                  │
 └──────────────────────────────────────────────────────────────┘
+        │                              │
+        ▼                              ▼
+┌───────────────────┐    ┌─────────────────────────┐
+│ x402.org          │    │ External Agent Endpoints │
+│ Facilitator       │    │ (Sentinel, 3rd-party)    │
+│ /verify /settle   │    │ Return 402 → pay → get   │
+│ /discovery        │    │ result via x402 protocol  │
+└───────────────────┘    └─────────────────────────┘
 ```
 
 ---
@@ -186,22 +198,40 @@ All specialists use Gemini Flash via unified `llm-client.ts` with cost tracking.
 
 ## 5. Payment Architecture
 
-### 5.1 Payment Methods
+### 5.1 Payment Methods (V2 Target)
 | Method | Who Pays | Mechanism | When |
 |--------|---------|-----------|------|
-| **Delegation (auto-pay)** | User's smart wallet | `transferFrom` via on-chain approval | Pre-dispatch |
-| **Manual payment** | User's smart wallet | OnchainKit `<Transaction>` popup | Pre-dispatch |
-| **Internal x402** | Protocol treasury | `executeDemoPayment` | During execution (if no paymentProof) |
-| **On-chain fallback** | Demo wallet | `sendOnChainPayment` | If x402 fails |
+| **x402 Protocol** | User's smart wallet (via delegation) or direct | Standard 402 flow via facilitator | All specialist queries |
+| **Delegation (budget)** | User's smart wallet | `approve` → backend `transferFrom` | Pre-dispatch for known costs |
+| **Manual payment** | User's smart wallet | OnchainKit `<Transaction>` popup | Fallback when no delegation |
 
-### 5.2 Payment Flow Priority
-1. If `X-Payment-Proof` header present → skip all internal payments
-2. If no proof → attempt x402 → fallback to on-chain → log as pending
+### 5.2 x402 Flow (V2 Target)
+```
+Client → GET /specialist/magos?q=ETH+price
+                        ↓ (no payment header)
+Server → 402 Payment Required
+         Header: PAYMENT-REQUIRED: {scheme: "exact", price: "$0.10", payTo: "0x...", network: "eip155:84532"}
+                        ↓
+Client → Creates PaymentPayload (signed by Smart Wallet or delegation wallet)
+       → Sends request with PAYMENT-SIGNATURE header
+                        ↓
+Server → Forwards to facilitator /verify
+       → Facilitator confirms valid signature + sufficient funds
+       → Server executes specialist query
+       → Server calls facilitator /settle
+       → Facilitator submits USDC transfer on-chain
+       → Server returns result + PAYMENT-RESPONSE header
+```
 
-### 5.3 Fee Display
-- **PaymentFeed:** Shows all payments (user + internal), deduped by txHash
+### 5.3 Payment Method Priority
+1. Delegation active → sign payment with delegation wallet (no user popup)
+2. No delegation → show PaymentFlow popup → user signs with Smart Wallet
+3. Agent-to-agent → backend wallet signs x402 payment to external services
+
+### 5.4 Fee Display
+- **PaymentFeed:** Shows all payments with on-chain tx hashes from facilitator settlement
 - **DelegationPanel:** Shows remaining budget, individual payment records
-- **ResultCard:** Shows total cost for the query
+- **ResultCard:** Shows total cost for the query (internal + external agent fees)
 - **History:** Per-query cost breakdown
 
 ---
@@ -228,14 +258,16 @@ All specialists use Gemini Flash via unified `llm-client.ts` with cost tracking.
 - **Reputation system:** Voting UI exists, backend stores votes, but on-chain sync is simulated (mock tx hashes)
 
 ### ❌ Not Working / Not Built
-- **ERC-8004 on-chain registries:** Identity + Reputation contracts not deployed. All on-chain data is mocked
-- **Real x402 protocol integration:** `x402-express` middleware was removed; current "x402" is simulated via demo wallet transfers
-- **Agent-to-agent payments:** External agents (Sentinel) don't actually receive USDC — payments go to treasury
-- **Capability matcher embeddings:** Misroutes some queries (deterministic fast-paths added as workaround)
+- **Real x402 protocol:** Current "x402" is simulated via demo wallet transfers. Need `@x402/express` middleware with real facilitator settlement. This is the #1 priority — it's the core protocol.
+- **x402 Bazaar integration:** Registry tab should query the Bazaar discovery layer for external services. Currently shows only hardcoded agents.
+- **Our specialists as x402 services:** Our agents aren't listed in the Bazaar. Other agents/platforms can't discover or pay for them.
+- **Agent-to-agent payments:** External agents (Sentinel) don't actually receive USDC — payments go to treasury. Real x402 fixes this.
+- **ERC-8004 on-chain registries:** Identity + Reputation contracts not deployed. All on-chain data is mocked.
+- **Capability matcher embeddings:** Misroutes some queries (deterministic fast-paths added as workaround). Plan: replace with Bazaar discovery.
 - **Circuit breaker:** Implemented but untested at scale
 - **Fallback chains:** Code exists but rarely triggered
 - **ERC-8128 auth:** Endpoint exists but no frontend integration
-- **Swarm management persistence:** Hired agents stored in localStorage only (no server-side)
+- **Swarm persistence:** Hired agents stored in localStorage only (no server-side)
 - **Custom instructions:** Stored in component state, lost on page refresh
 
 ---
@@ -289,23 +321,100 @@ All specialists use Gemini Flash via unified `llm-client.ts` with cost tracking.
 - [ ] Marketplace: show real-time health status for external agents
 - [ ] "Try agent" button in marketplace → pre-fills TaskInput with sample query
 
+### P1.5 — x402 Bazaar Integration (Core Differentiator)
+
+The x402 Bazaar is Coinbase's discovery layer for agentic commerce. It's the missing piece that turns
+Hivemind from "our agents" into "any agent, anywhere." This is the production version of our protocol.
+
+**Reference:**
+- Bazaar docs: https://docs.cdp.coinbase.com/x402/bazaar
+- x402 SDK: https://github.com/coinbase/x402
+- awal CLI: `npx awal@latest` (agent wallet with skills)
+- awal skills: `npx skills add coinbase/agentic-wallet-skills`
+
+#### 7.8 Real x402 Payment Protocol
+Our current "x402" is simulated (demo wallet ERC-20 transfers). V2 uses the real x402 protocol:
+
+- [ ] Install `@x402/core`, `@x402/evm`, `@x402/express` on backend
+- [ ] Replace `x402-protocol.ts` simulated code with real `paymentMiddleware`
+- [ ] Each specialist endpoint becomes an x402-protected route with proper `PaymentRequirements`
+- [ ] Wire the x402.org facilitator for payment verification and settlement
+- [ ] Backend returns proper 402 responses with `PAYMENT-REQUIRED` header
+- [ ] Frontend handles 402 → creates `PaymentPayload` → re-sends with `PAYMENT-SIGNATURE`
+- [ ] Remove all demo wallet "settlement" code — facilitator handles on-chain settlement
+
+**x402 flow for Hivemind:**
+```
+User query → Dispatcher → Specialist endpoint returns 402
+                        → Facilitator verifies payment signed by user's Smart Wallet
+                        → Specialist executes and returns result
+                        → Facilitator settles USDC on-chain
+```
+
+#### 7.9 Bazaar Discovery — Registry Tab
+The "Registry" tab becomes a live view of the x402 Bazaar. Users browse real external agents/services,
+see their capabilities, pricing, and schemas, and add them to their swarm.
+
+- [ ] Query `facilitator/discovery/resources` to list available x402 services
+- [ ] Display services as cards: name, description, input/output schema, pricing, network
+- [ ] "Add to Swarm" button — adds the service endpoint as a routable agent
+- [ ] Filter/search by capability, price range, network
+- [ ] Show service health status (last successful payment, uptime)
+- [ ] Cache bazaar results with periodic refresh (every 5 min)
+
+**Tab split:**
+| Tab | Content |
+|-----|---------|
+| **Dispatch** | Main query interface |
+| **Marketplace** | Our internal agents (Magos, Seeker, Scribe, Aura) — always available |
+| **Registry** | x402 Bazaar — external agents/services anyone can browse and hire |
+| **History** | Query history with costs |
+
+#### 7.10 Our Agents as x402 Services (Seller Side)
+List Hivemind's own specialists in the Bazaar so OTHER agents can discover and pay for them:
+
+- [ ] Register `bazaarResourceServerExtension` on our Express server
+- [ ] Add `declareDiscoveryExtension()` with input/output schemas for each specialist:
+  - `POST /api/specialists/magos` — input: `{query: string}`, output: `{price, analysis, sources}`
+  - `POST /api/specialists/seeker` — input: `{query: string}`, output: `{results, sources, summary}`
+  - `POST /api/specialists/scribe` — input: `{content: string}`, output: `{synthesis, summary}`
+  - `POST /api/specialists/aura` — input: `{query: string}`, output: `{sentiment, analysis}`
+- [ ] Set proper `payTo` addresses per specialist (not fake Solana addresses)
+- [ ] Pricing: set competitive rates visible in Bazaar discovery
+
+#### 7.11 Agent-to-Agent Payments (Real x402)
+With real x402, agent-to-agent payments become native:
+
+- [ ] External agents receive USDC directly via x402 facilitator settlement
+- [ ] When our dispatcher routes to a Bazaar agent, it acts as an x402 client:
+  1. Hits the external endpoint → gets 402 + PaymentRequirements
+  2. Signs payment with our backend wallet
+  3. Re-sends with PAYMENT-SIGNATURE → gets result
+  4. Cost passed through to user's delegation budget
+- [ ] Payment splitting: treasury takes X% fee, rest goes to external agent
+- [ ] Transparent cost breakdown in UI: "Dispatcher fee: $0.01 + Agent fee: $0.05"
+
+#### 7.12 Coinbase Smart Wallet as Agent Identity
+Using awal (agentic wallet), agents in the swarm have their own wallets:
+
+- [ ] Each specialist can optionally have its own awal wallet
+- [ ] Registry shows agent wallet addresses and on-chain reputation
+- [ ] Agents can self-fund and self-manage using awal skills
+- [ ] Future: agents earn USDC from queries and compound their capabilities
+
 ### P2 — Nice to Have (Differentiation)
 
-#### 7.8 On-Chain Reputation
+#### 7.13 On-Chain Reputation
 - [ ] Deploy ERC-8004 Identity Registry contract on Base Sepolia
 - [ ] Deploy ERC-8004 Reputation Registry contract on Base Sepolia
 - [ ] Wire up real on-chain reputation sync (not mock tx hashes)
-- [ ] Display on-chain reputation scores in Marketplace cards
+- [ ] Display on-chain reputation scores in Registry + Marketplace cards
 
-#### 7.9 Agent-to-Agent Payments
-- [ ] External agents receive USDC directly (not just treasury)
-- [ ] Payment splitting: treasury fee + agent fee
-- [ ] Agent earnings dashboard
-
-#### 7.10 Advanced Routing
-- [ ] Fix capability matcher embeddings (or remove in favor of deterministic routing)
+#### 7.14 Advanced Routing
+- [ ] Remove capability matcher embeddings — replace with deterministic routing + Bazaar discovery
 - [ ] Price-aware routing: choose cheapest agent that meets quality threshold
 - [ ] Reputation-weighted routing: prefer agents with higher scores
+- [ ] Bazaar-aware routing: when no internal specialist matches, search Bazaar for a service
 
 ---
 
