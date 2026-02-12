@@ -117,14 +117,39 @@ const SPECIALISTS: Record<SpecialistType, {
   },
 };
 
+// Color palette for external agents (visually distinct, avoids clashing with core agents)
+const EXTERNAL_COLORS = [
+  { color: '#FFD700', glow: 'rgba(255, 215, 0, 0.6)' },   // Gold
+  { color: '#FF6B6B', glow: 'rgba(255, 107, 107, 0.6)' },  // Coral
+  { color: '#4ECDC4', glow: 'rgba(78, 205, 196, 0.6)' },   // Teal
+  { color: '#A78BFA', glow: 'rgba(167, 139, 250, 0.6)' },  // Violet
+  { color: '#F97316', glow: 'rgba(249, 115, 22, 0.6)' },   // Orange
+  { color: '#06D6A0', glow: 'rgba(6, 214, 160, 0.6)' },    // Mint
+  { color: '#E879F9', glow: 'rgba(232, 121, 249, 0.6)' },  // Pink
+  { color: '#38BDF8', glow: 'rgba(56, 189, 248, 0.6)' },   // Sky
+];
+
+function hashCode(s: string): number {
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    hash = ((hash << 5) - hash) + s.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
 // Default config for external/unknown agents
-const DEFAULT_AGENT_CONFIG = {
-  name: 'External Agent',
-  description: 'Registry',
-  icon: Globe,
-  color: '#FFD700',
-  glowColor: 'rgba(255, 215, 0, 0.6)',
-};
+function getExternalAgentConfig(id: string) {
+  const colorIdx = hashCode(id) % EXTERNAL_COLORS.length;
+  const { color, glow } = EXTERNAL_COLORS[colorIdx];
+  return {
+    name: id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+    description: 'Registry',
+    icon: Globe,
+    color,
+    glowColor: glow,
+  };
+}
 
 // Custom Agent Node Component
 function AgentNode({ data }: { data: { 
@@ -136,10 +161,7 @@ function AgentNode({ data }: { data: {
   reputation?: number;
   erc8004Id?: string;
 }}) {
-  const config = SPECIALISTS[data.specialist] || {
-    ...DEFAULT_AGENT_CONFIG,
-    name: data.specialist.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-  };
+  const config = SPECIALISTS[data.specialist] || getExternalAgentConfig(data.specialist);
   const Icon = config.icon;
   
   const isReady = data.status === 'ready';

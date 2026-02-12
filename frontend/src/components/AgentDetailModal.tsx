@@ -213,7 +213,15 @@ export function AgentDetailModal({
 
   if (!specialist) return null;
 
-  const info = SPECIALIST_INFO[specialist];
+  const info = SPECIALIST_INFO[specialist] || {
+    name: specialist.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+    description: 'External Agent (ERC-8004)',
+    fullDescription: `An external agent from the ERC-8004 registry, added to your swarm. Queries will be routed via x402 USDC payments.`,
+    icon: Sparkles,
+    color: '#FFD700',
+    capabilities: ['x402 payments', 'ERC-8004 identity'],
+    defaultPrompt: '',
+  };
   const Icon = info.icon;
 
   const handleSaveInstructions = () => {
