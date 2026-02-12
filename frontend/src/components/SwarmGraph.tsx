@@ -12,7 +12,7 @@ import {
   BackgroundVariant,
 } from '@xyflow/react';
 import { motion } from 'framer-motion';
-import { Brain, Sparkles, LineChart, Wallet, Activity, Target, Shield, Newspaper, Eye, FileText, Search } from 'lucide-react';
+import { Brain, Sparkles, LineChart, Wallet, Activity, Target, Shield, Newspaper, Eye, FileText, Search, Globe } from 'lucide-react';
 import type { SpecialistType } from '@/types';
 
 interface SwarmGraphProps {
@@ -117,6 +117,15 @@ const SPECIALISTS: Record<SpecialistType, {
   },
 };
 
+// Default config for external/unknown agents
+const DEFAULT_AGENT_CONFIG = {
+  name: 'External Agent',
+  description: 'Registry',
+  icon: Globe,
+  color: '#FFD700',
+  glowColor: 'rgba(255, 215, 0, 0.6)',
+};
+
 // Custom Agent Node Component
 function AgentNode({ data }: { data: { 
   specialist: SpecialistType; 
@@ -127,7 +136,10 @@ function AgentNode({ data }: { data: {
   reputation?: number;
   erc8004Id?: string;
 }}) {
-  const config = SPECIALISTS[data.specialist];
+  const config = SPECIALISTS[data.specialist] || {
+    ...DEFAULT_AGENT_CONFIG,
+    name: data.specialist.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+  };
   const Icon = config.icon;
   
   const isReady = data.status === 'ready';
@@ -250,23 +262,23 @@ const nodeTypes = { agent: AgentNode };
 // Calculate node positions in a circle around center
 function getNodePositions(centerX: number, centerY: number, radius: number, extraAgents: string[] = []) {
   const baseSpecialists: SpecialistType[] = ['bankr', 'scribe', 'seeker'];
-  const allSpecialists = [...baseSpecialists];
+  const allAgents: string[] = [...baseSpecialists];
   
-  // Add extra agents if they aren't already there
+  // Add extra agents (including external registry agents)
   extraAgents.forEach(id => {
-    const agentId = id.toLowerCase() as SpecialistType;
-    if (!allSpecialists.includes(agentId) && SPECIALISTS[agentId]) {
-      allSpecialists.push(agentId);
+    const agentId = id.toLowerCase();
+    if (!allAgents.includes(agentId)) {
+      allAgents.push(agentId);
     }
   });
 
   const angleOffset = -Math.PI / 2; // Start from top
   
-  return allSpecialists.map((specialist, index) => {
-    const angle = angleOffset + (2 * Math.PI * index) / allSpecialists.length;
+  return allAgents.map((agent, index) => {
+    const angle = angleOffset + (2 * Math.PI * index) / allAgents.length;
     return {
-      id: specialist,
-      x: centerX + radius * Math.cos(angle) - 48, // Subtract half node width
+      id: agent,
+      x: centerX + radius * Math.cos(angle) - 48,
       y: centerY + radius * Math.sin(angle) - 48,
     };
   });
