@@ -3,7 +3,8 @@ import { getTreasuryBalance } from '../payments';
 import { costTracker } from '../llm-client';
 import { callSpecialist, getSpecialists } from '../dispatcher';
 import { SpecialistType } from '../types';
-import { paymentMiddleware } from '../middleware/payment';
+// Note: x402 payment enforcement is handled at app level by x402-server.ts
+// The manual paymentMiddleware in middleware/payment.ts is kept as fallback
 
 const router = Router();
 const TREASURY_WALLET_EVM = '0x676fF3d546932dE6558a267887E58e39f405B135';
@@ -114,9 +115,9 @@ router.get('/v1/specialists', (req: Request, res: Response) => {
 });
 
 /**
- * Direct specialist query (requires payment)
+ * Direct specialist query — x402 payment enforced at app level
  */
-router.post(['/specialist/:id', '/query/:id'], paymentMiddleware, async (req: Request, res: Response) => {
+router.post(['/specialist/:id', '/query/:id'], async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { prompt } = req.body;

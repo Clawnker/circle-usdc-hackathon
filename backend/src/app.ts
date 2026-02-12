@@ -10,6 +10,7 @@ import dispatchRoutes from './routes/dispatch';
 import paymentRoutes from './routes/payments';
 import reputationRoutes from './routes/reputation';
 import generalRoutes from './routes/general';
+import { createX402Middleware } from './x402-server';
 
 dotenv.config();
 
@@ -27,19 +28,35 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 });
 
 // ──────────────────────────────────────
+//  x402 Payment Middleware (real protocol)
+// ──────────────────────────────────────
+// Must be mounted BEFORE routes so it can intercept 
+// specialist/dispatch requests and enforce payment.
+// Non-protected routes pass through unaffected.
+try {
+  const x402 = createX402Middleware();
+  app.use(x402);
+  console.log('[App] x402 payment middleware active');
+} catch (err: any) {
+  console.warn(`[App] x402 middleware failed to initialize: ${err.message}`);
+  console.warn('[App] Falling back to manual 402 responses');
+  // The routes/general.ts still has manual paymentMiddleware as fallback
+}
+
+// ──────────────────────────────────────
 //  PUBLIC routes (no API key required)
 // ──────────────────────────────────────
 
-// Health, status, costs, auth verification, skill.md
+// Health, costs, auth verification
 app.use('/', generalRoutes);
 
 // Agent registry (read + register)
 app.use('/api', agentRoutes);
 
-// Reputation (read-only is public)
+// Reputation (public read)
 app.use('/api', reputationRoutes);
 
-// Wallet balances & delegate-pay (public — they have their own guards)
+// Wallet balances, delegate-pay, lookup
 app.use('/api', paymentRoutes);
 
 // Serve registration docs
@@ -63,14 +80,14 @@ app.use(authMiddleware);
 // Dispatch, tasks, pricing, specialist queries
 app.use('/api', dispatchRoutes);
 
-// Also mount dispatch at root for backwards compat
+// Backwards compat: /dispatch at root
 app.post('/dispatch', (req, res, next) => {
   req.url = '/dispatch';
   dispatchRoutes(req, res, next);
 });
 
-// Status (authenticated version with wallet)
-app.get('/status', async (req: Request, res: Response) => {
+// Status (authenticated, includes treasury balance)
+app.get('/status', async (_req: Request, res: Response) => {
   const { getTreasuryBalance } = await import('./payments');
   try {
     const balances = await getTreasuryBalance();

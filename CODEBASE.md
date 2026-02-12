@@ -151,3 +151,30 @@ See `docs/V2_SPEC.md` for full spec. Summary:
 - **Phase 2** 🔜 Real x402 protocol — wire `@x402/express` paymentMiddleware
 - **Phase 3** Bazaar integration — Registry tab as x402 Bazaar browser
 - **Phase 4** Testing gauntlet
+
+## x402 Payment Protocol (V2)
+
+The backend uses the real x402 SDK (`@x402/express` + `@x402/evm`) for payment-gated specialist endpoints.
+
+### How it works:
+1. `x402-server.ts` creates the middleware using `paymentMiddleware()` from `@x402/express`
+2. Routes are auto-generated from `config.fees` — each specialist with fee > 0 gets an x402 route
+3. The Coinbase-hosted facilitator (`x402.org`) handles payment verification and on-chain settlement
+4. Network: Base Sepolia (`eip155:84532`), USDC payments
+5. Treasury receives all payments at `0x676fF3d546932dE6558a267887E58e39f405B135`
+
+### Client flow:
+```
+Client → POST /api/specialist/magos {prompt: "..."}
+       ← 402 Payment Required + PAYMENT-REQUIRED header
+Client → Signs EIP-3009 TransferWithAuthorization via Smart Wallet
+       → Re-sends with PAYMENT header
+Server → Facilitator verifies signature + balance
+       → Facilitator settles USDC on-chain (transferWithAuthorization)
+       → Specialist executes and returns result
+```
+
+### Key files:
+- `src/x402-server.ts` — x402 middleware factory, route config builder
+- `src/middleware/payment.ts` — Manual 402 fallback (legacy, used if x402 SDK init fails)
+- `src/app.ts` — Mounts x402 middleware before all routes
