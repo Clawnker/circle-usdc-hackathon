@@ -230,18 +230,17 @@ export function getInternalBazaarServices(): BazaarService[] {
 }
 
 /**
- * Combined discovery: internal specialists + external Bazaar agents.
+ * Bazaar discovery: ERC-8004 verified external agents from the CDP x402 Bazaar.
  * 
- * Standards-based approach:
- * - All x402 Bazaar agents are fetched from CDP facilitator
- * - Only agents with ERC-8004 identity are shown (verified via our registry or on-chain)
- * - Verified agents get enriched with reputation data and ranked by score
- * - Results sorted: verified (by reputation) → then by recency
+ * This is the external discovery layer — internal specialists belong in the
+ * Marketplace (served by /api/agents). The Bazaar shows only external agents
+ * that have both x402 Bazaar presence AND ERC-8004 identity.
  * 
- * Open standards: ERC-8004 (identity) + x402 Bazaar (payments).
+ * Internal specialists and approved external agents live in the Marketplace
+ * tier — a curated, high-trust set of agents.
  */
 export async function getAllDiscoverableServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; externalTotal: number; verifiedCount: number }> {
-  const internal = getInternalBazaarServices();
+  // No internal specialists — those belong in the Marketplace (/api/agents)
   
   // Build wallet→agent lookup from our ERC-8004 registry for enrichment
   const registeredAgents = getExternalAgents();
@@ -305,7 +304,7 @@ export async function getAllDiscoverableServices(options?: { limit?: number; off
   }
   
   return { 
-    services: [...internal, ...verified], 
+    services: verified, 
     externalTotal,
     verifiedCount,
   };
