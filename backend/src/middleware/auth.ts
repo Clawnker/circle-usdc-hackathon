@@ -28,6 +28,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     '/pricing',
     '/api/pricing',
     '/api/agents',
+    '/api/bazaar',
     '/api/reputation',
     '/api/vote',
     '/api/wallet',
