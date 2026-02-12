@@ -839,7 +839,7 @@ export default function CommandCenter() {
                 }`}
               >
                 <ShieldCheck size={16} />
-                <span className="hidden sm:inline">Registry</span>
+                <span className="hidden sm:inline">Agent Registry</span>
               </button>
               <button
                 onClick={() => setActiveView('history')}
@@ -861,7 +861,7 @@ export default function CommandCenter() {
               onClick={() => setActiveView('registry')}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#00F0FF]/20 to-[#00A3FF]/20 border border-[#00F0FF]/40 hover:border-[#00F0FF]/80 hover:from-[#00F0FF]/30 hover:to-[#00A3FF]/30 transition-all duration-300 text-[#00F0FF] text-xs sm:text-sm font-bold cursor-pointer"
             >
-              🌐 <span className="hidden sm:inline">Browse Registry</span><span className="sm:hidden">Registry</span> →
+              🌐 <span className="hidden sm:inline">Browse Agent Registry</span><span className="sm:hidden">Agent Registry</span> →
             </button>
 
             {/* Connection Status */}
@@ -1134,7 +1134,7 @@ export default function CommandCenter() {
                 onClick={() => setActiveView('registry')}
                 className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-black font-bold text-sm shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:scale-[1.02] transition-transform"
               >
-                Browse the Registry
+                Browse the Agent Registry
               </button>
             </div>
           </div>
@@ -1289,7 +1289,7 @@ export default function CommandCenter() {
           {[
             { tab: 'dispatch' as const, icon: '🎯', label: 'Dispatch' },
             { tab: 'marketplace' as const, icon: '🏪', label: 'Agents' },
-            { tab: 'registry' as const, icon: '🛡️', label: 'Registry' },
+            { tab: 'registry' as const, icon: '🛡️', label: 'Agent Registry' },
             { tab: 'history' as const, icon: '📜', label: 'History' },
           ].map(({ tab, icon, label }) => (
             <button
