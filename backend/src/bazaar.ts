@@ -1,14 +1,17 @@
 /**
  * x402 Bazaar Integration
  * 
- * Connects to the x402.org facilitator discovery layer to:
+ * Connects to the CDP facilitator discovery layer to:
  * 1. Browse external agent services available in the Bazaar
- * 2. Register our own specialists as discoverable x402 services
+ * 2. Cross-reference with our ERC-8004 registered agents
+ * 3. Only surface agents registered in BOTH systems (for payment tracking + trust)
  * 
  * Reference: https://docs.cdp.coinbase.com/x402/bazaar
  */
 
 import config from './config';
+import { getExternalAgents } from './external-agents';
+import { getReputationStats } from './reputation';
 
 const BASE_URL = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
 const FACILITATOR_URL = 'https://x402.org/facilitator';
@@ -38,6 +41,19 @@ export interface BazaarService {
   icon?: string;
   x402Version?: number;
   lastUpdated?: string;
+  // Cross-reference fields (populated when matched with our registry)
+  registeredAgent?: {
+    id: string;
+    name: string;
+    wallet: string;
+    healthy: boolean;
+    reputation?: {
+      score: number;
+      confidence: number;
+      totalTasks: number;
+    };
+  };
+  source: 'internal' | 'verified' | 'bazaar-only';
 }
 
 /**
@@ -93,6 +109,7 @@ export async function discoverBazaarServices(options?: { limit?: number; offset?
         outputSchema: firstAccept.outputSchema?.output || undefined,
         x402Version: item.x402Version,
         lastUpdated: item.lastUpdated,
+        source: 'bazaar-only' as const,
       };
     });
     
@@ -201,27 +218,108 @@ export function getInternalBazaarServices(): BazaarService[] {
       },
     },
     healthUrl: `${BASE_URL}/health`,
+    source: 'internal' as const,
   }));
 }
 
 /**
- * Combined discovery: internal + external Bazaar services.
- * External discovery failure is non-fatal — we always return internals.
+ * Combined discovery: internal specialists + verified external agents.
+ * 
+ * "Verified" = registered in BOTH our ERC-8004 registry AND the CDP Bazaar.
+ * This ensures we can track identity, payments, and reputation for every agent shown.
+ * 
+ * Cross-reference key: wallet address (agent.wallet === bazaarService.accepts[].payTo)
  */
-export async function getAllDiscoverableServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; externalTotal: number }> {
+export async function getAllDiscoverableServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; externalTotal: number; verifiedCount: number }> {
   const internal = getInternalBazaarServices();
   
-  let external: BazaarService[] = [];
+  // Get our registered agents and build a wallet→agent lookup
+  const registeredAgents = getExternalAgents();
+  const walletToAgent = new Map<string, typeof registeredAgents[0]>();
+  for (const agent of registeredAgents) {
+    if (agent.wallet && agent.active) {
+      walletToAgent.set(agent.wallet.toLowerCase(), agent);
+    }
+  }
+  
+  let verified: BazaarService[] = [];
   let externalTotal = 0;
+  
   try {
-    const result = await discoverBazaarServices(options);
-    external = result.services;
+    // Fetch from CDP Bazaar — get a larger batch to maximize cross-reference hits
+    const result = await discoverBazaarServices({ limit: options?.limit || 50, offset: options?.offset || 0 });
     externalTotal = result.total;
+    
+    // Cross-reference: only keep services whose payTo matches a registered agent
+    for (const service of result.services) {
+      const matchingAgent = findMatchingAgent(service, walletToAgent);
+      if (matchingAgent) {
+        // Get reputation data for this agent
+        const repStats = getReputationStats(matchingAgent.id);
+        
+        service.source = 'verified';
+        service.name = matchingAgent.name; // Use our registered name (more trustworthy)
+        service.registeredAgent = {
+          id: matchingAgent.id,
+          name: matchingAgent.name,
+          wallet: matchingAgent.wallet,
+          healthy: matchingAgent.healthy,
+          reputation: repStats ? {
+            score: repStats.successRate / 100, // normalize to 0-1
+            confidence: repStats.totalVotes > 0 ? Math.min(repStats.totalVotes / 20, 1) : 0,
+            totalTasks: repStats.totalVotes,
+          } : undefined,
+        };
+        verified.push(service);
+      }
+    }
+    
+    // Sort verified agents: highest reputation first
+    verified.sort((a, b) => {
+      const scoreA = a.registeredAgent?.reputation?.score ?? 0;
+      const scoreB = b.registeredAgent?.reputation?.score ?? 0;
+      return scoreB - scoreA;
+    });
+    
+    console.log(`[Bazaar] Cross-referenced: ${verified.length} verified agents out of ${result.services.length} Bazaar services (${registeredAgents.length} registered)`);
   } catch (err: any) {
     console.warn('[Bazaar] External discovery failed (non-fatal):', err.message);
   }
   
-  return { services: [...internal, ...external], externalTotal };
+  return { 
+    services: [...internal, ...verified], 
+    externalTotal,
+    verifiedCount: verified.length,
+  };
+}
+
+/**
+ * Find a registered agent matching a Bazaar service by wallet address or endpoint URL.
+ */
+function findMatchingAgent(
+  service: BazaarService,
+  walletToAgent: Map<string, any>
+): any | null {
+  // Primary match: payTo address matches agent wallet
+  for (const accept of service.accepts) {
+    if (accept.payTo) {
+      const agent = walletToAgent.get(accept.payTo.toLowerCase());
+      if (agent) return agent;
+    }
+  }
+  
+  // Secondary match: resource URL contains agent endpoint hostname
+  // (in case wallet addresses differ between testnet/mainnet registration)
+  const registeredAgents = Array.from(walletToAgent.values());
+  try {
+    const serviceHost = new URL(service.resourceUrl).hostname;
+    for (const agent of registeredAgents) {
+      const agentHost = new URL(agent.endpoint).hostname;
+      if (serviceHost === agentHost) return agent;
+    }
+  } catch { /* URL parse failure — skip secondary match */ }
+  
+  return null;
 }
 
 /**
