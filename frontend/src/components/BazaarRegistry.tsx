@@ -124,12 +124,50 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
                        agent.services.web?.endpoint || 
                        agent.services.mcp?.endpoint || '';
       
+      // Extract real capabilities from description
+      const desc = (agent.description || '').toLowerCase();
+      const capMap: Record<string, string> = {
+        'defi': 'DeFi analysis',
+        'swap': 'Token swaps',
+        'liquidity': 'Liquidity analysis',
+        'trading': 'Trading',
+        'market': 'Market intelligence',
+        'security': 'Security auditing',
+        'audit': 'Smart contract audit',
+        'portfolio': 'Portfolio management',
+        'rebalanc': 'Portfolio rebalancing',
+        'coding': 'Code generation',
+        'develop': 'Software development',
+        'frontend': 'Frontend development',
+        'backend': 'Backend development',
+        'research': 'Research',
+        'creative': 'Creative writing',
+        'fact': 'Fact checking',
+        'cloud': 'Cloud architecture',
+        'infrastructure': 'Infrastructure',
+        'yield': 'Yield optimization',
+        'arbitrage': 'Arbitrage detection',
+        'nft': 'NFT analysis',
+        'analytics': 'Data analytics',
+        'price': 'Price analysis',
+        'crypto': 'Cryptocurrency',
+        'blockchain': 'Blockchain analysis',
+        'perp': 'Perpetual trading',
+        'intent': 'Intent parsing',
+      };
+      const capabilities: string[] = [];
+      for (const [keyword, cap] of Object.entries(capMap)) {
+        if (desc.includes(keyword)) capabilities.push(cap);
+      }
+      if (capabilities.length === 0) capabilities.push('General purpose');
+      const uniqueCaps = [...new Set(capabilities)].slice(0, 6);
+
       const agentPayload = {
         name: agent.name,
         description: agent.description,
         endpoint,
         wallet: agent.wallet,
-        capabilities: agent.protocols.map(p => p.toLowerCase()),
+        capabilities: uniqueCaps,
         pricing: {
           model: 'per-request',
           cost: 0, // Discovered at call time via x402
