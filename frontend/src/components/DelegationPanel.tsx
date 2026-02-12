@@ -1,35 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Shield, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
-import { parseUnits, encodeFunctionData } from 'viem';
-import { baseSepolia } from 'wagmi/chains';
-
-const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
-// This must match the address that calls transferFrom on the backend (DEMO_WALLET_PRIVATE_KEY)
-const DELEGATE_ADDRESS = '0x4a9948159B7e6c19301ebc388E72B1EdFf87187B' as `0x${string}`;
-
-// ERC-20 ABI for approve
-const ERC20_ABI = [
-  {
-    name: 'approve',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [
-      { name: 'spender', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [{ type: 'bool' }],
-  },
-] as const;
+import { Shield, ShieldCheck, Zap } from 'lucide-react';
+import { useAccount } from 'wagmi';
 
 interface DelegationState {
   enabled: boolean;
-  allowance: number;  // Total approved
-  spent: number;      // Total spent so far
-  txHash: string;     // Approval tx
+  allowance: number;
+  spent: number;
+  walletAddress: string;
 }
 
 export function getDelegationState(): DelegationState | null {
@@ -44,12 +23,11 @@ export function getDelegationState(): DelegationState | null {
 export function recordDelegationSpend(amount: number) {
   const state = getDelegationState();
   if (!state) return;
-  state.spent += amount;
+  state.spent = Math.round((state.spent + amount) * 1000) / 1000;
   if (state.spent >= state.allowance) {
-    state.enabled = false; // Exhausted
+    state.enabled = false;
   }
   localStorage.setItem('hivemind-delegation', JSON.stringify(state));
-  // Trigger re-render in DelegationPanel via storage event
   window.dispatchEvent(new Event('delegation-updated'));
 }
 
@@ -57,72 +35,36 @@ export function DelegationPanel() {
   const { address, isConnected } = useAccount();
   const [delegation, setDelegation] = useState<DelegationState | null>(null);
   const [approveAmount, setApproveAmount] = useState(5);
-  const [isApproving, setIsApproving] = useState(false);
-  const [isRevoking, setIsRevoking] = useState(false);
-
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
   useEffect(() => {
     setDelegation(getDelegationState());
   }, []);
 
-  // Re-read state when delegation spend happens
   useEffect(() => {
     const handler = () => setDelegation(getDelegationState());
     window.addEventListener('delegation-updated', handler);
     return () => window.removeEventListener('delegation-updated', handler);
   }, []);
 
-  useEffect(() => {
-    if (isSuccess && hash) {
-      if (isRevoking) {
-        // Revoke confirmed — clear state
-        localStorage.removeItem('hivemind-delegation');
-        setDelegation(null);
-        setIsRevoking(false);
-      } else {
-        // Approve confirmed — set delegation
-        const newState: DelegationState = {
-          enabled: true,
-          allowance: approveAmount,
-          spent: 0,
-          txHash: hash,
-        };
-        localStorage.setItem('hivemind-delegation', JSON.stringify(newState));
-        setDelegation(newState);
-        setIsApproving(false);
-      }
-    }
-  }, [isSuccess, hash, approveAmount, isRevoking]);
-
   if (!isConnected) return null;
 
   const remaining = delegation ? Math.max(0, delegation.allowance - delegation.spent) : 0;
 
-  const handleApprove = () => {
-    setIsApproving(true);
-    writeContract({
-      address: USDC_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: 'approve',
-      args: [DELEGATE_ADDRESS, parseUnits(String(approveAmount), 6)],
-      chainId: baseSepolia.id,
-    });
+  const handleEnable = () => {
+    if (!address) return;
+    const newState: DelegationState = {
+      enabled: true,
+      allowance: approveAmount,
+      spent: 0,
+      walletAddress: address,
+    };
+    localStorage.setItem('hivemind-delegation', JSON.stringify(newState));
+    setDelegation(newState);
   };
 
   const handleRevoke = () => {
-    setIsRevoking(true);
     localStorage.removeItem('hivemind-delegation');
     setDelegation(null);
-    // Revoke on-chain approval
-    writeContract({
-      address: USDC_ADDRESS,
-      abi: ERC20_ABI,
-      functionName: 'approve',
-      args: [DELEGATE_ADDRESS, BigInt(0)],
-      chainId: baseSepolia.id,
-    });
   };
 
   return (
@@ -169,7 +111,7 @@ export function DelegationPanel() {
       ) : (
         <div className="space-y-2">
           <p className="text-[10px] text-[var(--text-muted)]">
-            Approve a USDC spending limit. Queries auto-deduct — no popup each time.
+            Set a spending limit. Queries auto-deduct fees — no popup each time.
           </p>
           <div className="flex items-center gap-2">
             <input
@@ -184,18 +126,11 @@ export function DelegationPanel() {
             <span className="text-xs font-mono text-white w-16 text-right">{approveAmount} USDC</span>
           </div>
           <button
-            onClick={handleApprove}
-            disabled={isPending || isConfirming}
-            className="w-full text-xs py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:shadow-lg hover:shadow-cyan-500/20 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
+            onClick={handleEnable}
+            className="w-full text-xs py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:shadow-lg hover:shadow-cyan-500/20 transition-all flex items-center justify-center gap-1"
           >
-            {isPending || isConfirming ? (
-              <>Approving...</>
-            ) : (
-              <>
-                <Zap size={12} />
-                Enable Auto-Pay ({approveAmount} USDC)
-              </>
-            )}
+            <Zap size={12} />
+            Enable Auto-Pay ({approveAmount} USDC)
           </button>
         </div>
       )}

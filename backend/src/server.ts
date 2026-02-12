@@ -129,8 +129,10 @@ app.post('/api/route-preview', async (req: Request, res: Response) => {
 });
 
 /**
- * Delegated payment — pull USDC from user via transferFrom
- * Requires user to have approved treasury address on USDC contract
+/**
+ * Delegated payment — auto-deduct fee from user's spending budget
+ * Demo wallet sends USDC to treasury on behalf of the user.
+ * In production: ERC-4337 session keys or Permit2.
  */
 app.post('/api/delegate-pay', async (req: Request, res: Response) => {
   try {
@@ -144,11 +146,15 @@ app.post('/api/delegate-pay', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Treasury wallet not configured' });
     }
 
-    const { createWalletClient, createPublicClient, http, parseUnits, encodeFunctionData } = await import('viem');
+    const { createWalletClient, createPublicClient, http, parseUnits } = await import('viem');
     const { privateKeyToAccount } = await import('viem/accounts');
     const { baseSepolia } = await import('viem/chains');
 
     const account = privateKeyToAccount(privateKey as `0x${string}`);
+    const TREASURY = '0x676fF3d546932dE6558a267887E58e39f405B135' as `0x${string}`;
+    const USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
+    const amountWei = parseUnits(String(amount), 6);
+
     const walletClient = createWalletClient({
       account,
       chain: baseSepolia,
@@ -159,33 +165,27 @@ app.post('/api/delegate-pay', async (req: Request, res: Response) => {
       transport: http(),
     });
 
-    const USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
-    const amountWei = parseUnits(String(amount), 6);
-
-    // Call transferFrom(user, treasury, amount)
+    // Demo wallet sends USDC to treasury on user's behalf (auto-deduct)
     const hash = await walletClient.writeContract({
       address: USDC,
       abi: [{
-        name: 'transferFrom',
+        name: 'transfer',
         type: 'function',
         stateMutability: 'nonpayable',
         inputs: [
-          { name: 'from', type: 'address' },
           { name: 'to', type: 'address' },
           { name: 'amount', type: 'uint256' },
         ],
         outputs: [{ type: 'bool' }],
       }],
-      functionName: 'transferFrom',
-      args: [userAddress as `0x${string}`, account.address, amountWei],
+      functionName: 'transfer',
+      args: [TREASURY, amountWei],
     });
 
-    // Wait for confirmation
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    await publicClient.waitForTransactionReceipt({ hash });
 
-    console.log(`[delegate-pay] ${amount} USDC from ${userAddress} → ${account.address} | tx: ${hash}`);
+    console.log(`[delegate-pay] ${amount} USDC for ${userAddress} | specialist: ${specialist} | tx: ${hash}`);
 
-    // Log the transaction
     logTransaction({
       amount: String(amount),
       currency: 'USDC',
