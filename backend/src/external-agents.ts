@@ -310,6 +310,8 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
       '/api/v1/audit',
       '/chat',
       '/api/v1/chat',
+      '/x402/chat', // Minara-style
+      '/x402/execute',
       '/' // Root fallback
     ];
 
