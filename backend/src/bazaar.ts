@@ -1,360 +1,187 @@
 /**
- * x402 Bazaar Integration
+ * Agent Discovery via 8004scan (ERC-8004 Registry)
  * 
- * Connects to the CDP facilitator discovery layer to:
- * 1. Browse external agent services available in the Bazaar
- * 2. Cross-reference with our ERC-8004 registered agents
- * 3. Only surface agents registered in BOTH systems (for payment tracking + trust)
+ * Single source of truth for external agent discovery.
+ * Queries the 8004scan API for ERC-8004 registered agents with x402 support.
  * 
- * Reference: https://docs.cdp.coinbase.com/x402/bazaar
+ * Pricing is discovered at call time via x402 protocol (402 responses),
+ * not pre-indexed — keeps things simple and always fresh.
+ * 
+ * Reference: https://www.8004scan.io
  */
 
-import config from './config';
-import { getExternalAgents } from './external-agents';
-import { getReputationStats } from './reputation';
+// 8004scan public API
+const SCAN_8004_API = 'https://www.8004scan.io/api/v1';
 
-const BASE_URL = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
-const FACILITATOR_URL = 'https://x402.org/facilitator';
-// CDP facilitator is the one that actually has the discovery/Bazaar endpoint
-const CDP_FACILITATOR_URL = 'https://api.cdp.coinbase.com/platform/v2/x402';
-const DISCOVERY_ENDPOINT = `${CDP_FACILITATOR_URL}/discovery/resources`;
+// Cache for 8004scan results (TTL: 5 minutes)
+let agentCache: { agents: DiscoveredAgent[]; total: number; timestamp: number } | null = null;
+const CACHE_TTL = 5 * 60 * 1000;
 
-// Treasury and network constants
-const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135';
-const BASE_SEPOLIA_NETWORK = 'eip155:84532';
-
-export interface BazaarService {
-  resourceUrl: string;
+export interface DiscoveredAgent {
+  id: string;          // 8004scan UUID
+  agentId: string;     // On-chain ID (e.g., "8453:0x8004...a432:1348")
+  tokenId: string;
+  chainId: number;
   name: string;
   description: string;
-  schemes: string[];
-  accepts: {
-    scheme: string;
-    network: string;
-    payTo: string;
-    price: number; // in dollars (derived from maxAmountRequired)
-    maxTimeoutSeconds: number;
-  }[];
-  inputSchema?: object;
-  outputSchema?: object;
-  healthUrl?: string;
-  icon?: string;
-  x402Version?: number;
-  lastUpdated?: string;
-  // Cross-reference fields (populated when matched with our registry)
-  registeredAgent?: {
-    id: string;
-    name: string;
-    wallet: string;
-    healthy: boolean;
-    reputation?: {
-      score: number;
-      confidence: number;
-      totalTasks: number;
-    };
+  wallet: string;
+  ownerAddress: string;
+  x402Supported: boolean;
+  score: number;       // 8004scan total_score (0-100)
+  healthStatus: string; // 'healthy' | 'unknown' | 'unhealthy'
+  healthScore: number;
+  imageUrl?: string;
+  services: {
+    mcp?: { endpoint: string; version: string };
+    a2a?: { endpoint: string; version: string; skills?: string[] };
+    oasf?: { endpoint: string; version: string; skills?: string[]; domains?: string[] };
+    web?: { endpoint: string };
   };
-  // Standards compliance
-  erc8004: boolean;   // Has ERC-8004 identity (on-chain or registered)
-  x402Bazaar: boolean; // Listed in CDP x402 Bazaar
-  source: 'internal' | 'verified' | 'external';
+  protocols: string[];  // e.g., ['MCP', 'A2A', 'OASF', 'x402']
+  feedbackCount: number;
+  starCount: number;
+  createdAt: string;
 }
 
 /**
- * Query the x402 Bazaar (CDP facilitator) for available services.
- * Returns external agents that accept x402 payments.
- * 
- * CDP endpoint: GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources
- * Returns { items: [...], pagination: { limit, offset, total }, x402Version }
+ * Discover external agents from 8004scan's ERC-8004 registry.
+ * Filters to x402-supporting agents with real service endpoints.
  */
-export async function discoverBazaarServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; total: number }> {
-  const limit = options?.limit || 20;
+export async function discoverAgents(options?: {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  chain?: 'base' | 'ethereum' | 'all';
+}): Promise<{ agents: DiscoveredAgent[]; total: number }> {
+  const limit = Math.min(options?.limit || 50, 100);
   const offset = options?.offset || 0;
-  
+  const search = options?.search || '';
+
+  // Check cache for default queries (no search, first page)
+  if (!search && offset === 0 && agentCache && Date.now() - agentCache.timestamp < CACHE_TTL) {
+    console.log(`[Discovery] Serving ${agentCache.agents.length} agents from cache`);
+    return { agents: agentCache.agents.slice(0, limit), total: agentCache.total };
+  }
+
   try {
-    const url = `${DISCOVERY_ENDPOINT}?type=http&limit=${limit}&offset=${offset}`;
+    // Build query — 8004scan API supports search, limit, offset
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset),
+    });
+    if (search) params.set('search', search);
+
+    const url = `${SCAN_8004_API}/agents?${params}`;
     const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers: { 'Accept': 'application/json' },
     });
 
     if (!response.ok) {
-      console.warn('[Bazaar] CDP discovery endpoint returned:', response.status);
-      return { services: [], total: 0 };
+      console.warn(`[Discovery] 8004scan returned ${response.status}`);
+      return { agents: [], total: 0 };
     }
 
     const data = await response.json();
-    const items = data.items || [];
-    const total = data.pagination?.total || items.length;
-    
-    // Map CDP discovery format to our BazaarService format
-    const services: BazaarService[] = items.map((item: any) => {
-      const firstAccept = item.accepts?.[0] || {};
-      const description = firstAccept.description || item.metadata?.description || 'x402 service';
-      // maxAmountRequired is in micro-units (e.g., 1000 = $0.001 for 6-decimal USDC)
-      const priceRaw = parseInt(firstAccept.maxAmountRequired || '0', 10);
-      const price = priceRaw / 1_000_000; // Convert from USDC base units to dollars
-      
-      return {
-        resourceUrl: item.resource,
-        name: extractServiceName(item.resource, description),
-        description,
-        schemes: [...new Set(item.accepts?.map((a: any) => a.scheme) || ['exact'])],
-        accepts: (item.accepts || []).map((a: any) => ({
-          scheme: a.scheme || 'exact',
-          network: a.network || '',
-          payTo: a.payTo || '',
-          price: parseInt(a.maxAmountRequired || '0', 10) / 1_000_000,
-          maxTimeoutSeconds: a.maxTimeoutSeconds || 300,
-        })),
-        inputSchema: firstAccept.outputSchema?.input || undefined,
-        outputSchema: firstAccept.outputSchema?.output || undefined,
-        x402Version: item.x402Version,
-        lastUpdated: item.lastUpdated,
-        source: 'external' as const,
-        erc8004: false,     // Will be enriched if matched with our registry
-        x402Bazaar: true,   // It's in the CDP Bazaar
-      };
-    });
-    
-    console.log(`[Bazaar] Discovered ${services.length} external services (total: ${total})`);
-    return { services, total };
+    const items: any[] = data.items || [];
+    const total = data.total || 0;
+
+    // Filter and map to our format
+    const agents: DiscoveredAgent[] = items
+      .filter((a: any) => {
+        // Must have x402 support
+        if (!a.x402_supported) return false;
+        // Must have at least one real service endpoint
+        const svc = a.services || {};
+        const hasEndpoint = !!(
+          svc?.a2a?.endpoint ||
+          svc?.mcp?.endpoint ||
+          svc?.oasf?.endpoint ||
+          svc?.web?.endpoint
+        );
+        return hasEndpoint;
+      })
+      .map((a: any) => mapAgent(a));
+
+    console.log(`[Discovery] Found ${agents.length} agents with x402 + endpoints (of ${items.length} returned, ${total} total)`);
+
+    // Cache first-page default results
+    if (!search && offset === 0) {
+      agentCache = { agents, total, timestamp: Date.now() };
+    }
+
+    return { agents, total };
   } catch (error: any) {
-    console.error('[Bazaar] Failed to discover services:', error.message);
-    return { services: [], total: 0 };
-  }
-}
-
-/**
- * Extract a readable service name from the resource URL and description.
- */
-function extractServiceName(resourceUrl: string, description: string): string {
-  try {
-    const url = new URL(resourceUrl);
-    const pathParts = url.pathname.split('/').filter(Boolean);
-    const lastPart = pathParts[pathParts.length - 1] || '';
-    const host = url.hostname.replace('www.', '');
-    // Use last path segment as name, falling back to hostname
-    const name = lastPart 
-      ? lastPart.replace(/-/g, ' ').replace(/^\w/, c => c.toUpperCase())
-      : host;
-    return name;
-  } catch {
-    return description.slice(0, 40);
-  }
-}
-
-/**
- * Our internal specialists as x402 services.
- * These are what external agents would see when browsing the Bazaar.
- */
-export function getInternalBazaarServices(): BazaarService[] {
-  const specialists = [
-    {
-      id: 'magos',
-      name: 'Magos',
-      description: 'Market analysis and price data specialist. Provides real-time cryptocurrency prices, market trends, and financial analysis via CoinGecko API.',
-      fee: config.fees.magos || 0.1,
-      capabilities: ['market-analysis', 'price-data', 'finance'],
-    },
-    {
-      id: 'aura',
-      name: 'Aura',
-      description: 'Social sentiment and web monitoring specialist. Analyzes social media trends, news sentiment, and online discussions via Brave Search.',
-      fee: config.fees.aura || 0.1,
-      capabilities: ['sentiment-analysis', 'social-monitoring', 'trends'],
-    },
-    {
-      id: 'seeker',
-      name: 'Seeker',
-      description: 'Web research and information retrieval specialist. Deep web search capabilities with citation extraction and source verification.',
-      fee: config.fees.seeker || 0.1,
-      capabilities: ['web-research', 'search', 'information-retrieval'],
-    },
-    {
-      id: 'scribe',
-      name: 'Scribe',
-      description: 'Synthesis and content creation specialist. Synthesizes multi-source information into coherent summaries, reports, and structured content.',
-      fee: config.fees.scribe || 0.1,
-      capabilities: ['synthesis', 'summarization', 'content-creation'],
-    },
-    {
-      id: 'bankr',
-      name: 'Bankr',
-      description: 'DeFi operations specialist. Token swaps, transfers, and on-chain transactions via Jupiter and other DEX aggregators.',
-      fee: config.fees.bankr || 0.1,
-      capabilities: ['defi', 'token-swaps', 'transactions'],
-    },
-    {
-      id: 'sentinel',
-      name: 'Sentinel',
-      description: 'Smart contract security audit specialist. External service for automated contract analysis and vulnerability detection.',
-      fee: config.fees.sentinel || 2.5,
-      capabilities: ['security-audit', 'smart-contracts', 'vulnerability-detection'],
-    },
-  ];
-
-  return specialists.map((spec) => ({
-    resourceUrl: `${BASE_URL}/api/specialist/${spec.id}`,
-    name: spec.name,
-    description: spec.description,
-    schemes: ['exact'],
-    accepts: [{
-      scheme: 'exact',
-      network: BASE_SEPOLIA_NETWORK,
-      payTo: TREASURY_ADDRESS,
-      price: spec.fee,
-      maxTimeoutSeconds: 300,
-    }],
-    inputSchema: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: 'The query to process' },
-      },
-      required: ['query'],
-    },
-    outputSchema: {
-      type: 'object',
-      properties: {
-        result: { type: 'string', description: 'The processed result' },
-        sources: { type: 'array', items: { type: 'string' } },
-        cost: { type: 'number' },
-      },
-    },
-    healthUrl: `${BASE_URL}/health`,
-    source: 'internal' as const,
-    erc8004: true,
-    x402Bazaar: false, // Internal services aren't in the CDP Bazaar
-  }));
-}
-
-/**
- * Bazaar discovery: ERC-8004 verified external agents from the CDP x402 Bazaar.
- * 
- * This is the external discovery layer — internal specialists belong in the
- * Marketplace (served by /api/agents). The Bazaar shows only external agents
- * that have both x402 Bazaar presence AND ERC-8004 identity.
- * 
- * Internal specialists and approved external agents live in the Marketplace
- * tier — a curated, high-trust set of agents.
- */
-export async function getAllDiscoverableServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; externalTotal: number; verifiedCount: number }> {
-  // No internal specialists — those belong in the Marketplace (/api/agents)
-  
-  // Build wallet→agent lookup from our ERC-8004 registry for enrichment
-  const registeredAgents = getExternalAgents();
-  const walletToAgent = new Map<string, typeof registeredAgents[0]>();
-  const hostToAgent = new Map<string, typeof registeredAgents[0]>();
-  for (const agent of registeredAgents) {
-    if (agent.wallet && agent.active) {
-      walletToAgent.set(agent.wallet.toLowerCase(), agent);
-      try {
-        hostToAgent.set(new URL(agent.endpoint).hostname, agent);
-      } catch { /* skip invalid URLs */ }
+    console.error('[Discovery] 8004scan query failed:', error.message);
+    // Return cached data if available
+    if (agentCache) {
+      console.log('[Discovery] Falling back to stale cache');
+      return { agents: agentCache.agents, total: agentCache.total };
     }
+    return { agents: [], total: 0 };
   }
-  
-  let verified: BazaarService[] = [];
-  let externalTotal = 0;
-  let verifiedCount = 0;
-  
-  try {
-    const result = await discoverBazaarServices({ limit: options?.limit || 50, offset: options?.offset || 0 });
-    externalTotal = result.total;
-    
-    for (const service of result.services) {
-      // Match with our ERC-8004 registered agents
-      const matchingAgent = findMatchingAgent(service, walletToAgent, hostToAgent);
-      
-      if (matchingAgent) {
-        // In both x402 Bazaar AND ERC-8004 registry — show it
-        const repStats = getReputationStats(matchingAgent.id);
-        
-        service.source = 'verified';
-        service.erc8004 = true;
-        service.name = matchingAgent.name;
-        service.registeredAgent = {
-          id: matchingAgent.id,
-          name: matchingAgent.name,
-          wallet: matchingAgent.wallet,
-          healthy: matchingAgent.healthy,
-          reputation: repStats ? {
-            score: repStats.successRate / 100,
-            confidence: repStats.totalVotes > 0 ? Math.min(repStats.totalVotes / 20, 1) : 0,
-            totalTasks: repStats.totalVotes,
-          } : undefined,
-        };
-        verified.push(service);
-        verifiedCount++;
-      }
-      // Non-ERC-8004 agents are excluded from results
-    }
-    
-    // Sort verified by reputation score (highest first)
-    verified.sort((a, b) => {
-      const scoreA = a.registeredAgent?.reputation?.score ?? 0;
-      const scoreB = b.registeredAgent?.reputation?.score ?? 0;
-      return scoreB - scoreA;
-    });
-    
-    console.log(`[Bazaar] ${verifiedCount} ERC-8004 verified agents out of ${result.services.length} Bazaar services`);
-  } catch (err: any) {
-    console.warn('[Bazaar] External discovery failed (non-fatal):', err.message);
+}
+
+/**
+ * Map raw 8004scan API response to our DiscoveredAgent format.
+ */
+function mapAgent(a: any): DiscoveredAgent {
+  const svc = a.services || {};
+  const healthStatus = a.health_status || {};
+
+  // Build protocols list
+  const protocols: string[] = [];
+  if (svc?.mcp?.endpoint) protocols.push('MCP');
+  if (svc?.a2a?.endpoint) protocols.push('A2A');
+  if (svc?.oasf?.endpoint) protocols.push('OASF');
+  if (a.x402_supported) protocols.push('x402');
+
+  // Derive overall health
+  let overallHealth = 'unknown';
+  let healthScore = healthStatus?.health_score ?? 0;
+  if (healthStatus?.overall_status === 'healthy') overallHealth = 'healthy';
+  else if (healthStatus?.overall_status === 'unhealthy') overallHealth = 'unhealthy';
+  // Fall back to checking individual services
+  else if (healthStatus?.services) {
+    const statuses = Object.values(healthStatus.services) as any[];
+    const healthyCount = statuses.filter((s: any) => s?.status === 'healthy').length;
+    if (healthyCount > 0) overallHealth = 'healthy';
   }
-  
-  return { 
-    services: verified, 
-    externalTotal,
-    verifiedCount,
+
+  return {
+    id: a.id,
+    agentId: a.agent_id || '',
+    tokenId: a.token_id || '',
+    chainId: a.chain_id || 0,
+    name: a.name || `Agent #${a.token_id}`,
+    description: a.description || '',
+    wallet: a.agent_wallet || a.owner_address || '',
+    ownerAddress: a.owner_address || '',
+    x402Supported: !!a.x402_supported,
+    score: a.total_score || 0,
+    healthStatus: overallHealth,
+    healthScore,
+    imageUrl: a.image_url || undefined,
+    services: {
+      mcp: svc?.mcp?.endpoint ? { endpoint: svc.mcp.endpoint, version: svc.mcp.version || '' } : undefined,
+      a2a: svc?.a2a?.endpoint ? { endpoint: svc.a2a.endpoint, version: svc.a2a.version || '', skills: svc.a2a.skills } : undefined,
+      oasf: svc?.oasf?.endpoint ? { endpoint: svc.oasf.endpoint, version: svc.oasf.version || '', skills: svc.oasf.skills, domains: svc.oasf.domains } : undefined,
+      web: svc?.web?.endpoint ? { endpoint: svc.web.endpoint } : undefined,
+    },
+    protocols,
+    feedbackCount: a.total_feedbacks || 0,
+    starCount: a.star_count || 0,
+    createdAt: a.created_at || '',
   };
 }
 
 /**
- * Find a registered agent matching a Bazaar service by wallet address or endpoint URL.
+ * Get a single agent's details by searching 8004scan.
  */
-function findMatchingAgent(
-  service: BazaarService,
-  walletToAgent: Map<string, any>,
-  hostToAgent: Map<string, any>,
-): any | null {
-  // Primary match: payTo address matches agent wallet
-  for (const accept of service.accepts) {
-    if (accept.payTo) {
-      const agent = walletToAgent.get(accept.payTo.toLowerCase());
-      if (agent) return agent;
-    }
-  }
-  
-  // Secondary match: resource URL hostname matches agent endpoint hostname
+export async function getAgentDetails(agentName: string): Promise<DiscoveredAgent | null> {
   try {
-    const serviceHost = new URL(service.resourceUrl).hostname;
-    const agent = hostToAgent.get(serviceHost);
-    if (agent) return agent;
-  } catch { /* URL parse failure — skip */ }
-  
-  return null;
-}
-
-/**
- * Get service details for a specific Bazaar endpoint
- */
-export async function getBazaarServiceDetails(resourceUrl: string): Promise<BazaarService | null> {
-  try {
-    const response = await fetch(resourceUrl, {
-      method: 'OPTIONS',
-      headers: { 'Accept': 'application/json' },
-    });
-    
-    if (!response.ok) return null;
-    
-    const data = await response.json();
-    return {
-      resourceUrl,
-      ...data,
-    };
-  } catch (error: any) {
-    console.error('[Bazaar] Failed to get service details:', error.message);
+    const result = await discoverAgents({ search: agentName, limit: 1 });
+    return result.agents[0] || null;
+  } catch {
     return null;
   }
 }
