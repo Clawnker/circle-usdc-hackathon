@@ -14,7 +14,7 @@ import * as path from 'path';
 import config from './config';
 import { authMiddleware } from './middleware/auth';
 import dispatcher, { dispatch, getTask, getRecentTasks, subscribeToTask, getSpecialists, callSpecialist, executeTask, updateTaskStatus } from './dispatcher';
-import { getBalances, getTransactionLog } from './x402';
+import { getBalances, getTransactionLog, logTransaction } from './x402';
 import { getSimulatedBalances } from './specialists/bankr';
 import { submitVote, getVote, getReputationStats, getAllReputation, updateSyncStatus } from './reputation';
 import { syncReputationToChain } from './solana-reputation';
@@ -130,9 +130,9 @@ app.post('/api/route-preview', async (req: Request, res: Response) => {
 
 /**
 /**
- * Delegated payment — auto-deduct fee from user's spending budget
- * Demo wallet sends USDC to treasury on behalf of the user.
- * In production: ERC-4337 session keys or Permit2.
+ * Delegated payment — pull USDC from user's wallet via ERC-20 approval.
+ * User pre-approves the demo wallet address to spend their USDC.
+ * This endpoint calls transferFrom(user, treasury, amount).
  */
 app.post('/api/delegate-pay', async (req: Request, res: Response) => {
   try {
@@ -143,7 +143,7 @@ app.post('/api/delegate-pay', async (req: Request, res: Response) => {
     
     const privateKey = process.env.DEMO_WALLET_PRIVATE_KEY;
     if (!privateKey) {
-      return res.status(500).json({ error: 'Treasury wallet not configured' });
+      return res.status(500).json({ error: 'Delegate wallet not configured' });
     }
 
     const { createWalletClient, createPublicClient, http, parseUnits } = await import('viem');
@@ -165,26 +165,28 @@ app.post('/api/delegate-pay', async (req: Request, res: Response) => {
       transport: http(),
     });
 
-    // Demo wallet sends USDC to treasury on user's behalf (auto-deduct)
+    // Pull USDC from user's wallet to treasury via their on-chain approval
     const hash = await walletClient.writeContract({
       address: USDC,
       abi: [{
-        name: 'transfer',
+        name: 'transferFrom',
         type: 'function',
         stateMutability: 'nonpayable',
         inputs: [
+          { name: 'from', type: 'address' },
           { name: 'to', type: 'address' },
           { name: 'amount', type: 'uint256' },
         ],
         outputs: [{ type: 'bool' }],
       }],
-      functionName: 'transfer',
-      args: [TREASURY, amountWei],
+      functionName: 'transferFrom',
+      args: [userAddress as `0x${string}`, TREASURY, amountWei],
+      chain: baseSepolia,
     });
 
     await publicClient.waitForTransactionReceipt({ hash });
 
-    console.log(`[delegate-pay] ${amount} USDC for ${userAddress} | specialist: ${specialist} | tx: ${hash}`);
+    console.log(`[delegate-pay] transferFrom ${userAddress} → treasury | ${amount} USDC | specialist: ${specialist} | tx: ${hash}`);
 
     logTransaction({
       amount: String(amount),
