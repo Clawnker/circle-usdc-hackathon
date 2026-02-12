@@ -53,7 +53,10 @@ export interface BazaarService {
       totalTasks: number;
     };
   };
-  source: 'internal' | 'verified' | 'bazaar-only';
+  // Standards compliance
+  erc8004: boolean;   // Has ERC-8004 identity (on-chain or registered)
+  x402Bazaar: boolean; // Listed in CDP x402 Bazaar
+  source: 'internal' | 'verified' | 'external';
 }
 
 /**
@@ -109,7 +112,9 @@ export async function discoverBazaarServices(options?: { limit?: number; offset?
         outputSchema: firstAccept.outputSchema?.output || undefined,
         x402Version: item.x402Version,
         lastUpdated: item.lastUpdated,
-        source: 'bazaar-only' as const,
+        source: 'external' as const,
+        erc8004: false,     // Will be enriched if matched with our registry
+        x402Bazaar: true,   // It's in the CDP Bazaar
       };
     });
     
@@ -219,77 +224,100 @@ export function getInternalBazaarServices(): BazaarService[] {
     },
     healthUrl: `${BASE_URL}/health`,
     source: 'internal' as const,
+    erc8004: true,
+    x402Bazaar: false, // Internal services aren't in the CDP Bazaar
   }));
 }
 
 /**
- * Combined discovery: internal specialists + verified external agents.
+ * Combined discovery: internal specialists + external Bazaar agents.
  * 
- * "Verified" = registered in BOTH our ERC-8004 registry AND the CDP Bazaar.
- * This ensures we can track identity, payments, and reputation for every agent shown.
+ * Standards-based approach:
+ * - All x402 Bazaar agents are shown (they're in the CDP discovery index)
+ * - Agents also registered with ERC-8004 (via our registry) get enriched with
+ *   reputation data and marked as "verified"
+ * - Results sorted: verified (by reputation) → external (by recency)
  * 
- * Cross-reference key: wallet address (agent.wallet === bazaarService.accepts[].payTo)
+ * No proprietary registry requirement — just open standards (ERC-8004 + x402 Bazaar).
  */
 export async function getAllDiscoverableServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; externalTotal: number; verifiedCount: number }> {
   const internal = getInternalBazaarServices();
   
-  // Get our registered agents and build a wallet→agent lookup
+  // Build wallet→agent lookup from our ERC-8004 registry for enrichment
   const registeredAgents = getExternalAgents();
   const walletToAgent = new Map<string, typeof registeredAgents[0]>();
+  const hostToAgent = new Map<string, typeof registeredAgents[0]>();
   for (const agent of registeredAgents) {
     if (agent.wallet && agent.active) {
       walletToAgent.set(agent.wallet.toLowerCase(), agent);
+      try {
+        hostToAgent.set(new URL(agent.endpoint).hostname, agent);
+      } catch { /* skip invalid URLs */ }
     }
   }
   
-  let verified: BazaarService[] = [];
+  let external: BazaarService[] = [];
   let externalTotal = 0;
+  let verifiedCount = 0;
   
   try {
-    // Fetch from CDP Bazaar — get a larger batch to maximize cross-reference hits
     const result = await discoverBazaarServices({ limit: options?.limit || 50, offset: options?.offset || 0 });
     externalTotal = result.total;
     
-    // Cross-reference: only keep services whose payTo matches a registered agent
     for (const service of result.services) {
-      const matchingAgent = findMatchingAgent(service, walletToAgent);
+      // Try to match with our ERC-8004 registered agents
+      const matchingAgent = findMatchingAgent(service, walletToAgent, hostToAgent);
+      
       if (matchingAgent) {
-        // Get reputation data for this agent
+        // Enriched: in both x402 Bazaar AND our ERC-8004 registry
         const repStats = getReputationStats(matchingAgent.id);
         
         service.source = 'verified';
-        service.name = matchingAgent.name; // Use our registered name (more trustworthy)
+        service.erc8004 = true;
+        service.name = matchingAgent.name;
         service.registeredAgent = {
           id: matchingAgent.id,
           name: matchingAgent.name,
           wallet: matchingAgent.wallet,
           healthy: matchingAgent.healthy,
           reputation: repStats ? {
-            score: repStats.successRate / 100, // normalize to 0-1
+            score: repStats.successRate / 100,
             confidence: repStats.totalVotes > 0 ? Math.min(repStats.totalVotes / 20, 1) : 0,
             totalTasks: repStats.totalVotes,
           } : undefined,
         };
-        verified.push(service);
+        verifiedCount++;
       }
+      // All Bazaar agents are included regardless of ERC-8004 status
+      external.push(service);
     }
     
-    // Sort verified agents: highest reputation first
-    verified.sort((a, b) => {
-      const scoreA = a.registeredAgent?.reputation?.score ?? 0;
-      const scoreB = b.registeredAgent?.reputation?.score ?? 0;
-      return scoreB - scoreA;
+    // Sort: verified agents first (by reputation), then external (by recency)
+    external.sort((a, b) => {
+      // Verified always above external
+      if (a.source === 'verified' && b.source !== 'verified') return -1;
+      if (a.source !== 'verified' && b.source === 'verified') return 1;
+      // Within verified: sort by reputation score
+      if (a.source === 'verified' && b.source === 'verified') {
+        const scoreA = a.registeredAgent?.reputation?.score ?? 0;
+        const scoreB = b.registeredAgent?.reputation?.score ?? 0;
+        return scoreB - scoreA;
+      }
+      // Within external: sort by recency
+      const dateA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+      const dateB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+      return dateB - dateA;
     });
     
-    console.log(`[Bazaar] Cross-referenced: ${verified.length} verified agents out of ${result.services.length} Bazaar services (${registeredAgents.length} registered)`);
+    console.log(`[Bazaar] ${external.length} Bazaar services, ${verifiedCount} verified (ERC-8004), ${registeredAgents.length} in our registry`);
   } catch (err: any) {
     console.warn('[Bazaar] External discovery failed (non-fatal):', err.message);
   }
   
   return { 
-    services: [...internal, ...verified], 
+    services: [...internal, ...external], 
     externalTotal,
-    verifiedCount: verified.length,
+    verifiedCount,
   };
 }
 
@@ -298,7 +326,8 @@ export async function getAllDiscoverableServices(options?: { limit?: number; off
  */
 function findMatchingAgent(
   service: BazaarService,
-  walletToAgent: Map<string, any>
+  walletToAgent: Map<string, any>,
+  hostToAgent: Map<string, any>,
 ): any | null {
   // Primary match: payTo address matches agent wallet
   for (const accept of service.accepts) {
@@ -308,16 +337,12 @@ function findMatchingAgent(
     }
   }
   
-  // Secondary match: resource URL contains agent endpoint hostname
-  // (in case wallet addresses differ between testnet/mainnet registration)
-  const registeredAgents = Array.from(walletToAgent.values());
+  // Secondary match: resource URL hostname matches agent endpoint hostname
   try {
     const serviceHost = new URL(service.resourceUrl).hostname;
-    for (const agent of registeredAgents) {
-      const agentHost = new URL(agent.endpoint).hostname;
-      if (serviceHost === agentHost) return agent;
-    }
-  } catch { /* URL parse failure — skip secondary match */ }
+    const agent = hostToAgent.get(serviceHost);
+    if (agent) return agent;
+  } catch { /* URL parse failure — skip */ }
   
   return null;
 }
