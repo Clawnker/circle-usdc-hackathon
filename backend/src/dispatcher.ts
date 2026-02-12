@@ -956,82 +956,74 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     console.log(`[Intent Classifier] Error: ${e.message}, falling through`);
   }
   
-  // 1. Fast-path: contract audit/security queries → sentinel (FIRST - before complexity detection)
-  // "audit contract" triggers false positives in complexity detection (security + wallet domains)
+  // 1. Capability-Based Matching (FIRST — external agents get priority)
+  // This runs before fast-paths so that external agents with real capabilities
+  // (e.g. Silverback for "swap route for ETH") beat internal fast-paths (e.g. bankr)
+  if (planningMode === 'capability') {
+    try {
+      const intent = await capabilityMatcher.extractIntent(prompt);
+      const matches = await capabilityMatcher.matchAgents(intent);
+      
+      if (matches.length > 0) {
+        // Filter to only agents in the swarm
+        const swarmMatches = hiredAgents 
+          ? matches.filter(m => hiredAgents.includes(m.agentId as SpecialistType))
+          : matches;
+        
+        if (swarmMatches.length > 0) {
+          const best = swarmMatches[0];
+          console.log(`[Capability Matcher] Top match: ${best.agentId} (score: ${best.score.toFixed(2)})`);
+          
+          if (best.score >= 0.6) {
+            return best.agentId as SpecialistType;
+          }
+        }
+      }
+      console.log(`[Capability Matcher] No high-confidence match (top score < 0.6), falling back to fast-paths`);
+    } catch (error: any) {
+      console.error(`[Capability Matcher] Error:`, error.message, '- falling back to fast-paths');
+    }
+  }
+  
+  // 2. Fast-path: contract audit/security queries → sentinel
   if (/\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(prompt) && 
       (/0x[a-fA-F0-9]{40}/.test(prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(prompt))) {
     console.log(`[Router] Fast-path: contract audit query detected, routing to sentinel`);
     if (!hiredAgents || hiredAgents.includes('sentinel' as SpecialistType)) return 'sentinel' as SpecialistType;
   }
   
-  // 1c. Fast-path: price/market queries → magos (before capability matcher misroutes to scribe)
+  // 2b. Fast-path: price/market queries → magos
   if (/\b(price|value|worth|cost|how much)\b/i.test(prompt) && 
       /\b(bitcoin|btc|ethereum|eth|solana|sol|bonk|wif|pepe|doge|avax|matic|bnb|jup|crypto|token|coin)\b/i.test(prompt)) {
     console.log(`[Router] Fast-path: price query detected, routing to magos`);
     if (!hiredAgents || hiredAgents.includes('magos')) return 'magos';
   }
   
-  // 1d. Fast-path: sentiment/social queries → aura
+  // 2c. Fast-path: sentiment/social queries → aura
   if (/\b(sentiment|vibe|mood|social\s+analysis|what.+saying|what.+think|buzz|hype|fud|fomo)\b/i.test(prompt)) {
     console.log(`[Router] Fast-path: sentiment/social query detected, routing to aura`);
     if (!hiredAgents || hiredAgents.includes('aura')) return 'aura';
   }
   
-  // 1b. Multi-hop / Complex Query Detection
-  // If query is complex or matches known multi-hop patterns, flag for orchestration
+  // 3. Multi-hop / Complex Query Detection
   if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
     console.log(`[Router] Complex query or multi-hop pattern detected, routing to multi-hop`);
     return 'multi-hop' as SpecialistType;
   }
   
-  // 2. Capability-Based Matching (SECOND)
-  if (planningMode === 'capability') {
-    try {
-      const intent = await capabilityMatcher.extractIntent(prompt);
-      // Pass intent to metadata for later reputation recording
-      // Note: This only works if we're in the context of creating a task,
-      // but routePrompt is often called before the task object exists.
-      // We'll rely on the matcher result.
-      const matches = await capabilityMatcher.matchAgents(intent);
-      
-      if (matches.length > 0) {
-        const best = matches[0];
-        console.log(`[Capability Matcher] Top match: ${best.agentId} (score: ${best.score.toFixed(2)})`);
-        
-        // Use capability matcher if score is high enough (>= 0.6)
-        if (best.score >= 0.6) {
-          const specialist = best.agentId as SpecialistType;
-          
-          // If specialist is not in hiredAgents, use fallback routing
-          if (hiredAgents && !hiredAgents.includes(specialist)) {
-            console.log(`[Capability Matcher] Specialist ${specialist} not in swarm, falling back to regexp routing`);
-            return routeWithRegExp(prompt, hiredAgents);
-          }
-          
-          return specialist;
-        }
-      }
-      console.log(`[Capability Matcher] No high-confidence match (top score < 0.6), falling back to next router`);
-    } catch (error: any) {
-      console.error(`[Capability Matcher] Error:`, error.message, '- falling back to next router');
-    }
-  }
-  
-  // 3. Fast-path: explicit trade/execution intents
-  // These are unambiguous action commands that should never route to analysis
+  // 4. Fast-path: explicit trade/execution intents
   if (/\b(buy|sell|swap|send|transfer|withdraw|deposit)\b/.test(lower) && 
       !/\b(should i|good|recommend|analysis|analyze|compare|predict)\b/.test(lower)) {
     console.log(`[Router] Fast-path: explicit trade intent detected, routing to bankr`);
     if (!hiredAgents || hiredAgents.includes('bankr')) return 'bankr';
   }
   
-  // 4. LLM-based routing (Smart fallback)
+  // 5. LLM-based routing (Smart fallback)
   if (planningMode === 'llm') {
     try {
       const plan = await planWithLLM(prompt);
       console.log(`[LLM Planner] ${plan.specialist} (confidence: ${plan.confidence.toFixed(2)}) - ${plan.reasoning}`);
       
-      // If specialist is not in hiredAgents, use fallback routing
       if (hiredAgents && !hiredAgents.includes(plan.specialist)) {
         console.log(`[LLM Planner] Specialist ${plan.specialist} not in swarm, falling back to regexp routing`);
         return routeWithRegExp(prompt, hiredAgents);
@@ -1044,7 +1036,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     }
   }
   
-  // 5. Default: RegExp routing (LAST FALLBACK)
+  // 6. Default: RegExp routing (LAST FALLBACK)
   return routeWithRegExp(prompt, hiredAgents);
 }
 

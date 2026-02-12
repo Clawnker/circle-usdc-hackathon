@@ -89,14 +89,48 @@ const SpecialistCard = ({ type, data }: { type: string; data: any }) => {
     case 'aura':
       return <AuraCard data={data} />;
     case 'bankr':
+      // For balance/non-transaction results, use the summary renderer
+      if (data?.type === 'balance' || data?.type === 'info' || !data?.details?.amount) {
+        const summary = data?.summary || '';
+        if (summary) {
+          return <ExternalAgentCard data={{ summary }} agentId="bankr" />;
+        }
+      }
       return <BankrCard data={adaptBankrData(data)} />;
     case 'seeker':
       return <SeekerCard data={adaptSeekerData(data)} />;
     case 'multi-hop':
       return <MultiHopCard data={data} />;
     default:
-      return null;
+      // External/registry agents: render markdown summary or raw text
+      return <ExternalAgentCard data={data} agentId={type} />;
   }
+};
+
+// Generic card for external registry agents
+const ExternalAgentCard = ({ data, agentId }: { data: any; agentId: string }) => {
+  const summary = data?.summary || data?.result || data?.response || data?.answer || data?.output || '';
+  const agentName = agentId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  
+  return (
+    <div className="glass-panel p-4 rounded-lg gradient-border flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span className="text-lg font-bold text-text-primary">{agentName}</span>
+        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+          EXTERNAL
+        </span>
+      </div>
+      {summary ? (
+        <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
+          {typeof summary === 'string' ? summary : JSON.stringify(summary, null, 2)}
+        </div>
+      ) : (
+        <div className="text-sm text-text-muted italic">
+          Agent returned data — see raw output below.
+        </div>
+      )}
+    </div>
+  );
 };
 
 export function ResultCard({
