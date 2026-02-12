@@ -114,6 +114,27 @@ const SPECIALIST_DESCRIPTIONS: Record<SpecialistType, string> = {
   'multi-hop': 'Orchestrated multi-agent workflow',
 };
 
+/**
+ * Resolve fee for a specialist (internal or external)
+ * Internal specialists use config.fees, external agents use their registered pricing
+ */
+function resolveAgentFee(specialistId: string, taskType?: string): number {
+  // Check internal fees first
+  const internalFee = (config.fees as any)[specialistId];
+  if (internalFee !== undefined) return internalFee;
+  
+  // Check external agent pricing
+  if (isExternalAgent(specialistId)) {
+    const agent = getExternalAgent(specialistId);
+    if (agent?.pricing) {
+      // Try task-specific price, then generic, then first available
+      return agent.pricing[taskType || ''] || agent.pricing['security-audit'] || agent.pricing['generic'] || Object.values(agent.pricing)[0] || 0;
+    }
+  }
+  
+  return 0;
+}
+
 // Specialist pricing information (synced with config.fees)
 const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: string }> = {
   magos: { fee: '0.10', description: 'Market analysis & predictions' },
@@ -309,7 +330,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   if (request.maxBudget !== undefined) {
     const budgetCheck = priceRouter.checkBudget(dagPlan, request.maxBudget);
     // For single-step, ensure we also check the bestSpecialist fee if it's different from the plan
-    const singleStepFee = !isMultiStep ? (Number((config.fees as any)[bestSpecialist]) || 0) : 0;
+    const singleStepFee = !isMultiStep ? resolveAgentFee(bestSpecialist) : 0;
     const finalEstimatedCost = Math.max(budgetCheck.totalCost, singleStepFee);
     
     if (finalEstimatedCost > request.maxBudget) {
@@ -347,7 +368,15 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   
   // If preview only or requires approval, return info without executing
   if (request.previewOnly || requiresApproval) {
-    const pricing = SPECIALIST_PRICING[bestSpecialist] || { fee: '0', description: 'Unknown' };
+    let pricing = SPECIALIST_PRICING[bestSpecialist];
+    
+    // For external agents, get pricing from their registration
+    if (!pricing && isExternalAgent(bestSpecialist)) {
+      const extAgent = getExternalAgent(bestSpecialist);
+      const extFee = extAgent?.pricing?.['security-audit'] || extAgent?.pricing?.['generic'] || Object.values(extAgent?.pricing || {})[0] || 0;
+      pricing = { fee: String(extFee), description: extAgent?.description || 'External agent' };
+    }
+    if (!pricing) pricing = { fee: '0', description: 'Unknown' };
     const reputationScore = getReputationScore(bestSpecialist);
     
     // For multi-hop, show the actual agents involved
@@ -633,7 +662,7 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
     console.log(`[Dispatcher] Treasury balance:`, balances);
     
     // Enforce payment if config flag is set
-    const fee = (config.fees as any)[task.specialist] || 0;
+    const fee = resolveAgentFee(task.specialist);
     const usdcBalance = balances.usdc;
 
     if (config.enforcePayments && usdcBalance < fee) {
@@ -645,8 +674,8 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
   
   updateTaskStatus(task, 'processing');
   
-  // Get specialist fee
-  const fee = (config.fees as any)[task.specialist] || 0;
+  // Get specialist fee (internal or external)
+  const fee = resolveAgentFee(task.specialist);
   addMessage(task, 'dispatcher', task.specialist, `Processing with ${task.specialist}... (fee: ${fee} USDC)`);
   
   // Call the specialist via x402-gated endpoint
