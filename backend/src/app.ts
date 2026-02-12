@@ -18,7 +18,17 @@ dotenv.config();
 const app = express();
 
 // Core middleware
-app.use(cors());
+// CORS — restrict to known frontends
+app.use(cors({
+  origin: [
+    'https://circle-usdc-hackathon.vercel.app',
+    'https://hivemindprotocol.ai',
+    'http://localhost:3001', // local dev
+    'http://localhost:3000',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'X-API-Key', 'X-Payment-Proof', 'Authorization'],
+}));
 app.use(express.json());
 app.use(rateLimiter);
 
@@ -92,8 +102,8 @@ app.post('/dispatch', (req, res, next) => {
 
 // Status (authenticated, includes treasury balance)
 app.get('/status', async (_req: Request, res: Response) => {
-  const { getTreasuryBalance } = await import('./payments');
   try {
+    const { getTreasuryBalance } = require('./payments');
     const balances = await getTreasuryBalance();
     res.json({
       status: 'ok',

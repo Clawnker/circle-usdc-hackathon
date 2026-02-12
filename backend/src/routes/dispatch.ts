@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import dispatcher, { dispatch, getTask, getRecentTasks, executeTask, updateTaskStatus } from '../dispatcher';
 import { DispatchRequest, SpecialistType } from '../types';
 import config from '../config';
+import { planDAG } from '../llm-planner';
+import { validateAndConsumePaymentProof } from '../payments';
 
 const router = Router();
 
@@ -15,7 +17,6 @@ router.post('/route-preview', async (req: Request, res: Response) => {
     if (!prompt) return res.status(400).json({ error: 'prompt required' });
     
     // Try DAG planning first to get accurate multi-step cost
-    const { planDAG } = await import('../llm-planner');
     const dagPlan = await planDAG(prompt);
     
     if (dagPlan.steps.length > 1) {
@@ -55,6 +56,16 @@ const dispatchHandler = async (req: Request, res: Response) => {
     }
 
     const paymentProof = req.headers['x-payment-proof'] as string | undefined;
+    
+    // Validate payment proof format (must be a valid tx hash if provided)
+    if (paymentProof && !/^0x[a-fA-F0-9]{64}$/.test(paymentProof)) {
+      return res.status(400).json({ error: 'Invalid payment proof format (expected 0x-prefixed tx hash)' });
+    }
+
+    // Prevent payment replay — each tx hash can only be used once
+    if (paymentProof && !validateAndConsumePaymentProof(paymentProof)) {
+      return res.status(409).json({ error: 'Payment proof already used (replay detected)' });
+    }
     
     const result = await dispatch({
       prompt,

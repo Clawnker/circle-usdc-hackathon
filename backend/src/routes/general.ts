@@ -3,6 +3,10 @@ import { getTreasuryBalance } from '../payments';
 import { costTracker } from '../llm-client';
 import { callSpecialist, getSpecialists } from '../dispatcher';
 import { SpecialistType } from '../types';
+import magos from '../specialists/magos';
+import aura from '../specialists/aura';
+import bankr from '../specialists/bankr';
+import { hasErc8128Headers, verifyErc8128Request } from '../middleware/erc8128-auth';
 // Note: x402 payment enforcement is handled at app level by x402-server.ts
 // The manual paymentMiddleware in middleware/payment.ts is kept as fallback
 
@@ -75,8 +79,6 @@ router.get('/v1/costs', (req: Request, res: Response) => {
  */
 router.get('/api/auth/verify', async (req: Request, res: Response) => {
   try {
-    const { hasErc8128Headers, verifyErc8128Request } = await import('../middleware/erc8128-auth');
-    
     if (!hasErc8128Headers(req)) {
       return res.json({
         authenticated: false,
@@ -161,19 +163,16 @@ router.post('/test/:specialist', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    // Import specialists dynamically
+    // Route to specialist
     let result;
     switch (specialist) {
       case 'magos':
-        const magos = (await import('../specialists/magos')).default;
         result = await magos.handle(prompt);
         break;
       case 'aura':
-        const aura = (await import('../specialists/aura')).default;
         result = await aura.handle(prompt);
         break;
       case 'bankr':
-        const bankr = (await import('../specialists/bankr')).default;
         result = await bankr.handle(prompt);
         break;
       default:

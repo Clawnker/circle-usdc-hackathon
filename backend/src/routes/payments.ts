@@ -1,5 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { getTreasuryBalance, getTransactionLog, logTransaction } from '../payments';
+import { createWalletClient, createPublicClient, http, parseUnits } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { baseSepolia } from 'viem/chains';
 
 const router = Router();
 const TREASURY_WALLET_EVM = '0x676fF3d546932dE6558a267887E58e39f405B135';
@@ -15,16 +18,22 @@ router.post('/delegate-pay', async (req: Request, res: Response) => {
     if (!userAddress || !amount) {
       return res.status(400).json({ error: 'userAddress and amount required' });
     }
+
+    // Validate inputs
+    if (!/^0x[a-fA-F0-9]{40}$/.test(userAddress)) {
+      return res.status(400).json({ error: 'Invalid userAddress (expected 0x-prefixed EVM address)' });
+    }
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0 || parsedAmount > 100) {
+      return res.status(400).json({ error: 'Invalid amount (must be 0 < amount <= 100)' });
+    }
     
     const privateKey = process.env.DEMO_WALLET_PRIVATE_KEY;
     if (!privateKey) {
       return res.status(500).json({ error: 'Delegate wallet not configured' });
     }
 
-    const { createWalletClient, createPublicClient, http, parseUnits } = await import('viem');
-    const { privateKeyToAccount } = await import('viem/accounts');
-    const { baseSepolia } = await import('viem/chains');
-
+    // viem imports are now static at top of file
     const account = privateKeyToAccount(privateKey as `0x${string}`);
     const TREASURY = TREASURY_WALLET_EVM as `0x${string}`;
     const USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
@@ -60,7 +69,7 @@ router.post('/delegate-pay', async (req: Request, res: Response) => {
       chain: baseSepolia,
     });
 
-    await publicClient.waitForTransactionReceipt({ hash });
+    await publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 });
 
     console.log(`[delegate-pay] transferFrom ${userAddress} → treasury | ${amount} USDC | specialist: ${specialist} | tx: ${hash}`);
 

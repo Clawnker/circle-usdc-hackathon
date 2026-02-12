@@ -19,6 +19,27 @@ const PAYMENTS_FILE = path.join(DATA_DIR, 'payments.json');
 // In-memory transaction log
 const transactionLog: PaymentRecord[] = [];
 
+// Payment replay prevention — track used tx hashes (in-memory, resets on restart)
+const usedPaymentProofs = new Set<string>();
+
+/**
+ * Check if a payment proof has already been used (replay prevention).
+ * Returns true if the proof is valid (not yet used), false if replayed.
+ */
+export function validateAndConsumePaymentProof(proof: string): boolean {
+  if (usedPaymentProofs.has(proof)) {
+    console.warn(`[Payments] Replay detected: ${proof}`);
+    return false;
+  }
+  usedPaymentProofs.add(proof);
+  // Prevent memory leak — cap at 10k entries, prune oldest
+  if (usedPaymentProofs.size > 10000) {
+    const first = usedPaymentProofs.values().next().value;
+    if (first) usedPaymentProofs.delete(first);
+  }
+  return true;
+}
+
 // ─── Persistence ───────────────────────────────────────────────
 
 function loadPayments(): void {
