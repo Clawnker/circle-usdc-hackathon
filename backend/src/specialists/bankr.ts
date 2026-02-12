@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BankrAction, SpecialistResult } from '../types';
 import config from '../config';
+import { getPrice } from './tools/coingecko';
 // Solana integration removed — Base-only in V2
 
 const AGENTWALLET_API = config.agentWallet.apiUrl;
@@ -234,6 +235,15 @@ function formatRoutePlan(quote: any): { route: string; hops: any[] } {
 /**
  * Execute Solana transfer via AgentWallet (devnet)
  */
+/**
+ * Estimate gas fee based on route complexity
+ */
+function estimateGasFee(routeHops: number): string {
+  if (routeHops <= 1) return '~0.000005 SOL';
+  if (routeHops === 2) return '~0.00001 SOL';
+  return '~0.000015 SOL';
+}
+
 async function executeAgentWalletTransfer(
   to: string, 
   amount: string, 
@@ -327,6 +337,10 @@ async function executeJupiterSwap(
     const outputDecimals = to.toUpperCase() === 'SOL' ? 9 : 6;
     const outAmount = parseInt(quote.outAmount) / Math.pow(10, outputDecimals);
     const outAmountStr = outAmount.toFixed(6);
+    const slippageBps = quote.slippageBps || 100;
+    const minimumReceived = (outAmount * (1 - slippageBps / 10000)).toFixed(6);
+    const priceImpact = (parseFloat(quote.priceImpactPct || '0') * 100).toFixed(2);
+    const gasEstimate = estimateGasFee(hops.length);
     
     console.log(`[bankr] Jupiter route: ${route}`);
     console.log(`[bankr] Expected output: ${outAmountStr} ${to}`);
@@ -345,10 +359,19 @@ async function executeJupiterSwap(
         inputMint,
         outputMint,
         estimatedOutput: outAmountStr,
-        priceImpact: quote.priceImpactPct || '0',
-        slippageBps: quote.slippageBps,
+        minimumReceived,
+        priceImpact,
+        priceImpactWarning: parseFloat(priceImpact) > 1 ? `⚠️ High price impact: ${priceImpact}%` : undefined,
+        slippageBps,
         route,
         routePlan: hops,
+        routeHops: hops.map((h: any) => ({
+          dex: h.dex,
+          inputToken: h.inputMint,
+          outputToken: h.outputMint,
+          percent: h.percent || 100,
+        })),
+        gasEstimate,
         network: 'devnet (simulated)',
         // Include updated balances
         balancesBefore: {
@@ -488,12 +511,13 @@ function parseCompoundIntent(prompt: string): ParsedAction[] {
  * e.g., "buy 1 sol worth of BONK and send it to <address>"
  */
 function parseIntent(prompt: string): {
-  type: 'swap' | 'transfer' | 'balance';
+  type: 'swap' | 'transfer' | 'balance' | 'dca';
   from?: string;
   to?: string;
   amount?: string;
   address?: string;
   asset?: string;
+  interval?: string;
 } {
   // First check for compound "buy X and send to Y" pattern
   const compound = parseCompoundIntent(prompt);
@@ -511,6 +535,28 @@ function parseIntent(prompt: string): {
   
   // Detect intent
   const isAdvice = lower.includes('good') || lower.includes('should') || lower.includes('recommend');
+  
+  // DCA detection: "DCA 10 USDC into SOL daily"
+  if (lower.includes('dca') || lower.includes('dollar cost') || lower.includes('recurring buy')) {
+    const dcaMatch = prompt.match(/(?:dca|dollar cost|recurring)\s+(?:average\s+)?(?:(\d+(?:\.\d+)?)\s+)?(\w+)\s+(?:into|to|for)\s+(\w+)/i);
+    const intervalMatch = lower.match(/\b(daily|weekly|hourly|monthly)\b/);
+    if (dcaMatch) {
+      return {
+        type: 'dca',
+        amount: dcaMatch[1] || '10',
+        from: dcaMatch[2].toUpperCase(),
+        to: dcaMatch[3].toUpperCase(),
+        interval: intervalMatch ? intervalMatch[1] : 'daily',
+      };
+    }
+    return {
+      type: 'dca',
+      amount: amount,
+      from: 'USDC',
+      to: 'SOL',
+      interval: intervalMatch ? intervalMatch[1] : 'daily',
+    };
+  }
   
   if (!isAdvice && (lower.includes('swap') || lower.includes('buy') || lower.includes('sell') || lower.includes('trade') || lower.includes('exchange'))) {
     // Pattern: "swap/buy/trade 0.1 SOL for/to/with BONK"
@@ -731,12 +777,16 @@ export const bankr = {
             (data as any).summary = `❌ **Swap Failed**\n• ${data.details.error}\n• Available: ${data.details.available} ${intent.from}\n• Required: ${data.details.required} ${intent.from}`;
           } else {
             const routeInfo = data.details.route || 'Direct';
+            const impactWarning = data.details.priceImpactWarning ? `\n⚠️ ${data.details.priceImpactWarning}` : '';
             (data as any).summary = `🔄 **Swap Executed via Jupiter**\n` +
               `• Input: ${intent.amount} ${intent.from}\n` +
               `• Output: ${data.details.estimatedOutput} ${intent.to}\n` +
+              `• Min. Received: ${data.details.minimumReceived || data.details.estimatedOutput} ${intent.to}\n` +
               `• Route: ${routeInfo}\n` +
               `• Price Impact: ${data.details.priceImpact || '<0.01'}%\n` +
-              `\n📊 **Updated Balances:**\n` +
+              `• Est. Gas: ${data.details.gasEstimate || '~0.000005 SOL'}` +
+              impactWarning +
+              `\n\n📊 **Updated Balances:**\n` +
               `• ${intent.from}: ${data.details.balancesAfter?.[intent.from!] || '0'}\n` +
               `• ${intent.to}: ${data.details.balancesAfter?.[intent.to!] || '0'}`;
           }
@@ -828,16 +878,51 @@ export const bankr = {
           }
           break;
           
+        case 'dca':
+          const dcaInterval = intent.interval || 'daily';
+          const dcaFrom = intent.from || 'USDC';
+          const dcaTo = intent.to || 'SOL';
+          const dcaAmount = intent.amount || '10';
+          
+          data = {
+            type: 'dca',
+            status: 'simulated',
+            details: {
+              inputToken: dcaFrom,
+              outputToken: dcaTo,
+              amountPerInterval: dcaAmount,
+              interval: dcaInterval,
+              estimatedExecutions: dcaInterval === 'daily' ? 30 : dcaInterval === 'weekly' ? 4 : dcaInterval === 'hourly' ? 720 : 1,
+              totalEstimated: `${parseFloat(dcaAmount) * (dcaInterval === 'daily' ? 30 : dcaInterval === 'weekly' ? 4 : 720)} ${dcaFrom}/month`,
+              note: 'DCA simulation — in production, this would create a recurring order via Jupiter DCA.',
+            },
+          };
+          (data as any).summary = `⏳ **DCA Order Simulation**\n` +
+            `• Investing ${dcaAmount} ${dcaFrom} into ${dcaTo}\n` +
+            `• Frequency: ${dcaInterval}\n` +
+            `• Est. Monthly Spend: ${parseFloat(dcaAmount) * (dcaInterval === 'daily' ? 30 : dcaInterval === 'weekly' ? 4 : 720)} ${dcaFrom}\n` +
+            `\n_This is a simulation. In production, Jupiter DCA would execute recurring buys automatically._`;
+          break;
+          
         case 'balance':
         default:
           // Get synced balance state
           const state = await syncWithRealBalance();
           
-          // Format balance display
-          const balanceLines = Object.entries(state.balances)
-            .filter(([_, v]) => v > 0)
-            .map(([token, amount]) => `• ${token}: ${(amount as number).toFixed(4)}`)
-            .join('\n');
+          // Format balance display with USD estimates
+          const balanceEntries = Object.entries(state.balances).filter(([_, v]) => v > 0);
+          const balanceWithUsd = await Promise.all(
+            balanceEntries.map(async ([token, amount]) => {
+              try {
+                const priceData = await getPrice(token);
+                const usdValue = priceData.price ? (amount as number) * priceData.price : null;
+                return `• ${token}: ${(amount as number).toFixed(4)}${usdValue ? ` (~$${usdValue.toFixed(2)})` : ''}`;
+              } catch {
+                return `• ${token}: ${(amount as number).toFixed(4)}`;
+              }
+            })
+          );
+          const balanceLines = balanceWithUsd.join('\n');
           
           // Get recent transactions
           const recentTxs = state.transactions.slice(-5).reverse();
