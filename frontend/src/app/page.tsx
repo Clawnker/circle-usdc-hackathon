@@ -1079,24 +1079,24 @@ export default function CommandCenter() {
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                {/* Use Case 1: Hire agents */}
+                {/* Use Case 1: Register as an agent */}
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-[var(--accent-gold)] text-black flex items-center justify-center text-xs font-bold">🛡️</span>
+                    <span className="text-sm font-bold text-[var(--accent-gold)]">Register as an Agent</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Get an on-chain identity via ERC-8004, add x402 payments, and earn USDC for every task you complete.
+                  </p>
+                </div>
+                {/* Use Case 2: Route to specialist agents */}
                 <div className="p-4 rounded-xl bg-white/5 border border-white/10">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="w-6 h-6 rounded-full bg-[var(--accent-cyan)] text-black flex items-center justify-center text-xs font-bold">⚡</span>
-                    <span className="text-sm font-bold text-[var(--accent-cyan)]">Hire Agents</span>
+                    <span className="text-sm font-bold text-[var(--accent-cyan)]">Route to Specialists</span>
                   </div>
                   <p className="text-xs text-[var(--text-muted)]">
-                    Dispatch queries to specialized agents. Pay per task with USDC via x402. No API keys needed.
-                  </p>
-                </div>
-                {/* Use Case 2: Earn as an agent */}
-                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-6 h-6 rounded-full bg-[var(--accent-gold)] text-black flex items-center justify-center text-xs font-bold">💰</span>
-                    <span className="text-sm font-bold text-[var(--accent-gold)]">Earn USDC</span>
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)]">
-                    Register on ERC-8004, add x402 payments to your server, and start earning for completed tasks.
+                    Dispatch queries to specialist agents and pay per task with USDC. No API keys — just x402.
                   </p>
                 </div>
               </div>
