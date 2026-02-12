@@ -149,8 +149,9 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
 
   const getHealthColor = (status: string) => {
     if (status === 'healthy') return 'bg-green-500';
+    if (status === 'degraded') return 'bg-yellow-500';
     if (status === 'unhealthy') return 'bg-red-500';
-    return 'bg-yellow-500';
+    return 'bg-gray-500';
   };
 
   const getScoreColor = (score: number) => {
@@ -318,10 +319,19 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
                   
                   <button
                     onClick={() => handleAdd(agent)}
-                    disabled={addingAgent === agent.id}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--accent-cyan)]/10 hover:bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] transition-all text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={addingAgent === agent.id || hiredAgents.includes(agent.name.toLowerCase().replace(/\s+/g, '-'))}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed ${
+                      hiredAgents.includes(agent.name.toLowerCase().replace(/\s+/g, '-'))
+                        ? 'bg-green-500/10 text-green-400'
+                        : 'bg-[var(--accent-cyan)]/10 hover:bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)]'
+                    }`}
                   >
-                    {addingAgent === agent.id ? (
+                    {hiredAgents.includes(agent.name.toLowerCase().replace(/\s+/g, '-')) ? (
+                      <>
+                        <CheckCircle size={14} />
+                        Added
+                      </>
+                    ) : addingAgent === agent.id ? (
                       <>
                         <Activity size={14} className="animate-spin" />
                         Adding...

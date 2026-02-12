@@ -193,14 +193,15 @@ function mapAgent(a: any): DiscoveredAgent {
   if (svc?.oasf?.endpoint) protocols.push('OASF');
   if (a.x402_supported) protocols.push('x402');
 
+  // Derive health from health_score (leaderboard uses flat score, not nested object)
   let overallHealth = 'unknown';
-  const healthScore = healthStatus?.health_score ?? 0;
+  const healthScore = a.health_score ?? healthStatus?.health_score ?? 0;
+  if (healthScore >= 70) overallHealth = 'healthy';
+  else if (healthScore >= 40) overallHealth = 'degraded';
+  else if (healthScore > 0) overallHealth = 'unhealthy';
+  // Also check nested status if present (agents endpoint has this)
   if (healthStatus?.overall_status === 'healthy') overallHealth = 'healthy';
   else if (healthStatus?.overall_status === 'unhealthy') overallHealth = 'unhealthy';
-  else if (healthStatus?.services) {
-    const statuses = Object.values(healthStatus.services) as any[];
-    if (statuses.some((s: any) => s?.status === 'healthy')) overallHealth = 'healthy';
-  }
 
   const isTestnet = TESTNET_CHAINS.includes(a.chain_id);
 
