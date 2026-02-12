@@ -56,21 +56,9 @@ function buildRoutes(): RoutesConfig {
     }
   }
 
-  // Also protect the dispatch endpoint with a base fee
-  routes['POST /dispatch'] = {
-    accepts: {
-      scheme: 'exact',
-      network: BASE_SEPOLIA_NETWORK,
-      payTo: TREASURY_ADDRESS,
-      price: 0.001,
-      maxTimeoutSeconds: 300,
-    },
-    description: 'Submit a query to the Hivemind Protocol dispatcher',
-    mimeType: 'application/json',
-  };
-
-  routes['POST /api/query'] = routes['POST /dispatch'];
-  routes['POST /api/dispatch'] = routes['POST /dispatch'];
+  // Note: /dispatch is NOT protected by x402 — it has its own payment
+  // handling via delegation (approve/transferFrom) and X-Payment-Proof header.
+  // Individual specialist endpoints (/api/specialist/:id) ARE x402-protected.
 
   return routes;
 }
