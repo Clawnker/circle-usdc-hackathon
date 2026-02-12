@@ -54,6 +54,9 @@ export const magos = {
           case 'trending':
             data = await findTrendingTokens(prompt);
             break;
+          case 'price-check':
+            data = await quickPriceCheck(intent.token || 'BTC');
+            break;
           case 'predict':
             data = await predictPrice(intent.token || 'SOL', intent.timeHorizon || '4h');
             break;
@@ -144,8 +147,10 @@ function parseIntent(prompt: string): { type: string; token?: string; timeHorizo
   if (lower.includes('predict') || lower.includes('forecast')) {
     return { type: token ? 'predict' : 'insight', token, timeHorizon };
   }
-  if (lower.includes('price') && token) {
-    return { type: 'predict', token, timeHorizon };
+  // Simple price check (no prediction needed)
+  if ((lower.includes('price') || lower.includes('how much') || lower.includes('worth') || lower.includes('cost')) && token && 
+      !lower.includes('predict') && !lower.includes('forecast') && !lower.includes('will') && !lower.includes('target')) {
+    return { type: 'price-check', token };
   }
   if (lower.includes('risk') || lower.includes('safe') || lower.includes('rug')) {
     return { type: token ? 'risk' : 'insight', token };
@@ -205,6 +210,32 @@ async function getJupiterPrice(token: string): Promise<{ price: number; mint: st
   }
 
   return null;
+}
+
+/**
+ * Quick price check — fast path, no LLM, just fetch the price
+ */
+async function quickPriceCheck(token: string) {
+  console.log(`[Magos] Quick price check for ${token}`);
+  
+  const jup = await getJupiterPrice(token);
+  if (!jup) {
+    throw new Error(`Could not fetch price for ${token}. Try again in a moment.`);
+  }
+  
+  const price = jup.price;
+  const formatted = price >= 1 
+    ? `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `$${price.toFixed(6)}`;
+  
+  return {
+    token,
+    currentPrice: price,
+    insight: `💰 **${token}** is currently at **${formatted}**`,
+    confidence: 0.95,
+    relatedTokens: [token],
+    summary: `💰 **${token}** is currently at **${formatted}**`,
+  };
 }
 
 /**
