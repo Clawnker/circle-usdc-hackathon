@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon, Activity, History, ShieldCheck } from 'lucide-react';
-// Legacy WalletContext removed — using OnchainKit useAccount instead
+// Legacy WalletContext removed - using OnchainKit useAccount instead
 import {
   TaskInput,
   SwarmGraph,
@@ -76,10 +76,10 @@ export default function CommandCenter() {
     return ['bankr', 'scribe', 'seeker'];
   });
   const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
-  
+
   // Core agents cannot be removed from the swarm
   const CORE_AGENTS = ['bankr', 'scribe', 'seeker'];
-  
+
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([]);
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [reRunPrompt, setReRunPrompt] = useState<string>('');
@@ -92,7 +92,7 @@ export default function CommandCenter() {
     taskId?: string;
     rawResult?: any;
   } | null>(null);
-  
+
   // Approval popup state
   const [pendingApproval, setPendingApproval] = useState<{
     prompt: string;
@@ -105,9 +105,9 @@ export default function CommandCenter() {
       successRate?: number;
     };
   } | null>(null);
-  
+
   // Post-task add to swarm state
-  // Register form removed — agents register via Bazaar or API
+  // Register form removed - agents register via Bazaar or API
   const [showAddToSwarm, setShowAddToSwarm] = useState<{
     specialist: string;
     specialistName: string;
@@ -120,7 +120,7 @@ export default function CommandCenter() {
     prompt: string;
     transferTo?: string;
   } | null>(null);
-  
+
   const {
     isConnected,
     taskStatus,
@@ -132,6 +132,8 @@ export default function CommandCenter() {
     subscribe,
     reset,
   } = useWebSocket();
+
+  const [showMobileGraph, setShowMobileGraph] = useState(false);
 
   // Persist swarm agents
   useEffect(() => {
@@ -159,10 +161,10 @@ export default function CommandCenter() {
     if (taskStatus && currentTaskId) {
       const specialist = currentStep?.specialist || 'dispatcher';
       const specialistName = SPECIALIST_NAMES[specialist] || specialist;
-      
+
       let message = '';
       let type: ActivityItem['type'] = 'processing';
-      
+
       switch (taskStatus) {
         case 'routing':
           message = `Analyzing request...`;
@@ -184,7 +186,7 @@ export default function CommandCenter() {
           if (result) {
             const r = result as any;
             let content = '';
-            
+
             // Handle multi-hop steps
             if (r.data?.isMultiHop && r.data?.steps) {
               const hops = r.data.hops as string[];
@@ -194,7 +196,7 @@ export default function CommandCenter() {
               const lastStep = steps[steps.length - 1];
               content = lastStep?.summary || steps.map((s: any) => s.summary).join('\n\n');
             } else if (r.data?.isDAG && r.data?.summary) {
-              // DAG orchestration result — use the synthesized summary
+              // DAG orchestration result - use the synthesized summary
               message = `Completed`;
               content = r.data.summary;
             } else {
@@ -202,7 +204,7 @@ export default function CommandCenter() {
               if (r.data?.summary) content = r.data.summary;
               else if (r.data?.insight) content = r.data.insight;
               else if (r.data?.externalAgent) {
-                // External agent result — data is nested: r.data.data.analysis
+                // External agent result - data is nested: r.data.data.analysis
                 const agentData = r.data?.data || r.data;
                 const analysis = agentData?.analysis;
                 if (analysis) {
@@ -247,12 +249,12 @@ export default function CommandCenter() {
                 });
               }
             }
-            
+
             const totalCost = payments.reduce((sum, p) => sum + p.amount, 0);
-            
-            // Pre-pay handles specialist fees before dispatch — no post-pay needed
+
+            // Pre-pay handles specialist fees before dispatch - no post-pay needed
             const specialistId = currentStep?.specialist || 'dispatcher';
-            
+
             setLastResult({
               query: currentPrompt,
               status: 'success',
@@ -265,6 +267,13 @@ export default function CommandCenter() {
               isMultiHop: r.data?.isMultiHop,
               rawResult: r,
             } as any);
+
+            // Smooth scroll to result
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                document.querySelector('[data-result-card]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 100);
 
             // Extract transaction details from bankr results
             const transactions: any[] = [];
@@ -346,12 +355,12 @@ export default function CommandCenter() {
         default:
           message = `Status: ${taskStatus}`;
       }
-      
+
       setActivityItems(prev => {
         // Avoid duplicate status messages
         const lastItem = prev[prev.length - 1];
         if (lastItem?.message === message) return prev;
-        
+
         return [...prev, {
           id: `${Date.now()}-${taskStatus}`,
           type,
@@ -370,14 +379,14 @@ export default function CommandCenter() {
       setActivityItems(prev => {
         // Check if we already have this payment
         if (prev.some(item => item.id === `payment-${latestPayment.id}`)) return prev;
-        
+
         return [...prev, {
           id: `payment-${latestPayment.id}`,
           type: 'payment',
           message: `Paid ${latestPayment.amount} ${latestPayment.token}`,
           specialist: latestPayment.to,
           timestamp: new Date(),
-          link: latestPayment.txSignature 
+          link: latestPayment.txSignature
             ? `https://sepolia.basescan.org/tx/${latestPayment.txSignature}`
             : undefined,
         }];
@@ -392,7 +401,7 @@ export default function CommandCenter() {
       setActivityItems(prev => {
         // Avoid duplicates
         if (prev.some(item => item.id === latestMessage.id)) return prev;
-        
+
         return [...prev, {
           id: latestMessage.id,
           type: 'processing',
@@ -409,19 +418,19 @@ export default function CommandCenter() {
     if (result && currentStep?.specialist) {
       const r = result as any;
       let content = '';
-      
+
       if (r.data?.insight) {
         content = r.data.insight;
       } else if (r.data?.summary) {
         content = r.data.summary;
       } else if (r.data?.details?.response) {
-        content = typeof r.data.details.response === 'string' 
-          ? r.data.details.response 
+        content = typeof r.data.details.response === 'string'
+          ? r.data.details.response
           : JSON.stringify(r.data.details.response);
       } else if (r.data?.type) {
         content = `${r.data.type} ${r.data.status || 'completed'}`;
       }
-      
+
       if (content) {
         // Note: messages come from WebSocket, but we can add to activity
         setActivityItems(prev => [...prev, {
@@ -477,12 +486,12 @@ export default function CommandCenter() {
               // Check for delegation (auto-pay)
               const delegation = getDelegationState();
               const remaining = delegation ? Math.max(0, delegation.allowance - delegation.spent) : 0;
-              
-              console.log('[pre-pay] Delegation check:', { 
-                enabled: delegation?.enabled, remaining, fee: preview.fee, 
-                onchainAddress, hasAddress: !!onchainAddress 
+
+              console.log('[pre-pay] Delegation check:', {
+                enabled: delegation?.enabled, remaining, fee: preview.fee,
+                onchainAddress, hasAddress: !!onchainAddress
               });
-              
+
               if (delegation?.enabled && remaining >= preview.fee && onchainAddress && isWalletConnected) {
                 // Auto-pay: backend pulls USDC from user's wallet via on-chain approval
                 try {
@@ -499,7 +508,7 @@ export default function CommandCenter() {
                     const delegateData = await delegateRes.json();
                     headers['X-Payment-Proof'] = delegateData.txHash;
                     recordDelegationSpend(preview.fee, preview.specialist, delegateData.txHash);
-                    
+
                     // Record in Agent Payments
                     const feePayment = {
                       id: `delegate-${Date.now()}`,
@@ -542,7 +551,7 @@ export default function CommandCenter() {
                   return;
                 }
               } else {
-                // No delegation — show manual payment popup
+                // No delegation - show manual payment popup
                 setPaymentRequired({
                   specialistId: preview.specialist,
                   fee: preview.fee,
@@ -586,7 +595,7 @@ export default function CommandCenter() {
       }
 
       const data = await response.json();
-      
+
       // Check if approval is required (agent not in swarm)
       if (data.requiresApproval && data.specialistInfo) {
         setIsLoading(false);
@@ -597,10 +606,10 @@ export default function CommandCenter() {
         });
         return;
       }
-      
+
       setCurrentTaskId(data.taskId);
       subscribe(data.taskId);
-      
+
       // Track if we used an agent outside the swarm (for post-task prompt)
       if (approvedAgent && !hiredAgents.includes(approvedAgent)) {
         // Will show "Add to swarm" after task completes
@@ -608,7 +617,7 @@ export default function CommandCenter() {
         // Store for later - will show after task completes
         (window as any).__pendingSwarmAdd = { specialist: approvedAgent, specialistName };
       }
-      
+
       // Add routing activity
       const specialistName = SPECIALIST_NAMES[data.specialist] || data.specialist;
       setActivityItems(prev => [...prev, {
@@ -641,7 +650,7 @@ export default function CommandCenter() {
   // Handle transaction approval flow
   const handleApproveTransaction = useCallback(async () => {
     if (!pendingTransaction) return;
-    
+
     try {
       const response = await fetch(`${API_URL}/api/transactions/approve`, {
         method: 'POST',
@@ -651,7 +660,7 @@ export default function CommandCenter() {
         },
         body: JSON.stringify({ taskId: pendingTransaction.taskId }),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to approve transaction');
       }
@@ -663,7 +672,7 @@ export default function CommandCenter() {
 
   const handleRejectTransaction = useCallback(async () => {
     if (!pendingTransaction) return;
-    
+
     try {
       const response = await fetch(`${API_URL}/api/transactions/reject`, {
         method: 'POST',
@@ -673,7 +682,7 @@ export default function CommandCenter() {
         },
         body: JSON.stringify({ taskId: pendingTransaction.taskId }),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to reject transaction');
       }
@@ -769,11 +778,11 @@ export default function CommandCenter() {
     <div className="relative min-h-screen">
       {/* Animated Background */}
       <div className="animated-bg" />
-      
+
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col p-3 sm:p-6 max-w-7xl mx-auto w-full">
+      <div className="relative z-10 flex flex-col p-3 sm:p-6 max-w-7xl mx-auto w-full pb-20 sm:pb-0">
         {/* Header */}
-        <motion.header 
+        <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3"
@@ -796,14 +805,14 @@ export default function CommandCenter() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+          <div className="hidden sm:flex flex-wrap items-center gap-2 sm:gap-4">
             {/* View Toggle */}
             <div className="flex items-center p-1.5 glass-panel-subtle rounded-xl bg-black/20 backdrop-blur-md border border-white/5 flex-wrap gap-1">
               <button
                 onClick={() => setActiveView('dispatch')}
                 className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 cursor-pointer ${
-                  activeView === 'dispatch' 
-                    ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105' 
+                  activeView === 'dispatch'
+                    ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105'
                     : 'text-white/50 hover:text-white/90 hover:bg-white/10'
                 }`}
               >
@@ -813,8 +822,8 @@ export default function CommandCenter() {
               <button
                 onClick={() => setActiveView('marketplace')}
                 className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 cursor-pointer ${
-                  activeView === 'marketplace' 
-                    ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105' 
+                  activeView === 'marketplace'
+                    ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105'
                     : 'text-white/50 hover:text-white/90 hover:bg-white/10'
                 }`}
               >
@@ -824,8 +833,8 @@ export default function CommandCenter() {
               <button
                 onClick={() => setActiveView('registry')}
                 className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 cursor-pointer ${
-                  activeView === 'registry' 
-                    ? 'bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-[#0D0D0D] shadow-[0_0_20px_rgba(0,240,255,0.3)] scale-105' 
+                  activeView === 'registry'
+                    ? 'bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-[#0D0D0D] shadow-[0_0_20px_rgba(0,240,255,0.3)] scale-105'
                     : 'text-white/50 hover:text-white/90 hover:bg-white/10'
                 }`}
               >
@@ -835,8 +844,8 @@ export default function CommandCenter() {
               <button
                 onClick={() => setActiveView('history')}
                 className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all duration-300 cursor-pointer ${
-                  activeView === 'history' 
-                    ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105' 
+                  activeView === 'history'
+                    ? 'bg-gradient-to-r from-[#F7B32B] to-[#f97316] text-[#0D0D0D] shadow-[0_0_20px_rgba(247,179,43,0.3)] scale-105'
                     : 'text-white/50 hover:text-white/90 hover:bg-white/10'
                 }`}
               >
@@ -844,7 +853,7 @@ export default function CommandCenter() {
                 <span className="hidden sm:inline">History</span>
               </button>
             </div>
-          
+
             <WalletConnect />
 
             {/* Browse Bazaar CTA */}
@@ -856,7 +865,7 @@ export default function CommandCenter() {
             </button>
 
             {/* Connection Status */}
-            <motion.div 
+            <motion.div
             className="flex items-center gap-2 px-3 py-2 rounded-full glass-panel-subtle"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -891,7 +900,7 @@ export default function CommandCenter() {
               >
                 <AnimatePresence mode="wait">
                   {lastResult ? (
-                    <div className="space-y-4">
+                    <div data-result-card className="space-y-4">
                       <ResultCard
                         key="result-card"
                         {...lastResult}
@@ -908,9 +917,9 @@ export default function CommandCenter() {
                       )}
                     </div>
                   ) : (
-                    <TaskInput 
+                    <TaskInput
                       key="task-input"
-                      onSubmit={handleSubmit} 
+                      onSubmit={handleSubmit}
                       isLoading={isLoading}
                       disabled={false}
                       initialAgentId={preSelectedAgent}
@@ -939,21 +948,33 @@ export default function CommandCenter() {
               <div className="lg:flex-1 grid grid-cols-12 gap-4 lg:min-h-0">
                 {/* Left Column - Swarm Graph + Activity */}
                 <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 lg:max-h-[calc(100vh-250px)] overflow-y-auto">
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="min-h-[300px] flex-shrink-0"
-                  >
-                    <SwarmGraph 
-                      activeSpecialist={currentStep?.specialist || null}
-                      currentStep={currentStep}
-                      taskStatus={taskStatus}
-                      hiredAgents={hiredAgents}
-                      onAgentClick={(specialist) => setSelectedAgent(specialist)}
-                    />
-                  </motion.div>
-                  
+                  {/* SwarmGraph toggle on mobile */}
+                  <div className="lg:hidden mb-2">
+                    <button
+                      onClick={() => setShowMobileGraph(!showMobileGraph)}
+                      className="w-full py-2 px-4 glass-panel-subtle rounded-lg text-sm text-[var(--text-secondary)] flex items-center justify-between"
+                    >
+                      <span>🔮 Agent Network</span>
+                      <span>{showMobileGraph ? '▲' : '▼'}</span>
+                    </button>
+                  </div>
+                  {(showMobileGraph || typeof window !== 'undefined' && window.innerWidth >= 1024) && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="min-h-[300px] flex-shrink-0"
+                    >
+                      <SwarmGraph
+                        activeSpecialist={currentStep?.specialist || null}
+                        currentStep={currentStep}
+                        taskStatus={taskStatus}
+                        hiredAgents={hiredAgents}
+                        onAgentClick={(specialist) => setSelectedAgent(specialist)}
+                      />
+                    </motion.div>
+                  )}
+
                   {/* Activity Feed */}
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
@@ -995,8 +1016,8 @@ export default function CommandCenter() {
                   animate={{ opacity: 1, y: 0 }}
                   className="mt-4"
                 >
-                  <ResultDisplay 
-                    taskStatus={taskStatus} 
+                  <ResultDisplay
+                    taskStatus={taskStatus}
                     result={result}
                     error={error || undefined}
                   />
@@ -1012,8 +1033,8 @@ export default function CommandCenter() {
               transition={{ duration: 0.2 }}
               className="flex-1"
             >
-              <Marketplace 
-                hiredAgents={hiredAgents} 
+              <Marketplace
+                hiredAgents={hiredAgents}
                 onHire={handleAddAgentToSwarm}
               />
             </motion.div>
@@ -1026,7 +1047,7 @@ export default function CommandCenter() {
               transition={{ duration: 0.2 }}
               className="flex-1"
             >
-              <BazaarRegistry 
+              <BazaarRegistry
                 onAddToSwarm={handleBazaarAdd}
                 hiredAgents={hiredAgents}
               />
@@ -1055,17 +1076,17 @@ export default function CommandCenter() {
           <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
             <Hexagon size={120} className="text-[#00F0FF]" />
           </div>
-          
+
           <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div className="max-w-xl">
               <h2 className="text-2xl font-bold flex items-center gap-3 mb-2">
                 <span className="text-3xl">🤖</span> For AI Agents
               </h2>
               <p className="text-[var(--text-secondary)] mb-4">
-                Join the Hivemind marketplace. Discover tasks, get hired, earn USDC. 
+                Join the Hivemind marketplace. Discover tasks, get hired, earn USDC.
                 Our protocol enables autonomous agents to discover and pay each other using the x402 standard.
               </p>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
                 {[
                   { step: "1", text: "Read the skill file" },
@@ -1084,15 +1105,15 @@ export default function CommandCenter() {
 
             <div className="flex flex-col gap-3 w-full md:w-auto">
               <div className="flex gap-3">
-                <a 
-                  href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md" 
+                <a
+                  href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 md:flex-none px-6 py-3 rounded-xl glass-panel-subtle hover:bg-white/10 transition-colors text-center font-bold text-sm border border-white/10"
                 >
                   Read the docs
                 </a>
-                <button 
+                <button
                   onClick={() => {
                     const el = document.getElementById('quick-start-code');
                     if (el) el.classList.toggle('hidden');
@@ -1102,14 +1123,14 @@ export default function CommandCenter() {
                   Quick start
                 </button>
               </div>
-              
+
               <div id="quick-start-code" className="hidden">
                 <div className="p-3 rounded-xl bg-black/40 border border-[#00F0FF]/30 font-mono text-[10px] text-[#00F0FF] break-all">
                   curl -s https://circle-usdc-hackathon.onrender.com/skill.md
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={() => setActiveView('registry')}
                 className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-black font-bold text-sm shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:scale-[1.02] transition-transform"
               >
@@ -1185,18 +1206,18 @@ export default function CommandCenter() {
           recipientAddress={paymentRequired.transferTo}
           onPaymentComplete={(txHash) => {
             if (paymentRequired.transferTo) {
-              // Direct transfer completed — update history with real result
+              // Direct transfer completed - update history with real result
               const addr = paymentRequired.transferTo;
               const truncAddr = `${addr.slice(0, 6)}…${addr.slice(-4)}`;
               const basescanLink = `https://sepolia.basescan.org/tx/${txHash}`;
               const completedResult = `✅ **Transfer Complete**\n• Sent ${paymentRequired.fee} USDC to ${truncAddr}\n• Chain: Base Sepolia\n• Tx: [${txHash.slice(0, 10)}…${txHash.slice(-6)}](${basescanLink})`;
-              
+
               // Update the last result display
               setLastResult(prev => prev ? {
                 ...prev,
                 result: completedResult,
               } : prev);
-              
+
               // Update the query history entry with completed result
               setQueryHistory(prev => {
                 const updated = [...prev];
@@ -1215,7 +1236,7 @@ export default function CommandCenter() {
                 }
                 return updated;
               });
-              
+
               setActivityItems(prev => [...prev, {
                 id: `transfer-${txHash}`,
                 type: 'result',
@@ -1227,7 +1248,7 @@ export default function CommandCenter() {
               setPaymentRequired(null);
               setIsLoading(false);
             } else {
-              // Specialist fee payment completed — record in Agent Payments, then dispatch
+              // Specialist fee payment completed - record in Agent Payments, then dispatch
               const feePayment = {
                 id: `user-tx-${Date.now()}`,
                 from: 'user',
@@ -1248,7 +1269,7 @@ export default function CommandCenter() {
                 link: `https://sepolia.basescan.org/tx/${txHash}`,
               }]);
               window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
-              
+
               // Store proof and re-dispatch the original query
               (window as any).__pendingPaymentProof = txHash;
               const prompt = paymentRequired.prompt;
@@ -1262,6 +1283,30 @@ export default function CommandCenter() {
           }}
         />
       )}
+      {/* Mobile Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden">
+        <div className="glass-panel border-t border-[var(--glass-border)] px-2 py-1.5 flex items-center justify-around">
+          {[
+            { tab: 'dispatch' as const, icon: '🎯', label: 'Dispatch' },
+            { tab: 'marketplace' as const, icon: '🏪', label: 'Agents' },
+            { tab: 'registry' as const, icon: '🌐', label: 'Bazaar' },
+            { tab: 'history' as const, icon: '📜', label: 'History' },
+          ].map(({ tab, icon, label }) => (
+            <button
+              key={tab}
+              onClick={() => setActiveView(tab)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-all ${
+                activeView === tab
+                  ? 'text-[var(--accent-gold)] bg-[var(--accent-gold)]/10'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              <span className="text-lg">{icon}</span>
+              <span className="text-[10px] font-medium">{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

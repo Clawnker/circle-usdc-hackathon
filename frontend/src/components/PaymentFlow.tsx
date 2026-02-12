@@ -1,9 +1,10 @@
 'use client';
+import { useState } from 'react';
 import { Transaction, TransactionButton, TransactionStatus } from '@coinbase/onchainkit/transaction';
 import { useAccount } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
-import { motion } from 'framer-motion';
-import { X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, HelpCircle } from 'lucide-react';
 
 // USDC contract on Base Sepolia
 const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
@@ -21,6 +22,7 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, re
   const { address, isConnected } = useAccount();
   
   const recipient = recipientAddress || TREASURY_ADDRESS;
+  const [showExplainer, setShowExplainer] = useState(false);
   
   if (!isConnected) {
     return (

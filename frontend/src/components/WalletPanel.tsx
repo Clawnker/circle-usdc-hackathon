@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, Copy, Check, ExternalLink, RefreshCw, ChevronDown, ChevronUp, User } from 'lucide-react';
+import { Wallet, Copy, Check, ExternalLink, RefreshCw, ChevronDown, ChevronUp, User, Zap } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
 
@@ -216,6 +216,45 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
             </motion.div>
           ))}
         </div>
+
+        {/* Delegation remaining display */}
+        <div className="mt-4 p-3 rounded-lg bg-white/5 border border-white/10">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Zap size={14} className="text-[var(--accent-purple)]" />
+              <span className="text-xs text-[var(--text-muted)]">Delegation Remaining</span>
+            </div>
+            {/* Hardcoded delegation amount for now */}
+            <span className="text-xs font-semibold text-[var(--text-primary)]">
+              $25.00 USDC
+              {/* Add warning badge if delegation < $1 */}
+              {25.00 < 1.0 && (
+                <span className="ml-2 px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-medium">
+                  Low Delegation
+                </span>
+              )}
+            </span>
+          </div>
+          {/* Simple progress bar, hardcoded 80% for now */}
+          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-[var(--accent-purple)] rounded-full" style={{ width: '80%' }}></div>
+          </div>
+        </div>
+
+        {/* Low Balance Warning */}
+        {tokens.find(t => t.symbol === 'USDC')?.amount !== undefined && 
+         (tokens.find(t => t.symbol === 'USDC')?.amount || 0) < 1.0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-3 p-2.5 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center gap-2"
+          >
+            <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+            <span className="text-xs text-orange-400 font-medium">
+              Low balance — top up USDC to continue querying
+            </span>
+          </motion.div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-[var(--glass-border)]">

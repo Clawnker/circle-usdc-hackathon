@@ -36,6 +36,12 @@ const SPECIALIST_NAMES: Record<string, string> = {
   seeker: 'Seeker',
 };
 
+function estimateQueryCost(query: string): string {
+  const isMultiHop = query.length > 100 || 
+    /compare|analyze|vs\b|versus|research|report/i.test(query);
+  return isMultiHop ? '$1.00–2.50' : '$0.50';
+}
+
 export function TaskInput({ 
   onSubmit, 
   isLoading, 
@@ -161,6 +167,13 @@ export function TaskInput({
                   )}
                 </AnimatePresence>
               </div>
+
+              {prompt.trim() && (
+                <div className="text-xs text-[var(--text-muted)] flex items-center gap-1 mb-2">
+                  <Coins size={12} />
+                  <span>Est. cost: {estimateQueryCost(prompt)} USDC</span>
+                </div>
+              )}
 
               {/* Action Button */}
               <motion.button
