@@ -298,16 +298,25 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
   try {
     // Determine which endpoint to call based on taskType or capabilities
     const effectiveType = taskType || agent.capabilities[0] || 'execute';
-    let url: string;
     
-    // Map task types to Sentinel-style endpoints
-    if (effectiveType === 'security-audit' || effectiveType === 'audit') {
-      url = `${agent.endpoint}/audit`;
-    } else {
-      url = `${agent.endpoint}/execute`;
-    }
+    // Candidate paths to try (in order)
+    // Some agents use /execute, others use /api/v1/execute, etc.
+    const pathsToTry = [
+      '/execute', 
+      '/api/v1/execute', 
+      '/api/execute', 
+      '/v1/execute',
+      '/audit',
+      '/api/v1/audit',
+      '/chat',
+      '/api/v1/chat',
+      '/' // Root fallback
+    ];
 
-    console.log(`[ExternalAgents] Calling ${agent.name} at ${url}`);
+    // Priority paths based on task type
+    if (effectiveType === 'security-audit' || effectiveType === 'audit') {
+      pathsToTry.unshift('/audit', '/api/v1/audit');
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
@@ -320,71 +329,98 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
       chain: 'base-sepolia',
     };
 
-    console.log(`[ExternalAgents] Calling ${agent.name} at ${url} with body:`, JSON.stringify(requestBody));
+    let lastError: any;
+    let successfulResponse: any = null;
 
-    let headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'X-402-Payment': 'demo-payment-signature', // For x402 gating
-    };
+    // Try paths sequentially
+    for (const path of pathsToTry) {
+      const url = `${agent.endpoint.replace(/\/$/, '')}${path}`;
+      console.log(`[ExternalAgents] Trying ${agent.name} at ${url}`);
 
-    // Use ERC-8128 signing if the agent supports it and we have a signer
-    if (agent.erc8128Support && signerClient) {
+      let headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-402-Payment': 'demo-payment-signature', // For x402 gating
+      };
+
+      // Use ERC-8128 signing if the agent supports it and we have a signer
+      if (agent.erc8128Support && signerClient) {
+        try {
+          const signedRequest = await signerClient.signRequest(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(requestBody),
+          });
+          const newHeaders: Record<string, string> = {};
+          signedRequest.headers.forEach((v: string, k: string) => {
+            newHeaders[k] = v;
+          });
+          headers = newHeaders;
+        } catch (err) {
+          console.error(`[ExternalAgents] ERC-8128 signing failed for ${url}:`, err);
+        }
+      }
+
       try {
-        const signedRequest = await signerClient.signRequest(url, {
+        const res = await fetch(url, {
           method: 'POST',
           headers,
           body: JSON.stringify(requestBody),
+          signal: controller.signal,
         });
-        // Extract signed headers from the Request object
-        const newHeaders: Record<string, string> = {};
-        signedRequest.headers.forEach((v: string, k: string) => {
-          newHeaders[k] = v;
-        });
-        headers = newHeaders;
-        console.log(`[ExternalAgents] ERC-8128 signed request to ${agent.name} (from ${signerAddress})`);
-      } catch (err) {
-        console.error(`[ExternalAgents] ERC-8128 signing failed, using unsigned:`, err);
+
+        // Handle 402 (payment required) — success signal for reachability
+        if (res.status === 402) {
+          clearTimeout(timeout);
+          const paymentInfo = await res.json() as any;
+          console.log(`[ExternalAgents] ${agent.name} requested payment at ${path}:`, paymentInfo);
+          return {
+            success: false,
+            data: {
+              paymentRequired: true,
+              ...paymentInfo,
+              agentName: agent.name,
+              agentEndpoint: agent.endpoint,
+            },
+            timestamp: new Date(),
+            executionTimeMs: Date.now() - startTime,
+            cost: {
+              amount: String(paymentInfo.price || agent.pricing[effectiveType] || 0),
+              currency: paymentInfo.currency || 'USDC',
+              network: 'base' as const,
+              recipient: agent.wallet,
+            },
+          };
+        }
+
+        if (res.ok) {
+          clearTimeout(timeout);
+          successfulResponse = await res.json();
+          console.log(`[ExternalAgents] ${agent.name} success at ${path}`);
+          break; // Stop trying paths
+        } else {
+          // If 404 or 405, try next path
+          if (res.status === 404 || res.status === 405) {
+            console.log(`[ExternalAgents] ${path} returned ${res.status}, trying next...`);
+            continue;
+          }
+          const errorText = await res.text();
+          throw new Error(`Agent returned ${res.status}: ${errorText}`);
+        }
+      } catch (err: any) {
+        lastError = err;
+        // Continue to next path if connection error or 404/405 (handled above)
+        // If timeout/abort, we should stop?
+        if (err.name === 'AbortError') throw err; 
       }
     }
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
+    
     clearTimeout(timeout);
 
-    // Handle 402 (payment required) — expected from x402-gated agents
-    if (res.status === 402) {
-      const paymentInfo = await res.json() as any;
-      console.log(`[ExternalAgents] ${agent.name} requested payment:`, paymentInfo);
-      return {
-        success: false,
-        data: {
-          paymentRequired: true,
-          ...paymentInfo,
-          agentName: agent.name,
-          agentEndpoint: agent.endpoint,
-        },
-        timestamp: new Date(),
-        executionTimeMs: Date.now() - startTime,
-        cost: {
-          amount: String(paymentInfo.price || agent.pricing[effectiveType] || 0),
-          currency: paymentInfo.currency || 'USDC',
-          network: 'base' as const,
-          recipient: agent.wallet,
-        },
-      };
+    if (!successfulResponse) {
+      throw lastError || new Error(`Failed to find working endpoint for ${agent.name}`);
     }
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error(`[ExternalAgents] ${agent.name} HTTP error ${res.status}:`, errorText);
-      throw new Error(`Agent returned ${res.status}: ${errorText}`);
-    }
-
-    const result = await res.json() as any;
+    const result = successfulResponse;
     console.log(`[ExternalAgents] ${agent.name} response received:`, JSON.stringify(result).slice(0, 500) + '...');
     
     // Check for null data which indicates a failed or empty analysis
