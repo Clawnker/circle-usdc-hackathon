@@ -277,9 +277,18 @@ Example: "Audit this contract 0x123... on Base"
       
       // Phase 2e: Health-Weighted Scoring
       const extAgent = externalAgents.find(a => a.id === agent.id);
-      const isHealthy = extAgent ? extAgent.healthy : true; // Built-in are always healthy
+      let isHealthy = extAgent ? extAgent.healthy : true; // Built-in are always healthy
       
-      // Penalty: If unhealthy, score is 0
+      // Health-check freshness gate: if last health check > 5 min ago, treat as stale
+      if (extAgent && extAgent.lastHealthCheck) {
+        const lastCheck = new Date(extAgent.lastHealthCheck).getTime();
+        const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+        if (lastCheck < fiveMinAgo) {
+          isHealthy = false; // Stale health check — penalize until re-checked
+        }
+      }
+      
+      // Penalty: If unhealthy or stale, score is 0
       const healthPenalty = isHealthy ? 1.0 : 0.0;
 
       // Latency Penalty: If Latency_avg > Latency_target * 2, reputation is halved

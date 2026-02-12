@@ -1233,7 +1233,17 @@ export async function callSpecialist(specialist: SpecialistType, prompt: string,
   // Check if this is an external agent (registered via marketplace)
   if (isExternalAgent(specialist as string)) {
     console.log(`[Dispatcher] Routing to external agent: ${specialist}`);
-    return callExternalAgent(specialist as string, prompt);
+    const externalResult = await callExternalAgent(specialist as string, prompt);
+    
+    // Fallback to best internal specialist if external agent fails (timeout, unhealthy, etc.)
+    if (!externalResult.success && !externalResult.cost) {
+      console.log(`[Dispatcher] External agent ${specialist} failed, falling back to internal routing`);
+      const fallbackSpecialist = await routeWithRegExp(prompt);
+      console.log(`[Dispatcher] Fallback to internal specialist: ${fallbackSpecialist}`);
+      return callSpecialist(fallbackSpecialist, prompt, context);
+    }
+    
+    return externalResult;
   }
   
   let result: SpecialistResult;
