@@ -76,12 +76,13 @@ export default function CommandCenter() {
     return ['bankr', 'scribe', 'seeker'];
   });
   const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
-  // Store metadata for external registry agents (description, capabilities, color)
+  // Store metadata for external registry agents (description, capabilities, color, price)
   const [registryMeta, setRegistryMeta] = useState<Record<string, {
     name: string;
     description: string;
     capabilities: string[];
     color: string;
+    price?: number;
   }>>(() => {
     if (typeof window === 'undefined') return {};
     try {
@@ -1021,6 +1022,8 @@ export default function CommandCenter() {
                         taskStatus={taskStatus}
                         hiredAgents={hiredAgents}
                         onAgentClick={(specialist) => setSelectedAgent(specialist)}
+                        pricing={SPECIALIST_FEES}
+                        registryMeta={registryMeta}
                       />
                     </motion.div>
                   )}

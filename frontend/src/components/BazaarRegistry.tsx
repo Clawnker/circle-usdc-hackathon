@@ -162,17 +162,26 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
       if (capabilities.length === 0) capabilities.push('General purpose');
       const uniqueCaps = [...new Set(capabilities)].slice(0, 6);
 
+      // Map agent.pricing (from discovery) to the backend's expected Record<string, number> format
+      const pricing: Record<string, number> = {};
+      if (agent.pricing?.amount) {
+        // Use generic pricing for all capabilities for now
+        pricing['generic'] = agent.pricing.amount;
+        uniqueCaps.forEach(cap => {
+          pricing[cap] = agent.pricing!.amount;
+        });
+      } else {
+        // Fallback
+        pricing['generic'] = 0.10;
+      }
+
       const agentPayload = {
         name: agent.name,
         description: agent.description,
         endpoint,
         wallet: agent.wallet,
         capabilities: uniqueCaps,
-        pricing: {
-          model: 'per-request',
-          cost: 0, // Discovered at call time via x402
-          currency: 'USDC'
-        },
+        pricing,
         chain: `eip155:${agent.chainId}`,
         erc8004Id: agent.agentId,
       };

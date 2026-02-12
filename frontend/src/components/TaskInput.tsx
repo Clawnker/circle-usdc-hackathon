@@ -168,13 +168,6 @@ export function TaskInput({
                 </AnimatePresence>
               </div>
 
-              {prompt.trim() && (
-                <div className="text-xs text-[var(--text-muted)] flex items-center gap-1 mb-2">
-                  <Coins size={12} />
-                  <span>Est. cost: {estimateQueryCost(prompt)} USDC</span>
-                </div>
-              )}
-
               {/* Action Button */}
               <motion.button
                 type="submit"

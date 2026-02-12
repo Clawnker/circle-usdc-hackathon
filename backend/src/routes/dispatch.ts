@@ -4,6 +4,7 @@ import { DispatchRequest, SpecialistType } from '../types';
 import config from '../config';
 import { planDAG } from '../llm-planner';
 import { validateAndConsumePaymentProof } from '../payments';
+import { getExternalAgent } from '../external-agents';
 
 const router = Router();
 
@@ -36,14 +37,37 @@ router.post('/route-preview', async (req: Request, res: Response) => {
           network: 'base-sepolia',
           isMultiStep: true,
           steps: dagPlan.steps.length,
+          showEstimate: true // Complex plan usually has a reasonably accurate estimate sum
         });
       }
     }
     
     // Simple query — use routing with swarm context
     const specialist = await routePrompt(prompt, hiredAgents);
-    const fee = Number((config.fees as any)[specialist]) || 0.10; // Default 0.10 for external agents
-    res.json({ specialist, fee, currency: 'USDC', network: 'base-sepolia' });
+    
+    // Determine fee and estimation confidence
+    let fee = 0;
+    let showEstimate = false;
+
+    // Check internal pricing first
+    if ((config.fees as any)[specialist]) {
+      fee = Number((config.fees as any)[specialist]);
+      showEstimate = true; // Internal agents have fixed pricing
+    } else {
+      // Check external agent registry
+      const externalAgent = getExternalAgent(specialist);
+      if (externalAgent) {
+        // Use generic pricing or fallback to 0.10
+        fee = externalAgent.pricing?.generic || 0.10;
+        showEstimate = true;
+      } else {
+        // Fallback for unknown agents (shouldn't happen often if routed correctly)
+        fee = 0.10;
+        showEstimate = false; // Unsure about this agent
+      }
+    }
+
+    res.json({ specialist, fee, currency: 'USDC', network: 'base-sepolia', showEstimate });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

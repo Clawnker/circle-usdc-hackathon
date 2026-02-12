@@ -21,6 +21,8 @@ interface SwarmGraphProps {
   taskStatus: string | null;
   hiredAgents?: string[];
   onAgentClick?: (specialist: SpecialistType) => void;
+  pricing?: Record<string, number>;
+  registryMeta?: Record<string, any>;
 }
 
 // Specialist configurations
@@ -160,6 +162,7 @@ function AgentNode({ data }: { data: {
   currentAction?: string;
   reputation?: number;
   erc8004Id?: string;
+  price?: number;
 }}) {
   const config = SPECIALISTS[data.specialist] || getExternalAgentConfig(data.specialist);
   const Icon = config.icon;
@@ -173,6 +176,11 @@ function AgentNode({ data }: { data: {
   const baseSize = data.isCenter ? (isSmallScreen ? 64 : 80) : (isSmallScreen ? 48 : 56);
   const iconSize = data.isCenter ? (isSmallScreen ? 24 : 28) : (isSmallScreen ? 18 : 20);
   const fontSize = isSmallScreen ? 8 : 10;
+
+  // Price badge logic
+  const priceLabel = data.price !== undefined 
+    ? (data.price === 0 ? 'Free' : `$${data.price.toFixed(2)}`)
+    : null;
 
   return (
     <motion.div
@@ -243,9 +251,16 @@ function AgentNode({ data }: { data: {
         {config.name}
       </span>
 
+      {/* Price Badge */}
+      {priceLabel && !data.isCenter && !isSmallScreen && (
+        <div className="absolute -bottom-3 px-1.5 py-0.5 rounded-md bg-black/80 border border-white/10 text-[8px] font-mono text-green-400 z-20 whitespace-nowrap shadow-sm">
+          {priceLabel}
+        </div>
+      )}
+
       {/* ERC-8004 ID Badge (if available) */}
       {!data.isCenter && !isSmallScreen && (
-        <div className="mt-0.5 px-1.5 py-0.5 rounded-full bg-black/40 border border-white/5 flex items-center gap-1">
+        <div className="mt-4 px-1.5 py-0.5 rounded-full bg-black/40 border border-white/5 flex items-center gap-1">
           <Shield size={fontSize - 2} className="text-[var(--accent-cyan)]" />
           <span className="font-mono text-white/70" style={{ fontSize: fontSize - 2 }}>8004</span>
         </div>
@@ -306,7 +321,7 @@ function getNodePositions(centerX: number, centerY: number, radius: number, extr
   });
 }
 
-export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAgents = [], onAgentClick }: SwarmGraphProps) {
+export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAgents = [], onAgentClick, pricing, registryMeta }: SwarmGraphProps) {
   // Responsive dimensions
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -348,19 +363,31 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAge
         currentAction: undefined,
       },
     },
-    ...positions.map(pos => ({
-      id: pos.id,
-      type: 'agent',
-      position: { x: pos.x, y: pos.y },
-      data: { 
-        specialist: pos.id as SpecialistType, 
-        isActive: false, 
-        isCenter: false,
-        status: hiredAgents.includes(pos.id) ? 'ready' : 'idle',
-        currentAction: undefined,
-      },
-    })),
-  ], [positions, hiredAgents]);
+    ...positions.map(pos => {
+      // Resolve price
+      let price: number | undefined;
+      const id = pos.id;
+      if (pricing && pricing[id] !== undefined) {
+        price = pricing[id];
+      } else if (registryMeta && registryMeta[id] && registryMeta[id].price !== undefined) {
+        price = registryMeta[id].price;
+      }
+
+      return {
+        id: pos.id,
+        type: 'agent',
+        position: { x: pos.x, y: pos.y },
+        data: { 
+          specialist: pos.id as SpecialistType, 
+          isActive: false, 
+          isCenter: false,
+          status: hiredAgents.includes(pos.id) ? 'ready' : 'idle',
+          currentAction: undefined,
+          price, // Pass price to node data
+        },
+      };
+    }),
+  ], [positions, hiredAgents, pricing, registryMeta]);
 
   const initialEdges: Edge[] = useMemo(() => {
     const edges: Edge[] = [];
