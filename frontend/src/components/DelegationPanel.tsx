@@ -8,7 +8,8 @@ import { parseUnits, encodeFunctionData } from 'viem';
 import { baseSepolia } from 'wagmi/chains';
 
 const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
-const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135' as `0x${string}`;
+// This must match the address that calls transferFrom on the backend (DEMO_WALLET_PRIVATE_KEY)
+const DELEGATE_ADDRESS = '0x4a9948159B7e6c19301ebc388E72B1EdFf87187B' as `0x${string}`;
 
 // ERC-20 ABI for approve
 const ERC20_ABI = [
@@ -96,7 +97,7 @@ export function DelegationPanel() {
       address: USDC_ADDRESS,
       abi: ERC20_ABI,
       functionName: 'approve',
-      args: [TREASURY_ADDRESS, parseUnits(String(approveAmount), 6)],
+      args: [DELEGATE_ADDRESS, parseUnits(String(approveAmount), 6)],
       chainId: baseSepolia.id,
     });
   };
@@ -109,7 +110,7 @@ export function DelegationPanel() {
       address: USDC_ADDRESS,
       abi: ERC20_ABI,
       functionName: 'approve',
-      args: [TREASURY_ADDRESS, BigInt(0)],
+      args: [DELEGATE_ADDRESS, BigInt(0)],
       chainId: baseSepolia.id,
     });
   };
