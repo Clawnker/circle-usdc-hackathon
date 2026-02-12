@@ -219,7 +219,7 @@ The **Hivemind Command Center** provides a real-time interface for the agent eco
 - **Interactive Swarm Graph** — live visualization of agent network with animated connections
 - **x402 Payment Feed** — real-time payment tracking with x402/on-chain badges
 - **Agent Marketplace** — browse internal specialists, view reputation, add to swarm
-- **x402 Bazaar** — discover and browse external agents, add to your swarm with one click
+- **Agent Registry** — discover external ERC-8004 agents with x402 payments via [8004scan.io](https://www.8004scan.io/)
 - **Query History** — full history with downloadable reports and re-run capability
 - **Delegation Panel** — USDC approve/revoke with per-payment tracking and spend totals
 - **Inter-Agent Message Log** — watch agents communicate during multi-hop tasks
@@ -284,7 +284,7 @@ Visit `http://localhost:3001` for the Hivemind Command Center.
 | GET | `/api/agents` | List registered agents (ERC-8004) |
 | GET | `/api/agents/:id/registration` | Agent registration file |
 | GET | `/api/agents/external` | List external marketplace agents |
-| GET | `/api/bazaar/discovery` | x402 Bazaar — discover available services |
+| GET | `/api/bazaar/discovery` | Agent Registry — discover ERC-8004 agents (via 8004scan) |
 | GET | `/api/pricing` | Specialist USDC pricing |
 | GET | `/api/reputation` | All reputation stats |
 | GET | `/api/reputation/:specialist` | Single specialist reputation |

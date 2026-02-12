@@ -195,15 +195,15 @@ What shipped for the hackathon:
 - Payments: Base Sepolia USDC via `@x402/express` + delegation (approve/transferFrom)
 - Identity: ERC-8004 registries (Base Sepolia, mock for now)
 - Auth: API keys + ERC-8128 wallet signatures
-- External agents: HTTP proxy via dispatcher + Bazaar discovery
+- External agents: ERC-8004 discovery via 8004scan.io API
 - Wallet: Coinbase Smart Wallet via OnchainKit
 
 **Key files:**
 - `backend/src/dispatcher.ts` — routing brain
 - `backend/src/llm-planner.ts` — LLM DAG decomposition
-- `backend/src/bazaar.ts` — x402 Bazaar discovery
+- `backend/src/bazaar.ts` — Agent Registry discovery (8004scan API)
 - `backend/src/x402-server.ts` — x402 payment middleware
 - `backend/src/payments.ts` — payment logging + replay prevention
-- `backend/src/external-agents.ts` — external agent registry
+- `backend/src/external-agents.ts` — locally registered external agents
 - `REGISTER_AGENT.md` — external agent registration guide
 - `CODEBASE.md` — full architecture guide for agents/developers
