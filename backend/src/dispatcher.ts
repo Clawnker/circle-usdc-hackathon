@@ -29,6 +29,7 @@ import { capabilityMatcher } from './capability-matcher';
 import { circuitBreaker } from './circuit-breaker';
 import { fallbackChain } from './fallback-chain';
 import { isExternalAgent, callExternalAgent, getExternalAgents, getExternalAgent } from './external-agents';
+import { classifyIntent } from './intent-classifier';
 import { priceRouter } from './price-router';
 import magos from './specialists/magos';
 import aura from './specialists/aura';
@@ -940,6 +941,20 @@ export function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<
 export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]): Promise<SpecialistType> {
   const lower = prompt.toLowerCase();
   const planningMode = process.env.PLANNING_MODE || 'capability';
+  
+  // 0. Intent Classifier (LLM-powered with cache)
+  try {
+    const intent = await classifyIntent(prompt);
+    if (intent && intent.confidence >= 0.7) {
+      const specialist = intent.specialist;
+      if (!hiredAgents || hiredAgents.includes(specialist)) {
+        console.log(`[Intent Classifier] ${intent.category} → ${specialist} (${(intent.confidence * 100).toFixed(0)}%)`);
+        return specialist;
+      }
+    }
+  } catch (e: any) {
+    console.log(`[Intent Classifier] Error: ${e.message}, falling through`);
+  }
   
   // 1. Fast-path: contract audit/security queries → sentinel (FIRST - before complexity detection)
   // "audit contract" triggers false positives in complexity detection (security + wallet domains)

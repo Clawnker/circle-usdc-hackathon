@@ -79,6 +79,190 @@ interface PlanningResult {
 }
 
 /**
+ * Validates a DAGPlan, ensuring no cycles, within step limits, and valid variable references.
+ * Also calculates timeoutMs for each step.
+ */
+function validateDAGPlan(plan: DAGPlan): DAGPlan {
+  // 1. Step count limit
+  if (plan.steps.length > 5) {
+    console.warn(`[DAG Validation] Plan has ${plan.steps.length} steps, truncating to 5.`);
+    plan.steps = plan.steps.slice(0, 5);
+  }
+
+  // Add timeout budget to plan and each step
+  plan.timeoutMs = 45000;
+  const stepTimeout = plan.steps.length > 0 ? plan.timeoutMs / plan.steps.length : plan.timeoutMs;
+  plan.steps.forEach(step => step.timeoutMs = stepTimeout);
+
+  // Rebuild steps array to filter out invalid ones
+  const validatedSteps: PlanStep[] = [];
+  const stepIds = new Set(plan.steps.map(s => s.id));
+
+  for (const currentStep of plan.steps) {
+    let isValidStep = true;
+
+    // 2a. Filter out dependencies that point to non-existent steps
+    currentStep.dependencies = currentStep.dependencies.filter(depId => {
+      if (!stepIds.has(depId)) {
+        console.warn(`[DAG Validation] Step ${currentStep.id} depends on non-existent step ${depId}. Removing dependency.`);
+        return false;
+      }
+      return true;
+    });
+
+    // 2b. Variable reference check
+    // Verify that {{step-X.output...}} references only reference steps that exist and are listed as dependencies.
+    const references = currentStep.promptTemplate.match(/{{step-(\w+)\.output\..+}}/g);
+    if (references) {
+      for (const ref of references) {
+        const referredStepId = ref.match(/step-(\w+)/)?.[1];
+        if (referredStepId && !stepIds.has(`step-${referredStepId}`)) {
+          console.warn(`[DAG Validation] Step ${currentStep.id} references non-existent step-ref 'step-${referredStepId}'. Invalidating step.`);
+          isValidStep = false;
+          break;
+        }
+        // Also ensure referenced step is a dependency
+        if (referredStepId && !currentStep.dependencies.includes(`step-${referredStepId}`)) {
+          console.warn(`[DAG Validation] Step ${currentStep.id} references 'step-${referredStepId}' but it's not listed as a dependency. Adding dependency.`);
+          currentStep.dependencies.push(`step-${referredStepId}`);
+        }
+      }
+    }
+
+    if (isValidStep) {
+      validatedSteps.push(currentStep);
+    } else {
+      console.warn(`[DAG Validation] Removing invalid step ${currentStep.id} due to bad references.`);
+    }
+  }
+
+  plan.steps = validatedSteps;
+
+  // 2c. Cycle detection (using Kahn's algorithm for topological sort)
+  const inDegree = new Map<string, number>();
+  const adjList = new Map<string, string[]>(); // Dependency graph: depId -> [steps that depend on depId]
+
+  plan.steps.forEach(step => {
+    adjList.set(step.id, []);
+    inDegree.set(step.id, 0);
+  });
+
+  plan.steps.forEach(step => {
+    step.dependencies.forEach(depId => {
+      // Only add to graph if depId exists in current plan.steps (already filtered above)
+      if (inDegree.has(depId)) { 
+        adjList.get(depId)!.push(step.id);
+        inDegree.set(step.id, (inDegree.get(step.id) || 0) + 1);
+      }
+    });
+  });
+
+  const queue: string[] = [];
+  inDegree.forEach((degree, stepId) => {
+    if (degree === 0) {
+      queue.push(stepId);
+    }
+  });
+
+  const sortedStepIds: string[] = [];
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!;
+    sortedStepIds.push(nodeId);
+
+    const neighbors = adjList.get(nodeId) || [];
+    for (const neighborId of neighbors) {
+      inDegree.set(neighborId, (inDegree.get(neighborId) || 0) - 1);
+      if (inDegree.get(neighborId) === 0) {
+        queue.push(neighborId);
+      }
+    }
+  }
+
+  if (sortedStepIds.length !== plan.steps.length) {
+    // Cycle detected. `sortedStepIds` will contain all steps reachable from a node with 0 in-degree.
+    // Steps that are part of a cycle will have an in-degree > 0 and won't be added to the queue.
+    console.error(`[DAG Validation] Cycle detected in plan! Original plan had ${plan.steps.length} steps, topological sort found ${sortedStepIds.length}.`);
+    
+    // Remove cycle-causing dependencies. A simple approach is to remove all dependencies of steps that were not sorted.
+    // This is a drastic measure to break cycles.
+    const cyclicStepIds = new Set(plan.steps.map(s => s.id));
+    sortedStepIds.forEach(id => cyclicStepIds.delete(id));
+
+    plan.steps = plan.steps.map(step => {
+      if (cyclicStepIds.has(step.id)) {
+        console.warn(`[DAG Validation] Removing all dependencies for cyclic step ${step.id} to break cycle.`);
+        step.dependencies = []; // Break all dependencies for cyclic steps
+      }
+      return step;
+    });
+
+    // Re-run the topological sort after modifying dependencies
+    // This will ensure the plan is now acyclic, potentially with fewer dependencies
+    const reInDegree = new Map<string, number>();
+    const reAdjList = new Map<string, string[]>();
+    plan.steps.forEach(step => {
+      reAdjList.set(step.id, []);
+      reInDegree.set(step.id, 0);
+    });
+    plan.steps.forEach(step => {
+      step.dependencies.forEach(depId => {
+        if (reInDegree.has(depId)) { 
+          reAdjList.get(depId)!.push(step.id);
+          reInDegree.set(step.id, (reInDegree.get(step.id) || 0) + 1);
+        }
+      });
+    });
+
+    const reQueue: string[] = [];
+    reInDegree.forEach((degree, stepId) => {
+      if (degree === 0) {
+        reQueue.push(stepId);
+      }
+    });
+    
+    const finalSortedSteps: PlanStep[] = [];
+    while (reQueue.length > 0) {
+      const nodeId = reQueue.shift()!;
+      finalSortedSteps.push(plan.steps.find(s => s.id === nodeId)!);
+      const neighbors = reAdjList.get(nodeId) || [];
+      for (const neighborId of neighbors) {
+        reInDegree.set(neighborId, (reInDegree.get(neighborId) || 0) - 1);
+        if (reInDegree.get(neighborId) === 0) {
+          reQueue.push(neighborId);
+        }
+      }
+    }
+    plan.steps = finalSortedSteps; // Use the acyclic set of steps
+
+    // If still empty or no progress, return a single scribe step as a safe fallback
+    if (plan.steps.length === 0 && validatedSteps.length > 0) {
+      console.error(`[DAG Validation] Cycle could not be resolved, reverting to single scribe step.`);
+      return {
+        planId: `fallback-cycle-${Date.now()}`,
+        query: plan.query,
+        steps: [{
+          id: 'step-1',
+          specialist: 'scribe',
+          promptTemplate: plan.query,
+          dependencies: [],
+          estimatedCost: 0.0001,
+          timeoutMs: plan.timeoutMs
+        }],
+        totalEstimatedCost: 0.0001,
+        reasoning: `Cycle detected and resolved to single scribe step. Original: ${plan.reasoning}`,
+        timeoutMs: plan.timeoutMs
+      };
+    }
+
+  }
+
+  // Recalculate total estimated cost after any modifications
+  plan.totalEstimatedCost = plan.steps.reduce((sum, step) => sum + (step.estimatedCost || 0), 0);
+  
+  return plan;
+}
+
+/**
  * Plan a multi-step DAG using Gemini Flash
  */
 export async function planDAG(prompt: string): Promise<DAGPlan> {
@@ -144,13 +328,18 @@ RULES:
       parsed.totalEstimatedCost = parsed.steps.reduce((sum: number, step: any) => sum + (step.estimatedCost || 0), 0);
     }
 
-    return {
+    let dagPlan: DAGPlan = {
       planId: parsed.planId || `plan-${Date.now()}`,
       query: prompt,
       steps: parsed.steps || [],
       totalEstimatedCost: parsed.totalEstimatedCost || 0,
       reasoning: parsed.reasoning || 'Dynamic plan generated by Hivemind Orchestrator.'
     };
+
+    // Validate the plan after LLM generation
+    dagPlan = validateDAGPlan(dagPlan);
+
+    return dagPlan;
   } catch (error: any) {
     console.error(`[LLM Planner] Failed to plan DAG:`, error.message);
     // Fallback to a single-step scribe plan
