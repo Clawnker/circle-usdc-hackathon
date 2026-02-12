@@ -8,10 +8,10 @@
  * Reference: https://docs.cdp.coinbase.com/x402/bazaar
  */
 
-import { HTTPFacilitatorClient } from '@x402/core/server';
 import config from './config';
 
-const FACILITATOR_URL = 'https://facilitator.x402.org';
+const BASE_URL = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
+const FACILITATOR_URL = 'https://x402.org/facilitator';
 const DISCOVERY_ENDPOINT = `${FACILITATOR_URL}/discovery/resources`;
 
 // Treasury and network constants
@@ -117,7 +117,7 @@ export function getInternalBazaarServices(): BazaarService[] {
   ];
 
   return specialists.map((spec) => ({
-    resourceUrl: `${config.api.baseUrl}/api/specialist/${spec.id}`,
+    resourceUrl: `${BASE_URL}/api/specialist/${spec.id}`,
     name: spec.name,
     description: spec.description,
     schemes: ['exact'],
@@ -143,18 +143,23 @@ export function getInternalBazaarServices(): BazaarService[] {
         cost: { type: 'number' },
       },
     },
-    healthUrl: `${config.api.baseUrl}/health`,
+    healthUrl: `${BASE_URL}/health`,
   }));
 }
 
 /**
- * Combined discovery: internal + external Bazaar services
+ * Combined discovery: internal + external Bazaar services.
+ * External discovery failure is non-fatal — we always return internals.
  */
 export async function getAllDiscoverableServices(): Promise<BazaarService[]> {
-  const [internal, external] = await Promise.all([
-    Promise.resolve(getInternalBazaarServices()),
-    discoverBazaarServices(),
-  ]);
+  const internal = getInternalBazaarServices();
+  
+  let external: BazaarService[] = [];
+  try {
+    external = await discoverBazaarServices();
+  } catch (err: any) {
+    console.warn('[Bazaar] External discovery failed (non-fatal):', err.message);
+  }
   
   return [...internal, ...external];
 }
