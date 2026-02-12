@@ -12,7 +12,9 @@ import config from './config';
 
 const BASE_URL = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
 const FACILITATOR_URL = 'https://x402.org/facilitator';
-const DISCOVERY_ENDPOINT = `${FACILITATOR_URL}/discovery/resources`;
+// CDP facilitator is the one that actually has the discovery/Bazaar endpoint
+const CDP_FACILITATOR_URL = 'https://api.cdp.coinbase.com/platform/v2/x402';
+const DISCOVERY_ENDPOINT = `${CDP_FACILITATOR_URL}/discovery/resources`;
 
 // Treasury and network constants
 const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135';
@@ -27,22 +29,31 @@ export interface BazaarService {
     scheme: string;
     network: string;
     payTo: string;
-    price: number; // in dollars
+    price: number; // in dollars (derived from maxAmountRequired)
     maxTimeoutSeconds: number;
   }[];
   inputSchema?: object;
   outputSchema?: object;
   healthUrl?: string;
   icon?: string;
+  x402Version?: number;
+  lastUpdated?: string;
 }
 
 /**
- * Query the x402 Bazaar for available services.
+ * Query the x402 Bazaar (CDP facilitator) for available services.
  * Returns external agents that accept x402 payments.
+ * 
+ * CDP endpoint: GET https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources
+ * Returns { items: [...], pagination: { limit, offset, total }, x402Version }
  */
-export async function discoverBazaarServices(): Promise<BazaarService[]> {
+export async function discoverBazaarServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; total: number }> {
+  const limit = options?.limit || 20;
+  const offset = options?.offset || 0;
+  
   try {
-    const response = await fetch(DISCOVERY_ENDPOINT, {
+    const url = `${DISCOVERY_ENDPOINT}?type=http&limit=${limit}&offset=${offset}`;
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -50,19 +61,65 @@ export async function discoverBazaarServices(): Promise<BazaarService[]> {
     });
 
     if (!response.ok) {
-      console.warn('[Bazaar] Discovery endpoint returned:', response.status);
-      return [];
+      console.warn('[Bazaar] CDP discovery endpoint returned:', response.status);
+      return { services: [], total: 0 };
     }
 
     const data = await response.json();
-    // Facilitator returns services in a specific format
-    const services: BazaarService[] = data.resources || data.services || data || [];
+    const items = data.items || [];
+    const total = data.pagination?.total || items.length;
     
-    console.log(`[Bazaar] Discovered ${services.length} external services`);
-    return services;
+    // Map CDP discovery format to our BazaarService format
+    const services: BazaarService[] = items.map((item: any) => {
+      const firstAccept = item.accepts?.[0] || {};
+      const description = firstAccept.description || item.metadata?.description || 'x402 service';
+      // maxAmountRequired is in micro-units (e.g., 1000 = $0.001 for 6-decimal USDC)
+      const priceRaw = parseInt(firstAccept.maxAmountRequired || '0', 10);
+      const price = priceRaw / 1_000_000; // Convert from USDC base units to dollars
+      
+      return {
+        resourceUrl: item.resource,
+        name: extractServiceName(item.resource, description),
+        description,
+        schemes: [...new Set(item.accepts?.map((a: any) => a.scheme) || ['exact'])],
+        accepts: (item.accepts || []).map((a: any) => ({
+          scheme: a.scheme || 'exact',
+          network: a.network || '',
+          payTo: a.payTo || '',
+          price: parseInt(a.maxAmountRequired || '0', 10) / 1_000_000,
+          maxTimeoutSeconds: a.maxTimeoutSeconds || 300,
+        })),
+        inputSchema: firstAccept.outputSchema?.input || undefined,
+        outputSchema: firstAccept.outputSchema?.output || undefined,
+        x402Version: item.x402Version,
+        lastUpdated: item.lastUpdated,
+      };
+    });
+    
+    console.log(`[Bazaar] Discovered ${services.length} external services (total: ${total})`);
+    return { services, total };
   } catch (error: any) {
     console.error('[Bazaar] Failed to discover services:', error.message);
-    return [];
+    return { services: [], total: 0 };
+  }
+}
+
+/**
+ * Extract a readable service name from the resource URL and description.
+ */
+function extractServiceName(resourceUrl: string, description: string): string {
+  try {
+    const url = new URL(resourceUrl);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1] || '';
+    const host = url.hostname.replace('www.', '');
+    // Use last path segment as name, falling back to hostname
+    const name = lastPart 
+      ? lastPart.replace(/-/g, ' ').replace(/^\w/, c => c.toUpperCase())
+      : host;
+    return name;
+  } catch {
+    return description.slice(0, 40);
   }
 }
 
@@ -151,17 +208,20 @@ export function getInternalBazaarServices(): BazaarService[] {
  * Combined discovery: internal + external Bazaar services.
  * External discovery failure is non-fatal — we always return internals.
  */
-export async function getAllDiscoverableServices(): Promise<BazaarService[]> {
+export async function getAllDiscoverableServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; externalTotal: number }> {
   const internal = getInternalBazaarServices();
   
   let external: BazaarService[] = [];
+  let externalTotal = 0;
   try {
-    external = await discoverBazaarServices();
+    const result = await discoverBazaarServices(options);
+    external = result.services;
+    externalTotal = result.total;
   } catch (err: any) {
     console.warn('[Bazaar] External discovery failed (non-fatal):', err.message);
   }
   
-  return [...internal, ...external];
+  return { services: [...internal, ...external], externalTotal };
 }
 
 /**

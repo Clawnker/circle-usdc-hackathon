@@ -5,14 +5,19 @@ const router = Router();
 
 /**
  * GET /api/bazaar/discovery
- * List all discoverable x402 services (internal + external)
+ * List all discoverable x402 services (internal + external from CDP Bazaar)
+ * Query params: limit (default 20), offset (default 0)
  */
 router.get('/discovery', async (req: Request, res: Response) => {
   try {
-    const services = await getAllDiscoverableServices();
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+    const offset = parseInt(req.query.offset as string) || 0;
+    
+    const { services, externalTotal } = await getAllDiscoverableServices({ limit, offset });
     res.json({
       services,
       count: services.length,
+      externalTotal,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
