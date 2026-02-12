@@ -35,7 +35,6 @@ export async function classifyIntent(prompt: string): Promise<{ category: string
     'trade': 'bankr',
     'research': 'seeker',
     'analysis': 'magos',
-    'security': 'sentinel',
     'multi-hop': 'multi-hop',
     'general': 'general',
   };
@@ -86,13 +85,12 @@ Classify the user's prompt into one of the following categories:
 - trade: User wants to perform a trade (swap, buy, sell) of digital assets.
 - research: User is requesting general information or research on a topic, project, or asset.
 - analysis: User is requesting an in-depth analysis or report on a digital asset, protocol, or market trend.
-- security: User is requesting a security audit, vulnerability check, or risk assessment for a smart contract or address.
 - multi-hop: User is asking for a complex trade involving multiple steps or protocols.
 - general: The intent does not fit clearly into any other category, or is a general question.
 
 Extract any relevant entities (e.g., token names, addresses, protocols) from the prompt.
 Assign a confidence score (0.0 to 1.0) for your classification.
-Map the category to a specialist: 'magos' for price/analysis, 'aura' for sentiment, 'bankr' for trade, 'seeker' for research, 'sentinel' for security, 'multi-hop' for multi-hop, 'general' for general.
+Map the category to a specialist: 'magos' for price/analysis, 'aura' for sentiment, 'bankr' for trade, 'seeker' for research, 'multi-hop' for multi-hop, 'general' for general.
 
 Respond with a JSON object in the format:
 {

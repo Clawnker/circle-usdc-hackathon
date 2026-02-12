@@ -111,7 +111,6 @@ const SPECIALIST_DESCRIPTIONS: Record<SpecialistType, string> = {
   scribe: 'General assistant & fallback',
   seeker: 'Web research & search',
   general: 'General queries',
-  sentinel: 'Smart contract security audits',
   'multi-hop': 'Orchestrated multi-agent workflow',
 };
 
@@ -123,7 +122,6 @@ const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: str
   scribe: { fee: '0.10', description: 'General assistant & fallback' },
   seeker: { fee: '0.10', description: 'Web research & search' },
   general: { fee: '0', description: 'General queries' },
-  sentinel: { fee: '2.50', description: 'Smart contract security audits (external)' },
   'multi-hop': { fee: '0', description: 'Orchestrated multi-agent workflow' },
 };
 
@@ -244,12 +242,12 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   
   // Pre-check: Security audit fast-path BEFORE complexity detection
   // "audit contract" often triggers false positive complexity (security + wallet domains)
-  const isSentinelQuery = /\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(request.prompt) && 
+  const isSecurityAuditQuery = /\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(request.prompt) && 
     (/0x[a-fA-F0-9]{40}/.test(request.prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(request.prompt));
   
   // Phase 2b: Multi-step DAG Planning
   // First, check if it's a simple query to use the fast path
-  const isComplex = isSentinelQuery ? false : await isComplexQuery(request.prompt);
+  const isComplex = isSecurityAuditQuery ? false : await isComplexQuery(request.prompt);
   
   let dagPlan: DAGPlan;
   let isMultiStep = false;
@@ -264,7 +262,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       query: request.prompt,
       steps: [],
       totalEstimatedCost: 0,
-      reasoning: isSentinelQuery ? 'Security audit query — fast-path to sentinel.' : 'Simple query detected, skipping LLM planning.'
+      reasoning: isSecurityAuditQuery ? 'Security audit query — fast-path to audit specialist.' : 'Simple query detected, skipping LLM planning.'
     };
   }
   
@@ -274,7 +272,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   
   // Legacy multi-hop detection — check before building fallback chains
   // Skip for sentinel queries (audit prompts trigger false positives in multi-domain detection)
-  const legacyHops = (isMultiStep || isSentinelQuery) ? null : detectMultiHop(request.prompt);
+  const legacyHops = (isMultiStep || isSecurityAuditQuery) ? null : detectMultiHop(request.prompt);
   if (legacyHops && !request.preferredSpecialist) {
     bestSpecialist = 'multi-hop' as SpecialistType;
   }
@@ -284,8 +282,8 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   let taskFallbackChain: string[] | undefined;
   if (!isMultiStep && bestSpecialist !== 'multi-hop') {
     // Only build expensive fallback chain if we didn't hit a fast-path
-    // Fast-path routes (sentinel, magos price, aura sentiment) are high-confidence
-    const isFastPath = isSentinelQuery || 
+    // Fast-path routes (audit, magos price, aura sentiment) are high-confidence
+    const isFastPath = isSecurityAuditQuery || 
       /\b(price|value|worth|cost|how much)\b/i.test(request.prompt) ||
       /\b(sentiment|vibe|mood|social\s+analysis)\b/i.test(request.prompt);
     
@@ -431,7 +429,6 @@ function getSpecialistDisplayName(specialist: SpecialistType): string {
     bankr: 'DeFi Executor',
     scribe: 'General Assistant',
     seeker: 'Web Researcher',
-    sentinel: 'Security Auditor',
     general: 'General',
     'multi-hop': 'Multi-Agent Workflow',
   };
@@ -1004,11 +1001,25 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     console.log(`[Intent Classifier] Error: ${e.message}, falling through`);
   }
   
-  // 2. Fast-path: contract audit/security queries → sentinel
+  // 2. Fast-path: contract audit/security queries → dynamic security agent
   if (/\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(prompt) && 
       (/0x[a-fA-F0-9]{40}/.test(prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(prompt))) {
-    console.log(`[Router] Fast-path: contract audit query detected, routing to sentinel`);
-    if (!hiredAgents || hiredAgents.includes('sentinel' as SpecialistType)) return 'sentinel' as SpecialistType;
+    console.log(`[Router] Fast-path: contract audit query detected, looking for security specialist`);
+    
+    // Find external agent with security capability
+    const agents = await getExternalAgents();
+    const securityAgent = agents.find(a => 
+      a.capabilities?.some((c: string) => 
+        ['security-audit', 'smart-contract-audit', 'audit'].includes(c)
+      )
+    );
+    
+    if (securityAgent) {
+       console.log(`[Router] Found security agent: ${securityAgent.id}`);
+       if (!hiredAgents || hiredAgents.includes(securityAgent.id as SpecialistType)) {
+         return securityAgent.id as SpecialistType;
+       }
+    }
   }
   
   // 2b. Fast-path: price/market queries → magos
@@ -1086,17 +1097,6 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
   // Define routing rules with weights
   const rules: Array<{ specialist: SpecialistType; patterns: RegExp[]; weight: number }> = [
     {
-      specialist: 'sentinel',
-      patterns: [
-        /\b(audit|scan|inspect)\b.*\b(contract|token|address|0x)/i,
-        /smart\s*contract.*(?:check|review|scan|inspect|analyz)/,
-        /contract.*(?:safe|secure|risk|danger)/,
-        /0x[a-fA-F0-9]{40}/, // Contract address pattern
-        /\b(reentrancy|overflow|access.control|exploit|vulnerability)\b/,
-      ],
-      weight: 1.5, // Higher weight — specific capability
-    },
-    {
       specialist: 'magos',
       patterns: [
         /predict|forecast|price\s+target|will\s+\w+\s+(go|reach|hit)/,
@@ -1152,7 +1152,6 @@ function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): Specia
     bankr: 0,
     scribe: 0,
     seeker: 0,
-    sentinel: 0,
     general: 0,
     'multi-hop': 0,
   };

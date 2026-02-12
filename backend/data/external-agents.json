@@ -2,7 +2,7 @@
   {
     "id": "sentinel",
     "name": "Sentinel",
-    "description": "Autonomous security audit agent. Analyzes smart contracts for vulnerabilities using Gemini AI. Hosted independently on Google Cloud Run.",
+    "description": "Autonomous security audit agent. Analyzes smart contracts for vulnerabilities using Gemini AI. Hosted independently on Google Cloud Run. Discovered via Agent Registry.",
     "endpoint": "https://sentinel-agent-957204176231.us-central1.run.app",
     "wallet": "0x78eAC3A73b5211B7650D15E7058a846243930332",
     "capabilities": ["security-audit", "compliance-check", "vulnerability-scan"],
@@ -17,6 +17,36 @@
       "registered": true
     },
     "registeredAt": "2026-02-09T17:00:00.000Z",
+    "healthy": true,
+    "active": true
+  },
+  {
+    "id": "silverback",
+    "name": "Silverback",
+    "description": "DeFi liquidity analysis agent. Finds deepest liquidity pools for tokens on Base.",
+    "endpoint": "https://silverback-agent.example.com",
+    "wallet": "0x1234567890abcdef1234567890abcdef12345678",
+    "capabilities": ["liquidity-analysis","pool-finder","best-price"],
+    "pricing": {"liquidity-analysis": 1.0, "generic": 0.5},
+    "chain": "base",
+    "x402Support": true,
+    "erc8004": {"registered": true},
+    "registeredAt": "2026-02-11T12:00:00.000Z",
+    "healthy": true,
+    "active": true
+  },
+  {
+    "id": "minara",
+    "name": "Minara AI",
+    "description": "Intelligent crypto assistant powered by AI. Provides real-time market analysis, DeFi guidance, swap intent parsing.",
+    "endpoint": "https://minara-example.com",
+    "wallet": "0x...",
+    "capabilities": ["market-analysis", "defi-guidance"],
+    "pricing": { "generic": 0.1 },
+    "chain": "base",
+    "x402Support": true,
+    "erc8004": { "registered": true },
+    "registeredAt": "2026-02-12T12:00:00.000Z",
     "healthy": true,
     "active": true
   }

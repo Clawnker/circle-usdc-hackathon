@@ -124,21 +124,6 @@ const AGENT_METADATA: Record<string, any> = {
     capabilities: ['orchestration', 'routing'],
     tier: 'system',
     erc8004Id: 'agent:base:0x000...000'
-  },
-  'Sentinel': {
-    id: 'sentinel',
-    tagline: 'Security Auditor',
-    icon: Shield,
-    price: 2.50,
-    successRate: 97,
-    responseTime: '5.0s',
-    tasksCompleted: 340,
-    color: 'red',
-    capabilities: ['security-audit', 'compliance-check', 'vulnerability-scan'],
-    tier: 'marketplace',
-    erc8004Id: 'agent:base:0x78e...332',
-    external: true,
-    endpoint: 'https://sentinel-agent-957204176231.us-central1.run.app'
   }
 };
 

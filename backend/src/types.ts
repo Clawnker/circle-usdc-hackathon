@@ -3,7 +3,7 @@
  * Core type definitions for the Hivemind Protocol
  */
 
-export type SpecialistType = 'magos' | 'aura' | 'bankr' | 'general' | 'scribe' | 'seeker' | 'multi-hop' | 'sentinel' | (string & {});
+export type SpecialistType = 'magos' | 'aura' | 'bankr' | 'general' | 'scribe' | 'seeker' | 'multi-hop' | (string & {});
 
 export interface PlanStep {
   id: string;               // Unique ID within the plan (e.g., "step-1")
