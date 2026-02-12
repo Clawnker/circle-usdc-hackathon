@@ -113,6 +113,7 @@ function parseIntent(prompt: string): {
   const lower = prompt.toLowerCase();
   
   // Detect synthesis patterns for multi-hop DAG results
+  // If the prompt is long and contains structured data, treat as synthesis
   const synthesisPatterns = [
     '{{step-',
     'based on the following data',
@@ -120,10 +121,23 @@ function parseIntent(prompt: string): {
     'combine these results',
     'analyze the results from',
     '"data": {',
-    '"results": ['
+    '"results": [',
+    'key findings',
+    '**Key Findings:**',
+    '🔍 **Research',
+    '**Sources:**',
   ];
   
-  if (synthesisPatterns.some(p => lower.includes(p)) || (prompt.length > 500 && (prompt.includes('{') || prompt.includes('[')))) {
+  // Long prompts with structured content are almost certainly synthesis requests
+  const isLongStructured = prompt.length > 300 && (
+    prompt.includes('**') || 
+    prompt.includes('1.') || 
+    prompt.includes('Source:') ||
+    prompt.includes('http') ||
+    prompt.includes('[data from')
+  );
+  
+  if (synthesisPatterns.some(p => lower.includes(p.toLowerCase())) || isLongStructured) {
     return { type: 'synthesize', topic: 'Data Synthesis' };
   }
 

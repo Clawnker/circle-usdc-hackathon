@@ -187,16 +187,14 @@ export default function CommandCenter() {
             // Handle multi-hop steps
             if (r.data?.isMultiHop && r.data?.steps) {
               const hops = r.data.hops as string[];
-              message = `Successfully orchestrated: ${hops.join(' → ')}`;
-              content = r.data.steps.map((s: any) => {
-                const sName = SPECIALIST_NAMES[s.specialist] || s.specialist;
-                return `[${sName}]\n${s.summary}`;
-              }).join('\n\n');
+              message = `Completed via ${hops.length} agents`;
+              // Use the last step's summary (typically the synthesis step)
+              const steps = r.data.steps as any[];
+              const lastStep = steps[steps.length - 1];
+              content = lastStep?.summary || steps.map((s: any) => s.summary).join('\n\n');
             } else if (r.data?.isDAG && r.data?.summary) {
               // DAG orchestration result — use the synthesized summary
-              const steps = r.data.steps || [];
-              const specialists = steps.map((s: any) => SPECIALIST_NAMES[s.specialist] || s.specialist);
-              message = `Orchestrated: ${specialists.join(' → ')}`;
+              message = `Completed`;
               content = r.data.summary;
             } else {
               // Prefer summary (full context) over insight (brief) for search results

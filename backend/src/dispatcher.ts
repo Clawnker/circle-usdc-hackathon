@@ -615,17 +615,26 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       }
       
       // Update context for next hop
-      if (specialist === 'aura' && result.success) {
-        const tokens = extractTokensFromResult(responseContent);
-        if (tokens.length > 0) {
-          currentContext = `Buy 0.1 SOL of ${tokens[0]}`;
-          addMessage(task, 'dispatcher', 'system', `Next step: ${currentContext}`);
-        }
-      } else if ((specialist === 'magos' || specialist === 'seeker') && result.success) {
-        const tokens = extractTokensFromResult(responseContent);
-        if (tokens.length > 0) {
-          currentContext = `Buy 0.1 SOL of ${tokens[0]}`;
-          addMessage(task, 'dispatcher', 'system', `Next step: ${currentContext}`);
+      if (i < hops.length - 1) {
+        const nextHop = hops[i + 1];
+        if (nextHop === 'scribe') {
+          // Pass full research output to scribe for synthesis
+          currentContext = `Synthesize the following research results into a clear, concise summary for the user's original query: "${task.prompt}"\n\n${responseContent}`;
+        } else if (specialist === 'aura' && result.success) {
+          const tokens = extractTokensFromResult(responseContent);
+          if (tokens.length > 0) {
+            currentContext = `Buy 0.1 SOL of ${tokens[0]}`;
+            addMessage(task, 'dispatcher', 'system', `Next step: ${currentContext}`);
+          }
+        } else if ((specialist === 'magos' || specialist === 'seeker') && result.success) {
+          const tokens = extractTokensFromResult(responseContent);
+          if (tokens.length > 0 && nextHop === 'bankr') {
+            currentContext = `Buy 0.1 SOL of ${tokens[0]}`;
+            addMessage(task, 'dispatcher', 'system', `Next step: ${currentContext}`);
+          } else {
+            // Pass full output to the next specialist
+            currentContext = responseContent;
+          }
         }
       }
       
