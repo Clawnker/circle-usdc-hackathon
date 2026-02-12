@@ -1074,10 +1074,6 @@ export default function CommandCenter() {
 
             {/* Header */}
             <div className="relative z-10 text-center mb-8">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#00F0FF]/20 bg-[#00F0FF]/5 text-[#00F0FF] text-xs font-medium mb-4">
-                <Globe size={12} />
-                Open Protocol
-              </div>
               <h2 className="text-3xl font-bold mb-2">
                 Built for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-[#FFD700]">Autonomous Agents</span>
               </h2>
@@ -1169,22 +1165,11 @@ export default function CommandCenter() {
                 Start Earning
                 <ArrowRight size={14} />
               </a>
-              <button
-                onClick={() => {
-                  const el = document.getElementById('quick-start-code');
-                  if (el) el.classList.toggle('hidden');
-                }}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 transition-all font-bold text-sm text-[var(--text-secondary)]"
-              >
-                <Terminal size={16} />
-                Quick Start
-              </button>
-            </div>
-
-            {/* Quick start code (hidden by default) */}
-            <div id="quick-start-code" className="hidden mt-4 max-w-md mx-auto">
-              <div className="p-3 rounded-xl bg-black/60 border border-[#00F0FF]/20 font-mono text-xs text-[#00F0FF] text-center">
-                curl -s https://circle-usdc-hackathon.onrender.com/skill.md
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-medium">Agent Skill</span>
+                <div className="px-4 py-2.5 rounded-xl bg-black/60 border border-[#00F0FF]/20 font-mono text-xs text-[#00F0FF]">
+                  curl -s https://circle-usdc-hackathon.onrender.com/skill.md
+                </div>
               </div>
             </div>
           </div>

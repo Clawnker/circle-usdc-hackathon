@@ -6,16 +6,17 @@ const router = Router();
 /**
  * GET /api/bazaar/discovery
  * Discover external ERC-8004 agents with x402 support.
- * Source: 8004scan.io registry (single source of truth).
- * Query params: limit (default 50, max 100), offset (default 0), search (optional)
+ * Source: 8004scan.io leaderboard (single source of truth).
+ * Query params: limit (default 50, max 100), offset (default 0), search (optional), network (mainnet|testnet|all, default all)
  */
 router.get('/discovery', async (req: Request, res: Response) => {
   try {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
     const offset = parseInt(req.query.offset as string) || 0;
     const search = (req.query.search as string) || '';
+    const network = (req.query.network as 'mainnet' | 'testnet' | 'all') || 'all';
 
-    const { agents, total } = await discoverAgents({ limit, offset, search });
+    const { agents, total } = await discoverAgents({ limit, offset, search, network });
     res.json({
       agents,
       count: agents.length,
