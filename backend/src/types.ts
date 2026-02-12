@@ -153,14 +153,18 @@ export interface MagosPrediction {
 
 export interface AuraSentiment {
   topic: string;
-  sentiment: any; // Allow number (score) or string (label)
-  score: number; // -1 to 1
+  overallSentiment: 'very_bullish' | 'bullish' | 'neutral' | 'bearish' | 'very_bearish';
+  sentiment: string; // Backward compat (same as overallSentiment)
+  score: number; // -1.0 to 1.0
+  confidence: number; // 0.0 to 1.0
   volume: number;
-  trending: boolean;
-  sources: string[];
+  trending: boolean; // Backward compat (true if trendDirection === 'rising')
+  trendDirection: 'rising' | 'stable' | 'falling';
+  sources: { title: string; url: string; source: string; sentiment: string; }[];
+  posts: { title: string; url: string; source: string; sentiment: string; }[]; // Backward compat (alias for sources)
+  entities: { name: string; sentiment: string; mentionCount: number; }[];
   summary: string;
-  posts?: any[];
-  analysis?: string;
+  analysis: string;
 }
 
 export interface BankrAction {

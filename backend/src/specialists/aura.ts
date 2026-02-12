@@ -1,37 +1,26 @@
 /**
- * Aura Specialist
- * Expert in social sentiment and market vibes
- * Connects to Brave Search for real-time social data
+ * Aura Specialist — V3
+ * LLM-powered social sentiment analysis
+ * Replaces word-counting with Gemini Flash classification
  */
 
-import axios from 'axios';
 import config from '../config';
 import { AuraSentiment, SpecialistResult } from '../types';
 import { braveSearch } from './tools/brave-search';
-
-const MOLTX_API = config.specialists.moltx.baseUrl;
-const MOLTX_KEY = config.specialists.moltx.apiKey;
-const BRAVE_API_KEY = process.env.BRAVE_API_KEY;
-
-const BULLISH_WORDS = ['bullish', 'moon', 'buy', 'long', 'great', 'amazing', 'high', 'growth', 'pump', 'up', 'gain', 'green', 'undervalued', 'gem', 'rocket', 'top', 'win', 'good', 'strong', 'positive', 'catalyst', 'accumulation', 'excited', 'optimization', 'partnership', 'listing'];
-const BEARISH_WORDS = ['bearish', 'dump', 'sell', 'short', 'bad', 'terrible', 'low', 'crash', 'down', 'loss', 'red', 'fud', 'overvalued', 'scam', 'rekt', 'bottom', 'fail', 'scary', 'weak', 'negative', 'concerns', 'exploit', 'hack', 'delay'];
+import { chatJSON, MODELS } from '../llm-client';
 
 /**
  * Aura specialist handler
  */
 export const aura = {
   name: 'Aura',
-  description: 'Expert in social sentiment analysis, trending topics, and market vibes. Monitors X, Reddit, and Telegram for real-time alpha.',
+  description: 'Expert in LLM-powered social sentiment analysis, trending topics, and market vibes. Analyzes real social data via Gemini.',
   
-  /**
-   * Main handler - parses prompt and routes to appropriate function
-   */
   async handle(prompt: string): Promise<SpecialistResult> {
     const startTime = Date.now();
     
     try {
       const intent = parseIntent(prompt);
-      
       let data: any;
       
       switch (intent.type) {
@@ -54,7 +43,7 @@ export const aura = {
       return {
         success: true,
         data,
-        confidence: data.confidence ?? (data.score !== undefined ? Math.abs(data.score) : 0.7),
+        confidence: data.confidence ?? 0.7,
         timestamp: new Date(),
         executionTimeMs: Date.now() - startTime,
       };
@@ -77,8 +66,8 @@ function parseIntent(prompt: string): { type: string; topic?: string; category?:
   const lower = prompt.toLowerCase();
   
   // Extract topic (token, project, or general topic)
+  const matches = prompt.match(/\b(SOL|BTC|ETH|BONK|WIF|JUP|MATIC|AVAX|DOT|LINK|UNI|AAVE|ARB|OP|BASE|Solana|Bitcoin|Ethereum|[A-Z][a-z]+(?:Fi|Swap|DAO)?)\b/g);
   const stopWords = ['what', 'how', 'when', 'where', 'why', 'who', 'is', 'are', 'the', 'this', 'that', 'sentiment', 'vibe', 'mood', 'tokens'];
-  const matches = prompt.match(/\b(SOL|BTC|ETH|BONK|WIF|JUP|Solana|Bitcoin|Ethereum|[A-Z][a-z]+(?:Fi|Swap|DAO)?)\b/g);
   
   let topic = 'crypto';
   if (matches) {
@@ -86,7 +75,6 @@ function parseIntent(prompt: string): { type: string; topic?: string; category?:
     if (validTopic) topic = validTopic;
   }
   
-  // Determine intent type
   if (lower.includes('sentiment') || lower.includes('feeling') || lower.includes('mood') || 
       lower.includes('saying') || lower.includes('think') || lower.includes('opinion') ||
       lower.includes('discussing') || lower.includes('people')) {
@@ -106,253 +94,356 @@ function parseIntent(prompt: string): { type: string; topic?: string; category?:
 }
 
 /**
- * Estimate sentiment score from text
+ * LLM-powered sentiment analysis schema
  */
-function estimateSentiment(text: string): number {
-  const words = text.toLowerCase().split(/\W+/);
-  let score = 0;
-  for (const word of words) {
-    if (BULLISH_WORDS.includes(word)) score += 1;
-    if (BEARISH_WORDS.includes(word)) score -= 1;
-  }
-  // Normalize
-  if (score === 0) return 0;
-  return score > 0 ? Math.min(1, score / 3) : Math.max(-1, score / 3);
+interface LLMSentimentResult {
+  overallSentiment: 'very_bullish' | 'bullish' | 'neutral' | 'bearish' | 'very_bearish';
+  score: number;        // -1.0 to 1.0
+  confidence: number;   // 0.0 to 1.0
+  entities: { name: string; sentiment: string; mentionCount: number }[];
+  trendDirection: 'rising' | 'stable' | 'falling';
+  summary: string;
+  analysis: string;
+  sourceSentiments: { index: number; sentiment: string; keyPhrase: string }[];
 }
 
 /**
- * Analyze sentiment for a topic using Brave Search API
+ * Analyze sentiment for a topic using Brave Search + LLM classification
  */
 async function analyzeSentiment(topic: string): Promise<AuraSentiment> {
-  console.log(`[Aura] Analyzing sentiment for: ${topic}`);
+  console.log(`[Aura] LLM-powered sentiment analysis for: ${topic}`);
   const sanitizedTopic = topic.replace(/[^a-zA-Z0-9$ ]/g, ' ').trim();
-  const query = `${sanitizedTopic} crypto sentiment reddit discussion`;
   
-  // Use shared braveSearch (has mock fallback if API key invalid)
+  // Fetch real social data
+  const searchResult = await braveSearch(`${sanitizedTopic} crypto sentiment discussion opinions 2026`, { count: 10 });
+  const results = searchResult.results || [];
+  
+  if (results.length === 0) {
+    return emptyResult(topic);
+  }
+
+  // Build context for LLM
+  const sourceContext = results.map((r, i) => {
+    const source = r.url?.includes('twitter.com') || r.url?.includes('x.com') ? 'Twitter' :
+                   r.url?.includes('reddit.com') ? 'Reddit' :
+                   r.url?.includes('youtube.com') ? 'YouTube' : 'Web';
+    return `[${i + 1}] (${source}) ${r.title}\n${r.description}`;
+  }).join('\n\n');
+
   try {
-    const searchResult = await braveSearch(query, { count: 10 });
-    const results = searchResult.results || [];
-    
-    if (results.length > 0) {
-      const posts = results.map((r: any) => {
-        const isTwitter = r.url?.includes('twitter.com') || r.url?.includes('x.com');
-        const isReddit = r.url?.includes('reddit.com');
-        const snippet = stripHtml(r.description || '');
-        return {
-          title: stripHtml(r.title || ''),
-          snippet: snippet,
-          url: r.url,
-          source: isTwitter ? 'Twitter' : isReddit ? 'Reddit' : 'Web',
-          sentiment: estimateSentiment(snippet + ' ' + (r.title || '')),
-        };
-      });
+    // LLM-powered sentiment classification
+    const { data: llmResult } = await chatJSON<LLMSentimentResult>(
+      `You are a crypto market sentiment analyst. Analyze the following search results about "${sanitizedTopic}" and provide sentiment analysis.
 
-      const avgScore = posts.reduce((acc: number, p: any) => acc + p.sentiment, 0) / posts.length;
-      
-      let label: 'bullish' | 'bearish' | 'neutral' | 'fomo' | 'fud' = 'neutral';
-      if (avgScore > 0.4) label = 'bullish';
-      else if (avgScore < -0.4) label = 'bearish';
-      if (avgScore > 0.8) label = 'fomo';
-      else if (avgScore < -0.8) label = 'fud';
+Respond with a JSON object matching this exact schema:
+{
+  "overallSentiment": "very_bullish" | "bullish" | "neutral" | "bearish" | "very_bearish",
+  "score": <number -1.0 to 1.0>,
+  "confidence": <number 0.0 to 1.0, based on data quality and quantity>,
+  "entities": [{"name": "<token/project name>", "sentiment": "bullish|neutral|bearish", "mentionCount": <number>}],
+  "trendDirection": "rising" | "stable" | "falling",
+  "summary": "<2-3 sentence natural language summary>",
+  "analysis": "<detailed 3-5 sentence analysis with specific data points from sources>",
+  "sourceSentiments": [{"index": <1-based>, "sentiment": "bullish|neutral|bearish", "keyPhrase": "<key phrase from source>"}]
+}
 
-      const summary = generateRealSentimentSummary(topic, label, avgScore, posts.length, posts);
+Rules:
+- Score: -1.0 = extremely bearish, 0 = neutral, 1.0 = extremely bullish
+- Confidence: lower if few sources, contradictory signals, or stale data
+- Entities: extract specific tokens, protocols, or projects mentioned
+- TrendDirection: "rising" if topic momentum is increasing, "falling" if waning
+- Be objective. Don't default to bullish. If data is mixed, say so.`,
+      sourceContext,
+      {
+        model: MODELS.fast,
+        caller: 'aura',
+        temperature: 0.1,
+      }
+    );
 
+    // Build structured sources list
+    const sources = results.map((r, i) => {
+      const source = r.url?.includes('twitter.com') || r.url?.includes('x.com') ? 'Twitter' :
+                     r.url?.includes('reddit.com') ? 'Reddit' :
+                     r.url?.includes('youtube.com') ? 'YouTube' : 'Web';
+      const sourceSentiment = llmResult.sourceSentiments?.find(s => s.index === i + 1);
       return {
-        topic,
-        sentiment: avgScore,
-        score: avgScore,
-        volume: posts.length,
-        trending: posts.length >= 5,
-        sources: Array.from(new Set(posts.map((p: any) => p.source))),
-        summary,
-        analysis: summary,
-        posts,
+        title: r.title || '',
+        url: r.url || '',
+        source,
+        sentiment: sourceSentiment?.sentiment || 'neutral',
       };
-    }
-  } catch (error) {
-    console.error('[Aura] Search failed:', error);
-  }
+    });
 
-  // Fallback to MoltX if available
-  if (MOLTX_API && MOLTX_KEY) {
-    try {
-      const response = await axios.get(`${MOLTX_API}/v1/sentiment/${topic}`, {
-        headers: { 'X-API-Key': MOLTX_KEY },
-      });
-      return response.data;
-    } catch (error) {
-      console.log('[Aura] MoltX API unavailable');
-    }
+    return {
+      topic,
+      overallSentiment: llmResult.overallSentiment || 'neutral',
+      sentiment: llmResult.overallSentiment || 'neutral',
+      score: clamp(llmResult.score || 0, -1, 1),
+      confidence: clamp(llmResult.confidence || 0.5, 0, 1),
+      volume: results.length,
+      trending: llmResult.trendDirection === 'rising',
+      trendDirection: llmResult.trendDirection || 'stable',
+      sources,
+      posts: sources, // backward compat
+      entities: llmResult.entities || [],
+      summary: llmResult.summary || `Sentiment analysis for ${topic} based on ${results.length} sources.`,
+      analysis: llmResult.analysis || llmResult.summary || '',
+    };
+  } catch (error: any) {
+    console.error('[Aura] LLM classification failed, using fallback:', error.message);
+    return fallbackAnalysis(topic, results);
   }
-  
-  // Final Fallback: Honest empty response
+}
+
+/**
+ * Fallback analysis when LLM call fails — basic heuristic (not word lists)
+ */
+function fallbackAnalysis(topic: string, results: any[]): AuraSentiment {
+  const sources = results.map(r => {
+    const source = r.url?.includes('twitter.com') || r.url?.includes('x.com') ? 'Twitter' :
+                   r.url?.includes('reddit.com') ? 'Reddit' : 'Web';
+    return {
+      title: r.title || '',
+      url: r.url || '',
+      source,
+      sentiment: 'neutral' as string,
+    };
+  });
+
   return {
     topic,
-    sentiment: 0,
+    overallSentiment: 'neutral',
+    sentiment: 'neutral',
     score: 0,
+    confidence: 0.3, // low confidence for fallback
+    volume: results.length,
+    trending: false,
+    trendDirection: 'stable',
+    sources,
+    posts: sources,
+    entities: [],
+    summary: `Found ${results.length} discussions about ${topic}. LLM analysis unavailable — showing raw results without sentiment classification.`,
+    analysis: `Fallback mode: ${results.length} sources found but sentiment classification was not available.`,
+  };
+}
+
+/**
+ * Empty result when no data found
+ */
+function emptyResult(topic: string): AuraSentiment {
+  return {
+    topic,
+    overallSentiment: 'neutral',
+    sentiment: 'neutral',
+    score: 0,
+    confidence: 0,
     volume: 0,
     trending: false,
+    trendDirection: 'stable',
     sources: [],
+    posts: [],
+    entities: [],
     summary: `No social data currently available for ${topic}. Market monitoring is active but no recent discussions were found.`,
     analysis: `No real-time social data available for ${topic}.`,
-    posts: [],
   };
 }
 
 /**
- * Strip HTML tags and decode common entities
- */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, '') 
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .trim();
-}
-
-/**
- * Generate human-readable sentiment summary based on real data
- */
-function generateRealSentimentSummary(topic: string, sentiment: string, score: number, count: number, posts?: any[]): string {
-  const emoji = sentiment === 'bullish' ? '📈' : sentiment === 'bearish' ? '📉' : sentiment === 'fomo' ? '🚀' : sentiment === 'fud' ? '⚠️' : '📊';
-  const intensity = Math.abs(score) > 0.7 ? 'strongly' : Math.abs(score) > 0.4 ? 'moderately' : 'slightly';
-  
-  let summary = `${emoji} **${topic}** sentiment is **${intensity} ${sentiment}**`;
-  summary += ` (score: ${(score * 100).toFixed(0)}%) based on ${count} recent posts.\n`;
-  
-  // Add top post snippets for richer UI display
-  if (posts && posts.length > 0) {
-    summary += '\n**Key Discussions:**\n';
-    const topPosts = posts.slice(0, 3);
-    for (const post of topPosts) {
-      const source = post.source || 'Web';
-      const snippet = (post.snippet || post.title || '').slice(0, 120);
-      const sentimentEmoji = post.sentiment > 0.2 ? '🟢' : post.sentiment < -0.2 ? '🔴' : '⚪';
-      summary += `${sentimentEmoji} [${source}] ${snippet}${snippet.length >= 120 ? '...' : ''}\n`;
-    }
-  }
-  
-  return summary;
-}
-
-/**
- * Get trending topics/tokens
+ * Get trending topics via search + LLM extraction
  */
 async function getTrending(category: string = 'all'): Promise<any> {
-  // If we have Brave, try to get real trends
-  if (BRAVE_API_KEY) {
-    try {
-      const response = await axios.get('https://api.search.brave.com/res/v1/web/search', {
-        headers: { 'X-Subscription-Token': BRAVE_API_KEY },
-        params: { q: `trending ${category} crypto tokens 2026`, count: 5 }
-      });
-      
-      const results = response.data.web?.results || [];
-      if (results.length > 0) {
-        return {
-          category,
-          trending: results.map((r: any, i: number) => ({
-            rank: i + 1,
-            topic: r.title.split(' ')[0].replace('$', ''),
-            mentions: 1000 + Math.floor(Math.random() * 5000), // Mentions still estimated
-            sentiment: estimateSentiment(r.description) > 0 ? 'bullish' : 'neutral',
-            change24h: 0
-          })),
-          summary: `🔥 **Real-time Trends**: ${results.slice(0, 3).map((r: any) => r.title.split(' ')[0]).join(', ')}`,
-          timestamp: new Date(),
-          posts: results.map((r: any) => ({ title: r.title, url: r.url }))
-        };
-      }
-    } catch (e) {}
+  console.log(`[Aura] Finding trending ${category} topics via LLM`);
+  
+  const query = category === 'meme' 
+    ? 'trending meme coins crypto 2026 most discussed'
+    : 'trending crypto tokens most discussed popular 2026';
+  
+  const searchResult = await braveSearch(query, { count: 8 });
+  const results = searchResult.results || [];
+  
+  if (results.length === 0) {
+    return {
+      category,
+      trending: [],
+      summary: 'No trending data available at this time.',
+      timestamp: new Date(),
+    };
   }
 
-  // Fallback to static but realistic data
-  const trendingTopics = [
-    { topic: 'SOL', baseMentions: 15000, sentiment: 'bullish' },
-    { topic: 'USDC', baseMentions: 12000, sentiment: 'stable' },
-    { topic: 'HIVE', baseMentions: 9500, sentiment: 'bullish' },
-  ];
-  
-  return {
-    category,
-    trending: trendingTopics.map((t, i) => ({
-      rank: i + 1,
-      topic: t.topic,
-      mentions: t.baseMentions,
-      sentiment: t.sentiment,
-      change24h: 0,
-    })),
-    summary: `Current trending topics include ${trendingTopics.map(t => t.topic).join(', ')}.`,
-    timestamp: new Date(),
-  };
+  const sourceContext = results.map((r, i) => `[${i + 1}] ${r.title}\n${r.description}`).join('\n\n');
+
+  try {
+    const { data: trendData } = await chatJSON<{
+      trending: { topic: string; sentiment: string; momentum: string; reason: string }[];
+      summary: string;
+    }>(
+      `Extract trending crypto topics from these search results. Return JSON:
+{
+  "trending": [{"topic": "<token/project>", "sentiment": "bullish|neutral|bearish", "momentum": "high|medium|low", "reason": "<why it's trending>"}],
+  "summary": "<1-2 sentence overview of what's trending>"
+}
+Extract up to 5 trending topics. Only include topics actually mentioned in the sources.`,
+      sourceContext,
+      { model: MODELS.fast, caller: 'aura', temperature: 0.1 }
+    );
+
+    return {
+      category,
+      trending: (trendData.trending || []).map((t, i) => ({
+        rank: i + 1,
+        topic: t.topic,
+        sentiment: t.sentiment,
+        momentum: t.momentum,
+        reason: t.reason,
+      })),
+      summary: trendData.summary || 'Trending topics extracted from recent discussions.',
+      timestamp: new Date(),
+      sources: results.map(r => ({ title: r.title, url: r.url })),
+    };
+  } catch (error: any) {
+    console.error('[Aura] Trending LLM failed:', error.message);
+    return {
+      category,
+      trending: results.slice(0, 5).map((r, i) => ({
+        rank: i + 1,
+        topic: r.title?.split(' ')[0] || 'Unknown',
+        sentiment: 'neutral',
+        momentum: 'medium',
+        reason: r.title,
+      })),
+      summary: `Found ${results.length} trending discussions.`,
+      timestamp: new Date(),
+      sources: results.map(r => ({ title: r.title, url: r.url })),
+    };
+  }
 }
 
 /**
- * Find alpha opportunities
+ * Find alpha opportunities via search + LLM
  */
 async function findAlpha(topic: string): Promise<any> {
-  // Implementation using real search
-  if (BRAVE_API_KEY) {
-     try {
-       const response = await axios.get('https://api.search.brave.com/res/v1/web/search', {
-         headers: { 'X-Subscription-Token': BRAVE_API_KEY },
-         params: { q: `${topic} crypto alpha opportunity gem`, count: 3 }
-       });
-       const results = response.data.web?.results || [];
-       if (results.length > 0) {
-         return {
-           opportunities: results.map((r: any) => ({
-             token: topic.toUpperCase(),
-             signal: r.title,
-             confidence: 0.8,
-             source: r.url,
-             timeDetected: new Date()
-           })),
-           summary: `Found real-time alpha signals for ${topic} via web search.`,
-           posts: results.map((r: any) => ({ title: r.title, url: r.url }))
-         };
-       }
-     } catch (e) {}
+  console.log(`[Aura] Finding alpha for: ${topic}`);
+  
+  const searchResult = await braveSearch(`${topic} crypto alpha opportunity undervalued catalyst 2026`, { count: 5 });
+  const results = searchResult.results || [];
+  
+  if (results.length === 0) {
+    return { opportunities: [], summary: `No specific alpha detected for ${topic} at this time.` };
   }
 
-  return {
-    opportunities: [],
-    summary: `No specific alpha detected for ${topic} at this time.`,
-  };
+  const sourceContext = results.map((r, i) => `[${i + 1}] ${r.title}\n${r.description}`).join('\n\n');
+
+  try {
+    const { data: alphaData } = await chatJSON<{
+      opportunities: { signal: string; confidence: number; reasoning: string; source: number }[];
+      summary: string;
+    }>(
+      `Analyze these search results for alpha signals related to "${topic}". Return JSON:
+{
+  "opportunities": [{"signal": "<concise signal description>", "confidence": <0.0-1.0>, "reasoning": "<why this is alpha>", "source": <1-based index>}],
+  "summary": "<1-2 sentence alpha overview>"
+}
+Only include genuine signals backed by data. Max 3 opportunities. Be skeptical — most "alpha" is noise.`,
+      sourceContext,
+      { model: MODELS.fast, caller: 'aura', temperature: 0.2 }
+    );
+
+    return {
+      opportunities: (alphaData.opportunities || []).map(o => ({
+        token: topic.toUpperCase(),
+        signal: o.signal,
+        confidence: o.confidence,
+        reasoning: o.reasoning,
+        source: results[o.source - 1]?.url || '',
+        timeDetected: new Date(),
+      })),
+      summary: alphaData.summary || `Alpha analysis for ${topic} based on ${results.length} sources.`,
+      sources: results.map(r => ({ title: r.title, url: r.url })),
+    };
+  } catch {
+    return {
+      opportunities: [],
+      summary: `Found ${results.length} results for ${topic} but alpha extraction failed.`,
+      sources: results.map(r => ({ title: r.title, url: r.url })),
+    };
+  }
 }
 
 /**
- * Track influencer activity
+ * Track influencer activity (limited without authenticated social APIs)
  */
 async function trackInfluencers(topic: string): Promise<any> {
-  return {
-    topic,
-    influencers: [],
-    summary: "Influencer tracking requires authenticated social API access.",
-    aggregateSentiment: 'neutral',
-  };
+  console.log(`[Aura] Tracking influencers for: ${topic}`);
+  
+  const searchResult = await braveSearch(`${topic} crypto influencer KOL opinion analysis`, { count: 5 });
+  const results = searchResult.results || [];
+  
+  if (results.length === 0) {
+    return {
+      topic,
+      influencers: [],
+      summary: 'Influencer tracking requires authenticated social API access for detailed data.',
+      aggregateSentiment: 'neutral',
+    };
+  }
+
+  const sourceContext = results.map((r, i) => `[${i + 1}] ${r.title}\n${r.description}`).join('\n\n');
+
+  try {
+    const { data: influencerData } = await chatJSON<{
+      influencers: { name: string; stance: string; keyQuote: string }[];
+      aggregateSentiment: string;
+      summary: string;
+    }>(
+      `Extract any crypto influencer/KOL opinions about "${topic}" from these results. Return JSON:
+{
+  "influencers": [{"name": "<influencer name>", "stance": "bullish|neutral|bearish", "keyQuote": "<their key opinion>"}],
+  "aggregateSentiment": "bullish|neutral|bearish",
+  "summary": "<overview of influencer sentiment>"
+}
+Only include influencers explicitly mentioned in the sources. If none are found, return empty arrays.`,
+      sourceContext,
+      { model: MODELS.fast, caller: 'aura', temperature: 0.1 }
+    );
+
+    return {
+      topic,
+      influencers: influencerData.influencers || [],
+      summary: influencerData.summary || 'Influencer analysis based on web search results.',
+      aggregateSentiment: influencerData.aggregateSentiment || 'neutral',
+      sources: results.map(r => ({ title: r.title, url: r.url })),
+    };
+  } catch {
+    return {
+      topic,
+      influencers: [],
+      summary: `Found ${results.length} results but influencer extraction failed.`,
+      aggregateSentiment: 'neutral',
+    };
+  }
 }
 
 /**
  * Get general vibes/overview
  */
 async function getVibes(prompt: string): Promise<any> {
-  // Extract topic from the prompt instead of hardcoding 'crypto market'
   const topicMatch = prompt.match(/\b(SOL|BTC|ETH|BONK|WIF|JUP|Solana|Bitcoin|Ethereum)\b/i);
   const topic = topicMatch ? topicMatch[0] : 'crypto market';
   const result = await analyzeSentiment(topic);
   return {
     market: topic,
-    mood: result.score > 0 ? 'optimistic' : 'cautious',
-    topMentions: ['SOL', 'BTC', 'USDC'],
-    summary: result.summary,
-    confidence: 0.75,
-    posts: result.posts
+    mood: result.score > 0.2 ? 'optimistic' : result.score < -0.2 ? 'cautious' : 'mixed',
+    ...result,
+    confidence: result.confidence,
   };
+}
+
+/**
+ * Clamp a number between min and max
+ */
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 export default aura;
