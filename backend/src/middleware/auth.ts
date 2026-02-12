@@ -35,6 +35,8 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     '/wallet/balances',
     '/wallet/transactions',
     '/tasks',
+    '/status',  // Task status polling (taskId is the auth token)
+    '/api/route-preview',  // Fee estimation for TaskInput
     '/api/auth/verify',
   ];
   if (publicPaths.some(p => req.path === p || req.path.startsWith(p + '/'))) {
