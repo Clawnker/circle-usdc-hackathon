@@ -253,7 +253,7 @@ Example: "Audit this contract 0x123... on Base"
         }
       }
 
-      if (maxSim < 0.75) continue; // Threshold
+      if (maxSim < 0.6) continue; // Threshold lowered from 0.75 to 0.6 to capture sentence-to-keyword matches
 
       // Determine price for the matched capability
       const matchedCap = agent.capabilities[bestCapIdx];
