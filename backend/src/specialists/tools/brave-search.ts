@@ -92,6 +92,7 @@ export async function braveSearch(
         freshness: options.freshness,
         country: options.country || 'us',
       },
+      timeout: 10000, // 10s timeout — prevent hanging on API issues
     });
     
     const webResults = response.data.web?.results || [];

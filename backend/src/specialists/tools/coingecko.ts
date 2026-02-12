@@ -61,6 +61,7 @@ export async function getPrice(token: string): Promise<PriceData> {
         include_market_cap: true,
         include_24hr_vol: true,
       },
+      timeout: 10000,
     });
     
     const data = response.data[tokenId];
@@ -97,6 +98,7 @@ export async function getMarketData(token: string): Promise<MarketData> {
         community_data: false,
         developer_data: false,
       },
+      timeout: 10000,
     });
     
     const data = response.data;
@@ -130,7 +132,7 @@ export async function getMarketData(token: string): Promise<MarketData> {
  */
 export async function getTrending(): Promise<Array<{ token: string; rank: number; price?: number }>> {
   try {
-    const response = await axios.get(`${COINGECKO_API}/search/trending`);
+    const response = await axios.get(`${COINGECKO_API}/search/trending`, { timeout: 10000 });
     
     return response.data.coins.slice(0, 7).map((item: any, index: number) => ({
       token: item.item.symbol.toUpperCase(),

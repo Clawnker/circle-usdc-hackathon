@@ -81,10 +81,10 @@ function handleWSMessage(ws: ExtendedWebSocket, message: any) {
 
     if (apiKey && validKeys.includes(apiKey)) {
       ws.userId = apiKey;
-      console.log('[WS] Client authenticated:', apiKey);
+      console.log('[WS] Client authenticated');
       ws.send(JSON.stringify({ type: 'authenticated', userId: ws.userId }));
     } else {
-      console.log('[WS] Auth failed for key:', apiKey);
+      console.log('[WS] Auth failed: invalid key');
       ws.send(JSON.stringify({ error: 'Authentication failed' }));
     }
     return;

@@ -34,7 +34,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     '/api/wallet',
     '/wallet/balances',
     '/wallet/transactions',
-    '/status',
     '/tasks',
     '/api/auth/verify',
   ];

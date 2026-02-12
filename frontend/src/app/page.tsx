@@ -49,11 +49,11 @@ const SPECIALIST_NAMES: Record<string, string> = {
 };
 
 const SPECIALIST_FEES: Record<string, number> = {
-  bankr: 0.0001,
-  scribe: 0.0001,
-  seeker: 0.0001,
-  magos: 0.001,
-  aura: 0.0005,
+  bankr: 0.10,
+  scribe: 0.10,
+  seeker: 0.10,
+  magos: 0.10,
+  aura: 0.10,
   sentinel: 2.50,
   general: 0,
 };

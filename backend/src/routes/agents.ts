@@ -64,6 +64,18 @@ router.post('/agents/register', async (req: Request, res: Response) => {
       });
     }
 
+    // Sanitize text inputs (strip HTML tags to prevent XSS)
+    const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').trim();
+    const cleanName = sanitize(name);
+    const cleanDescription = sanitize(description);
+
+    if (!cleanName || cleanName.length > 100) {
+      return res.status(400).json({ error: 'Invalid name (max 100 chars, no HTML)' });
+    }
+    if (cleanDescription.length > 1000) {
+      return res.status(400).json({ error: 'Description too long (max 1000 chars)' });
+    }
+
     // Validate endpoint URL
     try {
       new URL(endpoint);
@@ -89,7 +101,7 @@ router.post('/agents/register', async (req: Request, res: Response) => {
       console.warn(`[Register] Health check failed for ${endpoint}:`, err.message);
     }
 
-    const agent = registerAgent({ name, description, endpoint, wallet, capabilities, pricing, chain });
+    const agent = registerAgent({ name: cleanName, description: cleanDescription, endpoint, wallet, capabilities, pricing, chain });
 
     // Also try to get /info for richer metadata
     try {
