@@ -30,6 +30,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'X-API-Key', 'X-Payment-Proof', 'Authorization'],
 }));
 app.use(express.json());
+
+// Handle JSON parse errors gracefully (return 400 instead of 500)
+app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
+  next(err);
+});
+
 app.use(rateLimiter);
 
 // Request logging

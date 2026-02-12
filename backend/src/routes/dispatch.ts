@@ -14,7 +14,9 @@ const router = Router();
 router.post('/route-preview', async (req: Request, res: Response) => {
   try {
     const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ error: 'prompt required' });
+    if (!prompt || (typeof prompt === 'string' && prompt.trim().length === 0)) {
+      return res.status(400).json({ error: 'prompt required' });
+    }
     
     // Try DAG planning first to get accurate multi-step cost
     const dagPlan = await planDAG(prompt);
@@ -51,8 +53,13 @@ const dispatchHandler = async (req: Request, res: Response) => {
   try {
     const { prompt, userId, preferredSpecialist, dryRun, callbackUrl, hiredAgents, approvedAgent, previewOnly } = req.body as DispatchRequest;
 
-    if (!prompt) {
+    if (!prompt || (typeof prompt === 'string' && prompt.trim().length === 0)) {
       return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    // Cap prompt length to prevent abuse (10k chars max)
+    if (typeof prompt === 'string' && prompt.length > 10000) {
+      return res.status(400).json({ error: 'Prompt too long (max 10,000 characters)' });
     }
 
     const paymentProof = req.headers['x-payment-proof'] as string | undefined;
