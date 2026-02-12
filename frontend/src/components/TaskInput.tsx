@@ -190,7 +190,7 @@ export function TaskInput({
                     <span>Send</span>
                     {currentPricing && (
                       <span className="opacity-70 text-sm font-medium border-l border-black/20 pl-3">
-                        {parseFloat(currentPricing.fee).toFixed(4)} USDC
+                        {parseFloat(currentPricing.fee).toFixed(2)} USDC
                       </span>
                     )}
                     <ChevronRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
@@ -211,7 +211,7 @@ export function TaskInput({
                   <div className="flex items-center gap-4">
                     <span className="text-[11px] text-white/40 uppercase tracking-widest font-medium">Estimated Cost</span>
                     <span className="text-sm font-mono text-[var(--accent-gold)]">
-                      {currentPricing ? parseFloat(currentPricing.fee).toFixed(4) : '0.0001'} USDC
+                      {currentPricing ? parseFloat(currentPricing.fee).toFixed(2) : '0.10'} USDC
                     </span>
                     <span className="text-white/20">•</span>
                     <span className="text-[11px] text-white/40 uppercase tracking-widest font-medium">System</span>

@@ -69,7 +69,7 @@ ${SPECIALIST_NAMES[item.specialist] || item.specialist}
 ${item.result}
 
 ## Cost
-${item.cost.toFixed(4)} USDC
+${item.cost.toFixed(2)} USDC
 
 ## Timestamp
 ${new Date(item.timestamp).toLocaleString()}
@@ -151,7 +151,7 @@ ${new Date(item.timestamp).toLocaleString()}
                           <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
                             <span className="flex items-center gap-1">
                               <Coins size={10} />
-                              {item.cost.toFixed(4)} USDC
+                              {item.cost.toFixed(2)} USDC
                             </span>
                             <span>•</span>
                             <span className={`flex items-center gap-1 ${item.status === 'success' ? 'text-green-400' : 'text-red-400'}`}>
@@ -245,7 +245,7 @@ ${new Date(item.timestamp).toLocaleString()}
                                       </span>
                                       <div className="flex items-center gap-2">
                                         <span className="font-mono text-[var(--accent-cyan)]">
-                                          {payment.amount.toFixed(4)} {payment.currency || 'USDC'}
+                                          {payment.amount.toFixed(2)} {payment.currency || 'USDC'}
                                         </span>
                                         <span className={`px-1.5 py-0.5 rounded text-[10px] ${
                                           payment.status === 'completed' ? 'bg-green-500/20 text-green-400' :
@@ -264,7 +264,7 @@ ${new Date(item.timestamp).toLocaleString()}
                                   {item.cost > 0 ? (
                                     <div className="flex items-center justify-between">
                                       <span>{SPECIALIST_NAMES[item.specialist] || item.specialist}</span>
-                                      <span className="font-mono text-[var(--accent-cyan)]">{item.cost.toFixed(4)} USDC</span>
+                                      <span className="font-mono text-[var(--accent-cyan)]">{item.cost.toFixed(2)} USDC</span>
                                     </div>
                                   ) : (
                                     'No payments for this task'

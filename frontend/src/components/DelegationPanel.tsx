@@ -183,7 +183,7 @@ export function DelegationPanel() {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[var(--text-muted)]">Remaining Budget</span>
-            <span className="text-green-400 font-mono">{remaining.toFixed(4)} USDC</span>
+            <span className="text-green-400 font-mono">{remaining.toFixed(2)} USDC</span>
           </div>
           <div className="w-full bg-white/5 rounded-full h-1.5">
             <div
@@ -192,7 +192,7 @@ export function DelegationPanel() {
             />
           </div>
           <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-            <span>{delegation.spent.toFixed(4)} spent ({paymentCount} tx{paymentCount !== 1 ? 's' : ''})</span>
+            <span>{delegation.spent.toFixed(2)} spent ({paymentCount} tx{paymentCount !== 1 ? 's' : ''})</span>
             <span>{delegation.allowance.toFixed(2)} approved</span>
           </div>
           
@@ -214,7 +214,7 @@ export function DelegationPanel() {
               {delegation.payments.slice(-3).reverse().map((p, i) => (
                 <div key={i} className="flex items-center justify-between text-[10px] text-[var(--text-muted)] px-1">
                   <span className="text-cyan-400/70">{p.specialist}</span>
-                  <span className="font-mono">-{p.amount.toFixed(4)} USDC</span>
+                  <span className="font-mono">-{p.amount.toFixed(2)} USDC</span>
                 </div>
               ))}
             </div>

@@ -112,7 +112,7 @@ ${specialist}
 ${result}
 
 ## Cost
-${cost.toFixed(4)} USDC
+${cost.toFixed(2)} USDC
 
 ## Timestamp
 ${new Date().toLocaleString()}
@@ -195,7 +195,7 @@ ${new Date().toLocaleString()}
             Cost Incurred
           </div>
           <span className="text-xl font-mono font-bold text-[var(--accent-cyan)]">
-            {cost.toFixed(4)} <span className="text-xs text-[var(--text-muted)]">USDC</span>
+            {cost.toFixed(2)} <span className="text-xs text-[var(--text-muted)]">USDC</span>
           </span>
         </div>
         

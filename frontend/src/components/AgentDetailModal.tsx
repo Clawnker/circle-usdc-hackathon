@@ -258,7 +258,7 @@ export function AgentDetailModal({
                 </div>
                 {fee !== undefined && fee > 0 && (
                   <div className="text-amber-400 text-sm font-medium mb-1">
-                    {fee.toFixed(4)} USDC per task
+                    {fee.toFixed(2)} USDC per task
                   </div>
                 )}
                 <p className="text-sm text-[var(--text-secondary)]">

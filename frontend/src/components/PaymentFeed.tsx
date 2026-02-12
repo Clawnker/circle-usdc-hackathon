@@ -100,7 +100,7 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
             }}
           >
             {payment.amount < 0.01 
-              ? payment.amount.toFixed(4) 
+              ? payment.amount.toFixed(2) 
               : payment.amount.toFixed(2)
             } {payment.token}
           </motion.span>
@@ -310,7 +310,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
             >
               <Coins size={12} className="text-[var(--accent-green)]" />
               <span className="text-xs text-[var(--text-secondary)]">
-                ${totalSpent < 0.01 ? totalSpent.toFixed(4) : totalSpent.toFixed(3)} spent
+                ${totalSpent.toFixed(2)} spent
               </span>
             </motion.div>
             <button
