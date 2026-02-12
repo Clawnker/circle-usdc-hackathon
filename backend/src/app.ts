@@ -10,6 +10,7 @@ import dispatchRoutes from './routes/dispatch';
 import paymentRoutes from './routes/payments';
 import reputationRoutes from './routes/reputation';
 import generalRoutes from './routes/general';
+import bazaarRoutes from './routes/bazaar';
 import { createX402Middleware } from './x402-server';
 
 dotenv.config();
@@ -52,6 +53,9 @@ app.use('/', generalRoutes);
 
 // Agent registry (read + register)
 app.use('/api', agentRoutes);
+
+// Bazaar discovery (x402 services)
+app.use('/api/bazaar', bazaarRoutes);
 
 // Reputation (public read)
 app.use('/api', reputationRoutes);

@@ -13,6 +13,7 @@ import {
   ResultDisplay,
   Marketplace,
   AgentRegistry,
+  BazaarRegistry,
   ResultCard,
   QueryHistory,
   ApprovalPopup,
@@ -713,6 +714,28 @@ export default function CommandCenter() {
     }));
   }, []);
 
+  // Bazaar: register external agent with backend, then add to local swarm
+  const handleBazaarAdd = useCallback(async (agentPayload: any) => {
+    try {
+      const res = await fetch(`${API_URL}/api/agents/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(agentPayload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+      // Use the agent's name (lowercased) as the swarm ID
+      const agentId = agentPayload.name.toLowerCase().replace(/\s+/g, '-');
+      handleAddAgentToSwarm(agentId);
+    } catch (err: any) {
+      console.error('[Bazaar] Add failed:', err);
+      // Still add locally so the UI updates
+      const agentId = agentPayload.name.toLowerCase().replace(/\s+/g, '-');
+      handleAddAgentToSwarm(agentId);
+    }
+  }, [handleAddAgentToSwarm]);
+
   const handleReRun = useCallback((prompt: string) => {
     setReRunPrompt(prompt);
     setActiveView('dispatch');
@@ -805,7 +828,7 @@ export default function CommandCenter() {
                 }`}
               >
                 <ShieldCheck size={16} />
-                <span className="hidden sm:inline">Registry</span>
+                <span className="hidden sm:inline">Bazaar</span>
               </button>
               <button
                 onClick={() => setActiveView('history')}
@@ -1006,7 +1029,10 @@ export default function CommandCenter() {
               transition={{ duration: 0.2 }}
               className="flex-1"
             >
-              <AgentRegistry />
+              <BazaarRegistry 
+                onAddToSwarm={handleBazaarAdd}
+                hiredAgents={hiredAgents}
+              />
             </motion.div>
           ) : (
             <motion.div

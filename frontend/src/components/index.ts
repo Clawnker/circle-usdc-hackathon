@@ -7,6 +7,7 @@ export { ResultDisplay } from './ResultDisplay';
 export { Marketplace } from './Marketplace';
 export { AgentCard } from './AgentCard';
 export { AgentRegistry } from './AgentRegistry';
+export { BazaarRegistry } from './BazaarRegistry';
 export { ResultCard } from './ResultCard';
 export { QueryHistory } from './QueryHistory';
 export { ApprovalPopup } from './ApprovalPopup';
