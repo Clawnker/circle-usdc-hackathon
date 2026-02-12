@@ -135,7 +135,11 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
             feedbackCount: 0,
             starCount: 0,
             createdAt: ext.registeredAt || '',
-            pricing: ext.pricing?.generic ? { amount: ext.pricing.generic, network: `eip155:84532`, payTo: ext.wallet } : undefined,
+            pricing: ext.pricing ? { 
+              amount: ext.pricing['security-audit'] || ext.pricing['generic'] || Object.values(ext.pricing)[0] || 0, 
+              network: `eip155:84532`, 
+              payTo: ext.wallet 
+            } : undefined,
           });
         }
       }

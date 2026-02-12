@@ -1007,11 +1007,14 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     console.log(`[Router] Fast-path: contract audit query detected, looking for security specialist`);
     
     // Find external agent with security capability
-    const agents = await getExternalAgents();
+    const agents = getExternalAgents();
     const securityAgent = agents.find(a => 
-      a.capabilities?.some((c: string) => 
-        ['security-audit', 'smart-contract-audit', 'audit'].includes(c)
-      )
+      a.capabilities?.some((c: string) => {
+        const normalized = c.toLowerCase().replace(/\s+/g, '-');
+        return ['security-audit', 'smart-contract-audit', 'audit', 'vulnerability-scanning', 'security'].some(
+          keyword => normalized.includes(keyword) || keyword.includes(normalized)
+        );
+      })
     );
     
     if (securityAgent) {
