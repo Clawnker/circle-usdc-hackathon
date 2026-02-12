@@ -13,7 +13,7 @@ const router = Router();
  */
 router.post('/route-preview', async (req: Request, res: Response) => {
   try {
-    const { prompt } = req.body;
+    const { prompt, hiredAgents } = req.body;
     if (!prompt || (typeof prompt === 'string' && prompt.trim().length === 0)) {
       return res.status(400).json({ error: 'prompt required' });
     }
@@ -40,9 +40,9 @@ router.post('/route-preview', async (req: Request, res: Response) => {
       }
     }
     
-    // Simple query — use fast routing
-    const specialist = await routePrompt(prompt);
-    const fee = Number((config.fees as any)[specialist]) || 0;
+    // Simple query — use routing with swarm context
+    const specialist = await routePrompt(prompt, hiredAgents);
+    const fee = Number((config.fees as any)[specialist]) || 0.10; // Default 0.10 for external agents
     res.json({ specialist, fee, currency: 'USDC', network: 'base-sepolia' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

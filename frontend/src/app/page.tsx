@@ -82,7 +82,14 @@ export default function CommandCenter() {
     description: string;
     capabilities: string[];
     color: string;
-  }>>({}); 
+  }>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem('hivemind-registry-meta');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
 
   // Core agents cannot be removed from the swarm
   const CORE_AGENTS = ['bankr', 'scribe', 'seeker'];
@@ -146,6 +153,11 @@ export default function CommandCenter() {
   useEffect(() => {
     localStorage.setItem('hivemind-swarm', JSON.stringify(hiredAgents));
   }, [hiredAgents]);
+
+  // Persist registry metadata
+  useEffect(() => {
+    localStorage.setItem('hivemind-registry-meta', JSON.stringify(registryMeta));
+  }, [registryMeta]);
 
   // Persistence for query history
   useEffect(() => {
@@ -485,7 +497,7 @@ export default function CommandCenter() {
           const previewRes = await fetch(`${API_URL}/api/route-preview`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt }),
+            body: JSON.stringify({ prompt, hiredAgents }),
           });
           if (previewRes.ok) {
             const preview = await previewRes.json();
