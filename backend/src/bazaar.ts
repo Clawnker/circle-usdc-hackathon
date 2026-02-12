@@ -233,12 +233,12 @@ export function getInternalBazaarServices(): BazaarService[] {
  * Combined discovery: internal specialists + external Bazaar agents.
  * 
  * Standards-based approach:
- * - All x402 Bazaar agents are shown (they're in the CDP discovery index)
- * - Agents also registered with ERC-8004 (via our registry) get enriched with
- *   reputation data and marked as "verified"
- * - Results sorted: verified (by reputation) → external (by recency)
+ * - All x402 Bazaar agents are fetched from CDP facilitator
+ * - Only agents with ERC-8004 identity are shown (verified via our registry or on-chain)
+ * - Verified agents get enriched with reputation data and ranked by score
+ * - Results sorted: verified (by reputation) → then by recency
  * 
- * No proprietary registry requirement — just open standards (ERC-8004 + x402 Bazaar).
+ * Open standards: ERC-8004 (identity) + x402 Bazaar (payments).
  */
 export async function getAllDiscoverableServices(options?: { limit?: number; offset?: number }): Promise<{ services: BazaarService[]; externalTotal: number; verifiedCount: number }> {
   const internal = getInternalBazaarServices();
@@ -256,7 +256,7 @@ export async function getAllDiscoverableServices(options?: { limit?: number; off
     }
   }
   
-  let external: BazaarService[] = [];
+  let verified: BazaarService[] = [];
   let externalTotal = 0;
   let verifiedCount = 0;
   
@@ -265,11 +265,11 @@ export async function getAllDiscoverableServices(options?: { limit?: number; off
     externalTotal = result.total;
     
     for (const service of result.services) {
-      // Try to match with our ERC-8004 registered agents
+      // Match with our ERC-8004 registered agents
       const matchingAgent = findMatchingAgent(service, walletToAgent, hostToAgent);
       
       if (matchingAgent) {
-        // Enriched: in both x402 Bazaar AND our ERC-8004 registry
+        // In both x402 Bazaar AND ERC-8004 registry — show it
         const repStats = getReputationStats(matchingAgent.id);
         
         service.source = 'verified';
@@ -286,36 +286,26 @@ export async function getAllDiscoverableServices(options?: { limit?: number; off
             totalTasks: repStats.totalVotes,
           } : undefined,
         };
+        verified.push(service);
         verifiedCount++;
       }
-      // All Bazaar agents are included regardless of ERC-8004 status
-      external.push(service);
+      // Non-ERC-8004 agents are excluded from results
     }
     
-    // Sort: verified agents first (by reputation), then external (by recency)
-    external.sort((a, b) => {
-      // Verified always above external
-      if (a.source === 'verified' && b.source !== 'verified') return -1;
-      if (a.source !== 'verified' && b.source === 'verified') return 1;
-      // Within verified: sort by reputation score
-      if (a.source === 'verified' && b.source === 'verified') {
-        const scoreA = a.registeredAgent?.reputation?.score ?? 0;
-        const scoreB = b.registeredAgent?.reputation?.score ?? 0;
-        return scoreB - scoreA;
-      }
-      // Within external: sort by recency
-      const dateA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
-      const dateB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
-      return dateB - dateA;
+    // Sort verified by reputation score (highest first)
+    verified.sort((a, b) => {
+      const scoreA = a.registeredAgent?.reputation?.score ?? 0;
+      const scoreB = b.registeredAgent?.reputation?.score ?? 0;
+      return scoreB - scoreA;
     });
     
-    console.log(`[Bazaar] ${external.length} Bazaar services, ${verifiedCount} verified (ERC-8004), ${registeredAgents.length} in our registry`);
+    console.log(`[Bazaar] ${verifiedCount} ERC-8004 verified agents out of ${result.services.length} Bazaar services`);
   } catch (err: any) {
     console.warn('[Bazaar] External discovery failed (non-fatal):', err.message);
   }
   
   return { 
-    services: [...internal, ...external], 
+    services: [...internal, ...verified], 
     externalTotal,
     verifiedCount,
   };
