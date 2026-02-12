@@ -748,6 +748,8 @@ const dispatchHandler = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
+    const paymentProof = req.headers['x-payment-proof'] as string | undefined;
+    
     const result = await dispatch({
       prompt,
       userId: userId || (req as any).user.id,
@@ -757,6 +759,7 @@ const dispatchHandler = async (req: Request, res: Response) => {
       hiredAgents,
       approvedAgent,
       previewOnly,
+      paymentProof,  // Skip internal payment if user already paid via delegation
     });
 
     res.status(202).json(result);

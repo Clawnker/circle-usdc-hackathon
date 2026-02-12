@@ -388,7 +388,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   
   // Small delay to allow WebSocket subscription before execution
   setTimeout(() => {
-    executeTask(task, request.dryRun || false).catch(err => {
+    executeTask(task, request.dryRun || false, request.paymentProof).catch(err => {
       console.error(`[Dispatcher] Task ${taskId} failed:`, err);
       updateTaskStatus(task, 'failed', { error: err.message });
     });
@@ -421,7 +421,7 @@ function getSpecialistDisplayName(specialist: SpecialistType): string {
 /**
  * Execute a task
  */
-export async function executeTask(task: Task, dryRun: boolean): Promise<void> {
+export async function executeTask(task: Task, dryRun: boolean, paymentProof?: string): Promise<void> {
   // Demo delay for visual effect
   await new Promise(resolve => setTimeout(resolve, 500));
   
@@ -446,7 +446,7 @@ export async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       
       // 5. Handle x402 payment for this step
       const fee = step.estimatedCost || (config.fees as any)[step.specialist] || 0;
-      if (fee > 0 && !dryRun) {
+      if (fee > 0 && !dryRun && !paymentProof) {
         let specialistUrl: string;
         const externalAgent = isExternalAgent(step.specialist) ? getExternalAgent(step.specialist) : null;
         
@@ -570,7 +570,7 @@ export async function executeTask(task: Task, dryRun: boolean): Promise<void> {
       
       // Execute x402 payment for this hop (primary), on-chain fallback
       const specialistFee = (config.fees as any)[specialist] || 0;
-      if (specialistFee > 0 && !dryRun) {
+      if (specialistFee > 0 && !dryRun && !paymentProof) {
         // For external agents, route x402 to their endpoint
         let specialistUrl: string;
         const extAgent = isExternalAgent(specialist) ? getExternalAgent(specialist) : null;
@@ -661,7 +661,7 @@ export async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   // Check if payment is required for this specialist
   const requiresPayment = await checkPaymentRequired(task.specialist);
   
-  if (requiresPayment && !dryRun) {
+  if (requiresPayment && !dryRun && !paymentProof) {
     updateTaskStatus(task, 'awaiting_payment');
     addMessage(task, 'dispatcher', task.specialist, 'Checking x402 payment...');
     
@@ -747,7 +747,7 @@ export async function executeTask(task: Task, dryRun: boolean): Promise<void> {
   addMessage(task, task.specialist, 'dispatcher', responseContent);
   
   // Execute x402 payment via AgentWallet (primary), fallback to on-chain
-  if (fee > 0 && !dryRun) {
+  if (fee > 0 && !dryRun && !paymentProof) {
     addMessage(task, 'x402', 'dispatcher', `⏳ Processing ${fee} USDC payment via x402...`);
     
     // For external agents, route x402 payment to their endpoint directly

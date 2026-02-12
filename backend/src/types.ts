@@ -107,6 +107,7 @@ export interface DispatchRequest {
   callbackUrl?: string;  // Webhook URL to POST result on completion
   hiredAgents?: SpecialistType[];  // Only route to specialists in the user's swarm
   approvedAgent?: SpecialistType;  // User approved this agent (bypasses swarm check)
+  paymentProof?: string;  // Pre-paid tx hash from delegation — skip internal payment
 }
 
 export interface BudgetBreakdown {
