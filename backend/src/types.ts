@@ -89,6 +89,7 @@ export interface PaymentInfo {
   currency: string;
   network: 'solana' | 'base' | 'base-sepolia' | 'ethereum' | string;
   recipient: string;
+  txHash?: string; // On-chain transaction hash (set after x402 settlement)
 }
 
 export interface PaymentRecord extends PaymentInfo {

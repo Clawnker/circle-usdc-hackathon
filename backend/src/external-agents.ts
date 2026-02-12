@@ -2,6 +2,7 @@
  * External Agent Registry
  * Manages registration and communication with external agents.
  * ERC-8128: Outgoing requests to compatible agents are signed with the Hivemind wallet.
+ * x402: Handles payment-required responses by completing on-chain USDC payments.
  */
 
 import { privateKeyToAccount } from 'viem/accounts';
@@ -11,8 +12,10 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { SpecialistResult, Capability, ExternalAgent, RegisterRequest } from './types';
 
-// Use require to avoid tsc following @slicekit/erc8128's ox dependency types
+// Use require to avoid tsc following transitive type issues
 const { createSignerClient } = require('@slicekit/erc8128');
+const { x402Client, x402HTTPClient } = require('@x402/core/client');
+const { registerExactEvmScheme } = require('@x402/evm/exact/client');
 
 const DATA_DIR = path.join(__dirname, '../data');
 const EXTERNAL_AGENTS_FILE = path.join(DATA_DIR, 'external-agents.json');
@@ -36,6 +39,21 @@ if (privateKey) {
     console.log(`[ExternalAgents] ERC-8128 signer ready: ${account.address}`);
   } catch (err) {
     console.error('[ExternalAgents] Failed to init ERC-8128 signer:', err);
+  }
+}
+
+// ── x402 Payment Client (for paying external agents) ──────────────────
+let x402HttpClient: any = null;
+
+if (privateKey) {
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+    const client = new x402Client();
+    registerExactEvmScheme(client, { signer: account });
+    x402HttpClient = new x402HTTPClient(client);
+    console.log(`[ExternalAgents] x402 payment client ready: ${account.address}`);
+  } catch (err) {
+    console.error('[ExternalAgents] Failed to init x402 client:', err);
   }
 }
 
@@ -341,7 +359,6 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
 
       let headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'X-402-Payment': 'demo-payment-signature', // For x402 gating
       };
 
       // Use ERC-8128 signing if the agent supports it and we have a signer
@@ -370,28 +387,87 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
           signal: controller.signal,
         });
 
-        // Handle 402 (payment required) — success signal for reachability
+        // Handle 402 (payment required) — complete x402 payment and retry
         if (res.status === 402) {
-          clearTimeout(timeout);
-          const paymentInfo = await res.json() as any;
-          console.log(`[ExternalAgents] ${agent.name} requested payment at ${path}:`, paymentInfo);
-          return {
-            success: false,
-            data: {
-              paymentRequired: true,
-              ...paymentInfo,
-              agentName: agent.name,
-              agentEndpoint: agent.endpoint,
-            },
-            timestamp: new Date(),
-            executionTimeMs: Date.now() - startTime,
-            cost: {
-              amount: String(paymentInfo.price || agent.pricing[effectiveType] || 0),
-              currency: paymentInfo.currency || 'USDC',
-              network: 'base' as const,
-              recipient: agent.wallet,
-            },
-          };
+          console.log(`[ExternalAgents] ${agent.name} requires payment at ${path}`);
+          
+          if (!x402HttpClient) {
+            console.error(`[ExternalAgents] x402 client not configured — cannot pay ${agent.name}`);
+            clearTimeout(timeout);
+            return {
+              success: false,
+              data: { error: 'x402 payment client not configured', paymentRequired: true },
+              timestamp: new Date(),
+              executionTimeMs: Date.now() - startTime,
+            };
+          }
+
+          try {
+            // Parse the payment-required header (base64 JSON)
+            const paymentRequiredHeader = res.headers.get('payment-required');
+            if (!paymentRequiredHeader) {
+              throw new Error('402 response missing payment-required header');
+            }
+
+            const paymentRequired = JSON.parse(Buffer.from(paymentRequiredHeader, 'base64').toString());
+            console.log(`[ExternalAgents] Payment requirements:`, JSON.stringify({
+              accepts: paymentRequired.accepts?.map((a: any) => ({ scheme: a.scheme, network: a.network, amount: a.amount })),
+              resource: paymentRequired.resource?.url,
+            }));
+
+            // Create payment payload (signs EIP-3009 TransferWithAuthorization)
+            const paymentPayload = await x402HttpClient.createPaymentPayload(paymentRequired);
+            console.log(`[ExternalAgents] Payment payload created, retrying with payment...`);
+
+            // Encode payment into HTTP headers
+            const paymentHeaders = x402HttpClient.encodePaymentSignatureHeader(paymentPayload);
+
+            // Retry the request with the payment proof
+            const paidRes = await fetch(url, {
+              method: 'POST',
+              headers: {
+                ...headers,
+                ...paymentHeaders,
+              },
+              body: JSON.stringify(requestBody),
+              signal: controller.signal,
+            });
+
+            if (paidRes.ok) {
+              clearTimeout(timeout);
+              successfulResponse = await paidRes.json();
+              
+              // Extract settlement info if present
+              let settleTxHash: string | undefined;
+              try {
+                const settleResponse = x402HttpClient.getPaymentSettleResponse(
+                  (name: string) => paidRes.headers.get(name)
+                );
+                settleTxHash = settleResponse?.txHash;
+              } catch {}
+              
+              console.log(`[ExternalAgents] ${agent.name} paid + responded successfully! tx: ${settleTxHash || 'pending'}`);
+              
+              // Attach payment metadata to the response
+              successfulResponse._x402Payment = {
+                paid: true,
+                amount: paymentRequired.accepts?.[0]?.amount,
+                network: paymentRequired.accepts?.[0]?.network,
+                payTo: paymentRequired.accepts?.[0]?.payTo,
+                txHash: settleTxHash,
+              };
+              break; // Success!
+            } else {
+              const errorText = await paidRes.text();
+              console.error(`[ExternalAgents] Payment sent but agent returned ${paidRes.status}: ${errorText}`);
+              throw new Error(`Payment sent but agent returned ${paidRes.status}: ${errorText}`);
+            }
+          } catch (payErr: any) {
+            console.error(`[ExternalAgents] x402 payment flow failed for ${agent.name}:`, payErr.message);
+            lastError = payErr;
+            // Don't try other paths — payment failure is definitive for this agent
+            break;
+          }
         }
 
         if (res.ok) {
@@ -447,6 +523,10 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
     // Extract analysis score for confidence (handle nested result.data if present)
     const agentData = result.data || result;
     const confidence = agentData.analysis?.score ? agentData.analysis.score / 100 : 0.8;
+    
+    // Extract x402 payment info if present
+    const x402Payment = result._x402Payment;
+    delete result._x402Payment;
 
     return {
       success: true,
@@ -454,15 +534,19 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
         ...result,
         externalAgent: agent.name,
         agentId: agent.id,
+        ...(x402Payment ? { x402Payment } : {}),
       },
       confidence,
       timestamp: new Date(),
       executionTimeMs: Date.now() - startTime,
       cost: {
-        amount: String(agent.pricing[effectiveType] || agent.pricing['generic'] || 0),
+        amount: x402Payment?.amount 
+          ? String(Number(x402Payment.amount) / 1_000_000) // Convert from micro-USDC
+          : String(agent.pricing[effectiveType] || agent.pricing['generic'] || 0),
         currency: 'USDC',
         network: 'base',
-        recipient: agent.wallet,
+        recipient: x402Payment?.payTo || agent.wallet,
+        txHash: x402Payment?.txHash,
       },
     };
   } catch (err: any) {
