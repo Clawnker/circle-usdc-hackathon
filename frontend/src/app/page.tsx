@@ -21,7 +21,7 @@ import {
   WalletConnect,
   PaymentFlow,
 } from '@/components';
-import { DelegationPanel, getDelegationState, recordDelegationSpend } from '@/components/DelegationPanel';
+import { DelegationPanel, getDelegationState, recordDelegationSpend, getDelegationTotalSpent } from '@/components/DelegationPanel';
 import { useAccount } from 'wagmi';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
@@ -497,7 +497,7 @@ export default function CommandCenter() {
                   if (delegateRes.ok) {
                     const delegateData = await delegateRes.json();
                     headers['X-Payment-Proof'] = delegateData.txHash;
-                    recordDelegationSpend(preview.fee);
+                    recordDelegationSpend(preview.fee, preview.specialist, delegateData.txHash);
                     
                     // Record in Agent Payments
                     const feePayment = {

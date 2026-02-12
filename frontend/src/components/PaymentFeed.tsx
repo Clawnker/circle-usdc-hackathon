@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ExternalLink, ArrowRight, Coins, RefreshCw } from 'lucide-react';
 import type { Payment } from '@/types';
+import { getDelegationTotalSpent } from '@/components/DelegationPanel';
 
 interface PaymentFeedProps {
   payments: Payment[];
@@ -151,6 +152,15 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
   const [historicPayments, setHistoricPayments] = useState<Payment[]>([]);
   const [userPayments, setUserPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [delegationSpent, setDelegationSpent] = useState(0);
+
+  // Re-read delegation total when it updates
+  useEffect(() => {
+    setDelegationSpent(getDelegationTotalSpent());
+    const handler = () => setDelegationSpent(getDelegationTotalSpent());
+    window.addEventListener('delegation-updated', handler);
+    return () => window.removeEventListener('delegation-updated', handler);
+  }, []);
 
   // Listen for user wallet payments (real on-chain txs)
   useEffect(() => {
@@ -276,11 +286,12 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
     }
   }, [allPayments.length]);
 
-  // Calculate total spent
-  const totalSpent = allPayments.reduce((sum, p) => {
+  // Calculate total spent (max of feed total vs delegation total to avoid undercounting)
+  const feedTotal = allPayments.reduce((sum, p) => {
     if (p.token === 'USDC') return sum + p.amount;
     return sum;
   }, 0);
+  const totalSpent = Math.max(feedTotal, delegationSpent);
 
   return (
     <div className={`glass-panel overflow-hidden flex flex-col ${className}`}>
@@ -299,7 +310,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
             >
               <Coins size={12} className="text-[var(--accent-green)]" />
               <span className="text-xs text-[var(--text-secondary)]">
-                ${totalSpent.toFixed(3)} spent
+                ${totalSpent < 0.01 ? totalSpent.toFixed(4) : totalSpent.toFixed(3)} spent
               </span>
             </motion.div>
             <button

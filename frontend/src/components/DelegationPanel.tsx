@@ -9,26 +9,49 @@ interface DelegationState {
   allowance: number;
   spent: number;
   walletAddress: string;
+  payments: { amount: number; specialist: string; txHash: string; timestamp: string }[];
 }
 
 export function getDelegationState(): DelegationState | null {
   if (typeof window === 'undefined') return null;
   try {
     const saved = localStorage.getItem('hivemind-delegation');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Migrate old format: ensure payments array exists
+      if (!parsed.payments) parsed.payments = [];
+      return parsed;
+    }
   } catch {}
   return null;
 }
 
-export function recordDelegationSpend(amount: number) {
+export function recordDelegationSpend(amount: number, specialist?: string, txHash?: string) {
   const state = getDelegationState();
   if (!state) return;
-  state.spent = Math.round((state.spent + amount) * 1000) / 1000;
+  
+  // Record the individual payment
+  state.payments.push({
+    amount,
+    specialist: specialist || 'unknown',
+    txHash: txHash || '',
+    timestamp: new Date().toISOString(),
+  });
+  
+  // Recalculate spent from the actual payment records (prevents drift)
+  state.spent = Math.round(state.payments.reduce((sum, p) => sum + p.amount, 0) * 1000000) / 1000000;
+  
   if (state.spent >= state.allowance) {
     state.enabled = false;
   }
   localStorage.setItem('hivemind-delegation', JSON.stringify(state));
   window.dispatchEvent(new Event('delegation-updated'));
+}
+
+export function getDelegationTotalSpent(): number {
+  const state = getDelegationState();
+  if (!state) return 0;
+  return state.spent;
 }
 
 export function DelegationPanel() {
@@ -49,6 +72,7 @@ export function DelegationPanel() {
   if (!isConnected) return null;
 
   const remaining = delegation ? Math.max(0, delegation.allowance - delegation.spent) : 0;
+  const paymentCount = delegation?.payments?.length || 0;
 
   const handleEnable = () => {
     if (!address) return;
@@ -57,14 +81,17 @@ export function DelegationPanel() {
       allowance: approveAmount,
       spent: 0,
       walletAddress: address,
+      payments: [],
     };
     localStorage.setItem('hivemind-delegation', JSON.stringify(newState));
     setDelegation(newState);
+    window.dispatchEvent(new Event('delegation-updated'));
   };
 
   const handleRevoke = () => {
     localStorage.removeItem('hivemind-delegation');
     setDelegation(null);
+    window.dispatchEvent(new Event('delegation-updated'));
   };
 
   return (
@@ -89,18 +116,31 @@ export function DelegationPanel() {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[var(--text-muted)]">Remaining</span>
-            <span className="text-green-400 font-mono">{remaining.toFixed(2)} USDC</span>
+            <span className="text-green-400 font-mono">{remaining.toFixed(4)} USDC</span>
           </div>
           <div className="w-full bg-white/5 rounded-full h-1.5">
             <div
               className="bg-gradient-to-r from-green-400 to-cyan-400 h-1.5 rounded-full transition-all"
-              style={{ width: `${(remaining / delegation.allowance) * 100}%` }}
+              style={{ width: `${delegation.allowance > 0 ? (remaining / delegation.allowance) * 100 : 0}%` }}
             />
           </div>
           <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)]">
-            <span>{delegation.spent.toFixed(2)} spent</span>
+            <span>{delegation.spent.toFixed(4)} spent ({paymentCount} tx{paymentCount !== 1 ? 's' : ''})</span>
             <span>{delegation.allowance.toFixed(2)} approved</span>
           </div>
+          
+          {/* Recent auto-pay transactions */}
+          {delegation.payments.length > 0 && (
+            <div className="space-y-1 mt-1 max-h-24 overflow-y-auto">
+              {delegation.payments.slice(-3).reverse().map((p, i) => (
+                <div key={i} className="flex items-center justify-between text-[10px] text-[var(--text-muted)] px-1">
+                  <span className="text-cyan-400/70">{p.specialist}</span>
+                  <span className="font-mono">-{p.amount.toFixed(4)} USDC</span>
+                </div>
+              ))}
+            </div>
+          )}
+          
           <button
             onClick={handleRevoke}
             className="w-full text-xs py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"

@@ -68,24 +68,16 @@ body {
   min-height: 100%;
 }
 
-/* Lock viewport on desktop, allow scroll on mobile */
-@media (min-width: 1024px) {
-  html, body {
-    overflow: hidden;
-    height: 100%;
-  }
+/* Allow scrolling on all viewports */
+html {
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-@media (max-width: 1023px) {
-  html {
-    height: auto;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-  body {
-    height: auto;
-    overflow: visible;
-  }
+body {
+  height: auto;
+  overflow: visible;
 }
 
 body {
