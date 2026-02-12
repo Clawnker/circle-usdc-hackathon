@@ -58,6 +58,7 @@ export function DelegationPanel() {
   const [delegation, setDelegation] = useState<DelegationState | null>(null);
   const [approveAmount, setApproveAmount] = useState(5);
   const [isApproving, setIsApproving] = useState(false);
+  const [isRevoking, setIsRevoking] = useState(false);
 
   const { writeContract, data: hash, isPending } = useWriteContract();
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
@@ -75,17 +76,25 @@ export function DelegationPanel() {
 
   useEffect(() => {
     if (isSuccess && hash) {
-      const newState: DelegationState = {
-        enabled: true,
-        allowance: approveAmount,
-        spent: 0,
-        txHash: hash,
-      };
-      localStorage.setItem('hivemind-delegation', JSON.stringify(newState));
-      setDelegation(newState);
-      setIsApproving(false);
+      if (isRevoking) {
+        // Revoke confirmed — clear state
+        localStorage.removeItem('hivemind-delegation');
+        setDelegation(null);
+        setIsRevoking(false);
+      } else {
+        // Approve confirmed — set delegation
+        const newState: DelegationState = {
+          enabled: true,
+          allowance: approveAmount,
+          spent: 0,
+          txHash: hash,
+        };
+        localStorage.setItem('hivemind-delegation', JSON.stringify(newState));
+        setDelegation(newState);
+        setIsApproving(false);
+      }
     }
-  }, [isSuccess, hash, approveAmount]);
+  }, [isSuccess, hash, approveAmount, isRevoking]);
 
   if (!isConnected) return null;
 
@@ -103,9 +112,10 @@ export function DelegationPanel() {
   };
 
   const handleRevoke = () => {
+    setIsRevoking(true);
     localStorage.removeItem('hivemind-delegation');
     setDelegation(null);
-    // Optionally approve 0 on-chain
+    // Revoke on-chain approval
     writeContract({
       address: USDC_ADDRESS,
       abi: ERC20_ABI,
