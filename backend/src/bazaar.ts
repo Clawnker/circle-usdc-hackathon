@@ -62,7 +62,7 @@ export async function discoverAgents(options?: {
   const limit = Math.min(options?.limit || 50, 100);
   const offset = options?.offset || 0;
   const search = options?.search || '';
-  const network = options?.network || 'all';
+  const network = options?.network || 'testnet'; // Default to testnet until mainnet routing is verified
 
   // Check cache
   const cache = network === 'testnet' ? cacheTestnet : cacheMainnet;
@@ -224,6 +224,68 @@ export async function getAgentDetails(agentName: string): Promise<DiscoveredAgen
   try {
     const result = await discoverAgents({ search: agentName, limit: 1 });
     return result.agents[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Probe an agent's x402 endpoint to discover pricing.
+ * Makes a request without payment → gets 402 with pricing in headers.
+ * Returns null if endpoint is unreachable or doesn't support x402.
+ */
+export async function probeAgentPricing(endpoint: string): Promise<{
+  amount: number;  // USDC (human-readable, e.g. 2.5)
+  network: string;
+  payTo: string;
+  asset: string;
+} | null> {
+  try {
+    // Try common x402-protected paths
+    const paths = ['/execute', '/audit', '/run', '/api', '/'];
+    
+    for (const path of paths) {
+      const url = endpoint.replace(/\/$/, '') + path;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt: 'pricing-probe' }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (res.status !== 402) continue;
+
+        // Parse x402 pricing from payment-required header
+        const paymentHeader = res.headers.get('payment-required');
+        if (!paymentHeader) continue;
+
+        try {
+          const decoded = Buffer.from(paymentHeader, 'base64').toString('utf-8');
+          const amountMatch = decoded.match(/"amount":"(\d+)"/);
+          const networkMatch = decoded.match(/"network":"([^"]+)"/);
+          const payToMatch = decoded.match(/"payTo":"([^"]+)"/);
+          const assetMatch = decoded.match(/"asset":"([^"]+)"/);
+
+          if (amountMatch) {
+            const amountRaw = parseInt(amountMatch[1]);
+            return {
+              amount: amountRaw / 1_000_000, // USDC has 6 decimals
+              network: networkMatch?.[1] || 'unknown',
+              payTo: payToMatch?.[1] || '',
+              asset: assetMatch?.[1] || '',
+            };
+          }
+        } catch { /* header parsing failed */ }
+      } catch {
+        clearTimeout(timeout);
+      }
+    }
+    return null;
   } catch {
     return null;
   }

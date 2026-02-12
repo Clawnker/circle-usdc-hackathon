@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { discoverAgents, getAgentDetails } from '../bazaar';
+import { discoverAgents, getAgentDetails, probeAgentPricing } from '../bazaar';
 
 const router = Router();
 
@@ -49,6 +49,30 @@ router.get('/agent', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('[Discovery] Agent details failed:', error);
     res.status(500).json({ error: 'Failed to fetch agent details' });
+  }
+});
+
+/**
+ * GET /api/bazaar/pricing
+ * Probe an agent's x402 endpoint to discover pricing.
+ * Query params: endpoint (required) — the agent's base URL
+ */
+router.get('/pricing', async (req: Request, res: Response) => {
+  try {
+    const endpoint = req.query.endpoint as string;
+    if (!endpoint) {
+      return res.status(400).json({ error: 'Missing endpoint parameter' });
+    }
+
+    const pricing = await probeAgentPricing(endpoint);
+    if (!pricing) {
+      return res.json({ found: false, message: 'No x402 pricing discovered' });
+    }
+
+    res.json({ found: true, ...pricing });
+  } catch (error: any) {
+    console.error('[Discovery] Pricing probe failed:', error);
+    res.status(500).json({ error: 'Failed to probe pricing' });
   }
 });
 
