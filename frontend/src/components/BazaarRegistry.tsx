@@ -40,6 +40,11 @@ interface DiscoveredAgent {
   feedbackCount: number;
   starCount: number;
   createdAt: string;
+  pricing?: {
+    amount: number;
+    network: string;
+    payTo: string;
+  };
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -283,6 +288,17 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
                       </span>
                     ))}
                   </div>
+
+                  {/* Pricing */}
+                  {agent.pricing && (
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <DollarSign size={12} className="text-green-400" />
+                      <span className="text-sm font-bold text-green-400">
+                        ${agent.pricing.amount.toFixed(2)}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)]">USDC / query</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="px-5 py-4 border-t border-[var(--glass-border)] bg-white/[0.02] flex items-center justify-between relative z-10">

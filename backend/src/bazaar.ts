@@ -18,6 +18,10 @@ const CACHE_TTL = 5 * 60 * 1000;
 let cacheMainnet: { agents: DiscoveredAgent[]; total: number; timestamp: number } | null = null;
 let cacheTestnet: { agents: DiscoveredAgent[]; total: number; timestamp: number } | null = null;
 
+// Pricing cache (TTL: 30 minutes — pricing changes rarely)
+const PRICING_CACHE_TTL = 30 * 60 * 1000;
+const pricingCache = new Map<string, { amount: number; network: string; payTo: string; asset: string; timestamp: number }>();
+
 // Chain IDs
 const MAINNET_CHAINS = [1, 8453, 42220, 56, 143]; // Ethereum, Base, Celo, BSC, etc.
 const TESTNET_CHAINS = [84532, 11155111]; // Base Sepolia, Sepolia
@@ -47,6 +51,11 @@ export interface DiscoveredAgent {
   starCount: number;
   createdAt: string;
   isTestnet: boolean;
+  pricing?: {
+    amount: number;   // USDC (human-readable)
+    network: string;  // e.g. "eip155:84532"
+    payTo: string;
+  };
 }
 
 /**
@@ -71,7 +80,7 @@ export async function discoverAgents(options?: {
       ? [...(cacheMainnet?.agents || []), ...(cacheTestnet?.agents || [])].sort((a, b) => b.score - a.score)
       : cache.agents;
     console.log(`[Discovery] Serving ${filtered.length} agents from cache (${network})`);
-    return { agents: filtered.slice(0, limit), total: filtered.length };
+    return { agents: filtered.slice(0, limit).map(a => enrichWithPricing(a)), total: filtered.length };
   }
 
   try {
@@ -153,7 +162,13 @@ export async function discoverAgents(options?: {
       };
     }
 
-    return { agents: agents.slice(offset, offset + limit), total };
+    // Enrich with cached pricing (non-blocking)
+    const enriched = agents.map(a => enrichWithPricing(a));
+
+    // Kick off background pricing probes for agents without cached pricing
+    backgroundProbeAll(agents).catch(() => {});
+
+    return { agents: enriched.slice(offset, offset + limit), total };
   } catch (error: any) {
     console.error('[Discovery] 8004scan query failed:', error.message);
     const fallback = network === 'testnet' ? cacheTestnet : cacheMainnet;
@@ -215,6 +230,64 @@ function mapAgent(a: any): DiscoveredAgent {
     createdAt: a.created_at || '',
     isTestnet,
   };
+}
+
+/**
+ * Enrich an agent with cached pricing data.
+ */
+function enrichWithPricing(agent: DiscoveredAgent): DiscoveredAgent {
+  const endpoint = getAgentEndpoint(agent);
+  if (!endpoint) return agent;
+
+  const cached = pricingCache.get(endpoint);
+  if (cached && Date.now() - cached.timestamp < PRICING_CACHE_TTL) {
+    return { ...agent, pricing: { amount: cached.amount, network: cached.network, payTo: cached.payTo } };
+  }
+  return agent;
+}
+
+/**
+ * Get the primary endpoint URL for an agent.
+ */
+function getAgentEndpoint(agent: DiscoveredAgent): string | null {
+  return agent.services.a2a?.endpoint ||
+         agent.services.web?.endpoint ||
+         agent.services.mcp?.endpoint ||
+         agent.services.oasf?.endpoint ||
+         null;
+}
+
+/**
+ * Background probe all agents for pricing (non-blocking).
+ * Only probes agents not already in cache.
+ */
+async function backgroundProbeAll(agents: DiscoveredAgent[]): Promise<void> {
+  const toProbe = agents.filter(a => {
+    const ep = getAgentEndpoint(a);
+    if (!ep) return false;
+    const cached = pricingCache.get(ep);
+    return !cached || Date.now() - cached.timestamp >= PRICING_CACHE_TTL;
+  });
+
+  if (toProbe.length === 0) return;
+  console.log(`[Discovery] Background probing ${toProbe.length} agents for pricing...`);
+
+  // Probe in batches of 5 to avoid hammering
+  const BATCH = 5;
+  for (let i = 0; i < toProbe.length; i += BATCH) {
+    const batch = toProbe.slice(i, i + BATCH);
+    await Promise.allSettled(
+      batch.map(async (agent) => {
+        const ep = getAgentEndpoint(agent);
+        if (!ep) return;
+        const pricing = await probeAgentPricing(ep);
+        if (pricing) {
+          pricingCache.set(ep, { ...pricing, timestamp: Date.now() });
+          console.log(`[Discovery] Pricing: ${agent.name} = $${pricing.amount} USDC`);
+        }
+      })
+    );
+  }
 }
 
 /**
