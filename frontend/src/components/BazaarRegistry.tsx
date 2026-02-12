@@ -120,9 +120,18 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
   const handleAdd = async (agent: DiscoveredAgent) => {
     setAddingAgent(agent.id);
     try {
-      const endpoint = agent.services.a2a?.endpoint || 
-                       agent.services.web?.endpoint || 
-                       agent.services.mcp?.endpoint || '';
+      let endpoint = agent.services.a2a?.endpoint || 
+                     agent.services.mcp?.endpoint || 
+                     agent.services.web?.endpoint || '';
+      
+      // Fix: If endpoint points to metadata file (.well-known), strip it to base URL
+      // This ensures we call the API host (e.g. x402.minara.ai) not the JSON file
+      if (endpoint && endpoint.includes('.well-known')) {
+        try {
+          const url = new URL(endpoint);
+          endpoint = url.origin;
+        } catch {}
+      }
       
       // Extract real capabilities from description
       const desc = (agent.description || '').toLowerCase();
