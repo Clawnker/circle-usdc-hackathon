@@ -2,7 +2,7 @@
  * Agent Discovery via 8004scan (ERC-8004 Registry)
  * 
  * Single source of truth for external agent discovery.
- * Queries the 8004scan API for ERC-8004 registered agents with x402 support.
+ * Uses the 8004scan leaderboard API for quality-ranked agents with x402 support.
  * 
  * Pricing is discovered at call time via x402 protocol (402 responses),
  * not pre-indexed — keeps things simple and always fresh.
@@ -13,7 +13,7 @@
 // 8004scan public API
 const SCAN_8004_API = 'https://www.8004scan.io/api/v1';
 
-// Cache for 8004scan results (TTL: 5 minutes)
+// Cache for leaderboard results (TTL: 5 minutes)
 let agentCache: { agents: DiscoveredAgent[]; total: number; timestamp: number } | null = null;
 const CACHE_TTL = 5 * 60 * 1000;
 
@@ -45,13 +45,13 @@ export interface DiscoveredAgent {
 
 /**
  * Discover external agents from 8004scan's ERC-8004 registry.
- * Filters to x402-supporting agents with real service endpoints.
+ * Uses the leaderboard endpoint for quality-ranked results.
+ * Falls back to search endpoint when a search query is provided.
  */
 export async function discoverAgents(options?: {
   limit?: number;
   offset?: number;
   search?: string;
-  chain?: 'base' | 'ethereum' | 'all';
 }): Promise<{ agents: DiscoveredAgent[]; total: number }> {
   const limit = Math.min(options?.limit || 50, 100);
   const offset = options?.offset || 0;
@@ -64,97 +64,60 @@ export async function discoverAgents(options?: {
   }
 
   try {
-    // Build query — 8004scan API supports search, limit, offset
-    const params = new URLSearchParams({
-      limit: String(limit),
-      offset: String(offset),
-    });
+    let items: any[] = [];
+    let total = 0;
+
     if (search) {
-      params.set('search', search);
+      // Search mode: use the agents search endpoint
+      const params = new URLSearchParams({
+        search,
+        limit: String(limit),
+        offset: String(offset),
+      });
+      const response = await fetch(`${SCAN_8004_API}/agents?${params}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        items = data.items || [];
+        total = data.total || 0;
+      }
     } else {
-      // Without search, fetch multiple pages and filter/sort client-side
-      // since the API returns newest-first (mostly empty registrations)
-      const allItems: any[] = [];
-      const pagesToFetch = 5; // 5 pages × 100 = scan 500 agents
-      for (let page = 0; page < pagesToFetch; page++) {
-        const pageParams = new URLSearchParams({
-          limit: '100',
-          offset: String(page * 100),
-        });
-        try {
-          const pageRes = await fetch(`${SCAN_8004_API}/agents?${pageParams}`, {
-            headers: { 'Accept': 'application/json' },
-          });
-          if (pageRes.ok) {
-            const pageData = await pageRes.json();
-            allItems.push(...(pageData.items || []));
-          }
-        } catch { /* skip failed pages */ }
+      // Default mode: use the leaderboard endpoint (pre-sorted by score)
+      const response = await fetch(`${SCAN_8004_API}/agents/leaderboard?limit=100`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        items = data.items || [];
+        total = data.total || items.length;
       }
-
-      // Filter, sort, and return
-      const agents: DiscoveredAgent[] = allItems
-        .filter((a: any) => {
-          if (!a.x402_supported) return false;
-          if (a.chain_id === 11155111 || a.chain_id === 84532) return false;
-          if (!a.name || /^Agent #\d+$/.test(a.name)) return false;
-          return true;
-        })
-        .map((a: any) => mapAgent(a))
-        .sort((a, b) => b.score - a.score)
-        .slice(offset, offset + limit);
-
-      const total = allItems.length;
-      console.log(`[Discovery] Found ${agents.length} x402 agents from ${allItems.length} scanned`);
-
-      if (!search && offset === 0) {
-        agentCache = { agents, total, timestamp: Date.now() };
-      }
-
-      return { agents, total };
     }
 
-    const url = `${SCAN_8004_API}/agents?${params}`;
-    const response = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-    });
-
-    if (!response.ok) {
-      console.warn(`[Discovery] 8004scan returned ${response.status}`);
-      return { agents: [], total: 0 };
-    }
-
-    const data = await response.json();
-    const items: any[] = data.items || [];
-    const total = data.total || 0;
-
-    // Filter and map to our format
+    // Filter to x402-supported agents
     const agents: DiscoveredAgent[] = items
       .filter((a: any) => {
-        // Must have x402 support
         if (!a.x402_supported) return false;
-        // Must not be a testnet-only agent (unless searching)
+        // Skip testnet agents in default view
         if (!search && (a.chain_id === 11155111 || a.chain_id === 84532)) return false;
-        // Must have a name (not just "Agent #12345")
+        // Must have a real name
         if (!a.name || /^Agent #\d+$/.test(a.name)) return false;
         return true;
       })
       .map((a: any) => mapAgent(a))
-      // Sort by score descending (8004scan API doesn't support sort)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+      .slice(offset, offset + limit);
 
-    console.log(`[Discovery] Found ${agents.length} agents with x402 + endpoints (of ${items.length} returned, ${total} total)`);
+    const x402Total = items.filter((a: any) => a.x402_supported).length;
+    console.log(`[Discovery] ${agents.length} x402 agents from ${items.length} leaderboard entries (${x402Total} x402 total)`);
 
     // Cache first-page default results
     if (!search && offset === 0) {
-      agentCache = { agents, total, timestamp: Date.now() };
+      agentCache = { agents, total: x402Total, timestamp: Date.now() };
     }
 
-    return { agents, total };
+    return { agents, total: x402Total };
   } catch (error: any) {
     console.error('[Discovery] 8004scan query failed:', error.message);
-    // Return cached data if available
     if (agentCache) {
       console.log('[Discovery] Falling back to stale cache');
       return { agents: agentCache.agents, total: agentCache.total };
@@ -182,7 +145,6 @@ function mapAgent(a: any): DiscoveredAgent {
   let healthScore = healthStatus?.health_score ?? 0;
   if (healthStatus?.overall_status === 'healthy') overallHealth = 'healthy';
   else if (healthStatus?.overall_status === 'unhealthy') overallHealth = 'unhealthy';
-  // Fall back to checking individual services
   else if (healthStatus?.services) {
     const statuses = Object.values(healthStatus.services) as any[];
     const healthyCount = statuses.filter((s: any) => s?.status === 'healthy').length;
