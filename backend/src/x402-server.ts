@@ -47,7 +47,7 @@ function buildRoutes(): RoutesConfig {
           scheme: 'exact',
           network: BASE_SEPOLIA_NETWORK,
           payTo: TREASURY_ADDRESS,
-          price: fee, // SDK converts dollars to USDC atomic units
+          price: fee,
           maxTimeoutSeconds: 300,
         },
         description: `Query the ${specialist} AI specialist via Hivemind Protocol`,
@@ -62,7 +62,7 @@ function buildRoutes(): RoutesConfig {
       scheme: 'exact',
       network: BASE_SEPOLIA_NETWORK,
       payTo: TREASURY_ADDRESS,
-      price: 0.001, // $0.001 base dispatch fee
+      price: 0.001,
       maxTimeoutSeconds: 300,
     },
     description: 'Submit a query to the Hivemind Protocol dispatcher',
@@ -78,35 +78,46 @@ function buildRoutes(): RoutesConfig {
 /**
  * Create the x402 payment middleware for Express.
  * Uses the Coinbase-hosted facilitator for verification and settlement.
+ * 
+ * Fully defensive — if facilitator is unreachable or SDK throws,
+ * we return a no-op middleware so the server stays alive.
  */
 export function createX402Middleware() {
-  // Connect to Coinbase's hosted facilitator
-  const facilitator = new HTTPFacilitatorClient();
+  try {
+    // Connect to Coinbase's hosted facilitator
+    const facilitator = new HTTPFacilitatorClient();
 
-  // Create the resource server with EVM support
-  const server = new x402ResourceServer(facilitator);
-  registerExactEvmScheme(server);
+    // Create the resource server with EVM support
+    const server = new x402ResourceServer(facilitator);
+    registerExactEvmScheme(server);
 
-  // Build route config
-  const routes = buildRoutes();
+    // Build route config
+    const routes = buildRoutes();
 
-  console.log('[x402] Routes configured:', Object.keys(routes).join(', '));
-  console.log(`[x402] Treasury: ${TREASURY_ADDRESS}`);
-  console.log(`[x402] Network: ${BASE_SEPOLIA_NETWORK}`);
-  console.log(`[x402] Facilitator: ${facilitator.url}`);
+    console.log('[x402] Routes configured:', Object.keys(routes).join(', '));
+    console.log(`[x402] Treasury: ${TREASURY_ADDRESS}`);
+    console.log(`[x402] Network: ${BASE_SEPOLIA_NETWORK}`);
 
-  // Create and return the middleware
-  return paymentMiddleware(
-    routes,
-    server,
-    {
-      // Paywall config — shown to browsers hitting 402
-      title: 'Hivemind Protocol',
-      description: 'Pay-per-query AI agent marketplace on Base',
-    },
-    undefined, // default paywall provider
-    true, // sync facilitator on start
-  );
+    // Create middleware — do NOT sync on start (5th arg = false)
+    // Sync can throw unhandled rejections that crash the process
+    const middleware = paymentMiddleware(
+      routes,
+      server,
+      {
+        title: 'Hivemind Protocol',
+        description: 'Pay-per-query AI agent marketplace on Base',
+      },
+      undefined,
+      false, // don't sync facilitator on start — avoids crash if unreachable
+    );
+
+    console.log('[x402] Payment middleware created successfully');
+    return middleware;
+  } catch (err: any) {
+    console.error('[x402] Failed to create middleware:', err.message);
+    // Return a no-op middleware so the server keeps running
+    return (_req: any, _res: any, next: any) => next();
+  }
 }
 
 // Export route config for introspection
