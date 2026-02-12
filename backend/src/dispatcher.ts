@@ -103,13 +103,13 @@ const SPECIALIST_DESCRIPTIONS: Record<SpecialistType, string> = {
   'multi-hop': 'Orchestrated multi-agent workflow',
 };
 
-// Specialist pricing information
+// Specialist pricing information (synced with config.fees)
 const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: string }> = {
-  magos: { fee: '0.001', description: 'Market analysis & predictions' },
-  aura: { fee: '0.0005', description: 'Social sentiment analysis' },
-  bankr: { fee: '0.0001', description: 'Wallet operations' },
-  scribe: { fee: '0.0001', description: 'General assistant & fallback' },
-  seeker: { fee: '0.0001', description: 'Web research & search' },
+  magos: { fee: '0.10', description: 'Market analysis & predictions' },
+  aura: { fee: '0.10', description: 'Social sentiment analysis' },
+  bankr: { fee: '0.10', description: 'Wallet operations' },
+  scribe: { fee: '0.10', description: 'General assistant & fallback' },
+  seeker: { fee: '0.10', description: 'Web research & search' },
   general: { fee: '0', description: 'General queries' },
   sentinel: { fee: '2.50', description: 'Smart contract security audits (external)' },
   'multi-hop': { fee: '0', description: 'Orchestrated multi-agent workflow' },
@@ -268,20 +268,30 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   }
   
   // Phase 2e: Build fallback chain for single-hop tasks
+  // Skip for fast-path routes (high confidence, no need for fallbacks)
   let taskFallbackChain: string[] | undefined;
   if (!isMultiStep && bestSpecialist !== 'multi-hop') {
-    try {
-      const chain = await fallbackChain.buildFallbackChain(request.prompt, []);
-      taskFallbackChain = chain.map(c => c.agentId);
-      // Ensure bestSpecialist is at the front if not already
-      if (taskFallbackChain.length > 0 && taskFallbackChain[0] !== bestSpecialist && taskFallbackChain.includes(bestSpecialist)) {
+    // Only build expensive fallback chain if we didn't hit a fast-path
+    // Fast-path routes (sentinel, magos price, aura sentiment) are high-confidence
+    const isFastPath = isSentinelQuery || 
+      /\b(price|value|worth|cost|how much)\b/i.test(request.prompt) ||
+      /\b(sentiment|vibe|mood|social\s+analysis)\b/i.test(request.prompt);
+    
+    if (isFastPath) {
+      taskFallbackChain = [bestSpecialist, 'scribe']; // Simple fallback to scribe
+    } else {
+      try {
+        const chain = await fallbackChain.buildFallbackChain(request.prompt, []);
+        taskFallbackChain = chain.map(c => c.agentId);
+        if (taskFallbackChain.length > 0 && taskFallbackChain[0] !== bestSpecialist && taskFallbackChain.includes(bestSpecialist)) {
           taskFallbackChain = [bestSpecialist, ...taskFallbackChain.filter(id => id !== bestSpecialist)];
-      } else if (!taskFallbackChain.includes(bestSpecialist)) {
+        } else if (!taskFallbackChain.includes(bestSpecialist)) {
           taskFallbackChain = [bestSpecialist, ...taskFallbackChain];
+        }
+      } catch (err) {
+        console.error('[Dispatcher] Error building fallback chain:', err);
+        taskFallbackChain = [bestSpecialist];
       }
-    } catch (err) {
-      console.error('[Dispatcher] Error building fallback chain:', err);
-      taskFallbackChain = [bestSpecialist];
     }
   }
 
@@ -420,9 +430,6 @@ function getSpecialistDisplayName(specialist: SpecialistType): string {
  * Execute a task
  */
 export async function executeTask(task: Task, dryRun: boolean, paymentProof?: string): Promise<void> {
-  // Demo delay for visual effect
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
   // Phase 2b: Multi-step DAG Execution
   if (task.dagPlan && task.dagPlan.steps.length > 1) {
     updateTaskStatus(task, 'processing');
@@ -576,9 +583,9 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
         }
       }
       
-      // Delay between hops
+      // Brief pause between hops for WebSocket UI updates
       if (i < hops.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
     
@@ -632,9 +639,6 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
   // Get specialist fee
   const fee = (config.fees as any)[task.specialist] || 0;
   addMessage(task, 'dispatcher', task.specialist, `Processing with ${task.specialist}... (fee: ${fee} USDC)`);
-  
-  // Demo delay before calling specialist
-  await new Promise(resolve => setTimeout(resolve, 800));
   
   // Call the specialist via x402-gated endpoint
   let result: SpecialistResult;
