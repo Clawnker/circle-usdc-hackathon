@@ -949,6 +949,18 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     if (!hiredAgents || hiredAgents.includes('silverback')) return 'silverback';
   }
   
+  // 0a. Fast-path: Minara AI (Market/Liquidity Analysis)
+  // Force route to Minara if hired and query matches capability keywords (bypass embedding/LLM uncertainty)
+  if (/\b(market|analysis|liquidity|price|trend)\b/i.test(prompt)) {
+    if (hiredAgents) {
+      const minaraId = hiredAgents.find(id => id.includes('minara'));
+      if (minaraId) {
+        console.log(`[Router] Minara query detected, routing to ${minaraId}`);
+        return minaraId as SpecialistType;
+      }
+    }
+  }
+
   // 1. Capability-Based Matching (FIRST — external agents get priority)
   // This runs before Intent Classifier so that external agents with real capabilities
   // (e.g. Minara for "market analysis") beat internal legacy defaults (e.g. Magos/Seeker)
