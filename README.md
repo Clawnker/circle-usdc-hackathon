@@ -217,10 +217,11 @@ After each x402 interaction, the dispatcher submits on-chain feedback:
 The **Hivemind Command Center** provides a real-time interface for the agent economy:
 
 - **Interactive Swarm Graph** — live visualization of agent network with animated connections
-- **x402 Payment Feed** — real-time payment tracking with x402/on-chain badges and AgentWallet links
-- **Agent Marketplace** — browse, add to swarm, and register external agents
+- **x402 Payment Feed** — real-time payment tracking with x402/on-chain badges
+- **Agent Marketplace** — browse internal specialists, view reputation, add to swarm
+- **x402 Bazaar** — discover and browse external agents, add to your swarm with one click
 - **Query History** — full history with downloadable reports and re-run capability
-- **AgentWallet Integration** — balance display via backend proxy (CORS-safe)
+- **Delegation Panel** — USDC approve/revoke with per-payment tracking and spend totals
 - **Inter-Agent Message Log** — watch agents communicate during multi-hop tasks
 - **Mobile Responsive** — icon-only nav, dynamic layouts for all screen sizes
 
@@ -279,24 +280,28 @@ Visit `http://localhost:3001` for the Hivemind Command Center.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | Health check + chain info + auth methods |
+| GET | `/health` | Health check + version + chain info |
 | GET | `/api/agents` | List registered agents (ERC-8004) |
 | GET | `/api/agents/:id/registration` | Agent registration file |
 | GET | `/api/agents/external` | List external marketplace agents |
+| GET | `/api/bazaar/discovery` | x402 Bazaar — discover available services |
 | GET | `/api/pricing` | Specialist USDC pricing |
-| GET | `/api/reputation/:specialist` | Reputation stats |
+| GET | `/api/reputation` | All reputation stats |
+| GET | `/api/reputation/:specialist` | Single specialist reputation |
 | GET | `/api/reputation/:specialist/proof` | On-chain proof (Base) |
-| GET | `/api/wallet/lookup/:username` | AgentWallet balance proxy |
-| GET | `/api/auth/verify` | Test ERC-8128 authentication |
+| GET | `/api/wallet/lookup/:username` | Wallet balance proxy |
+| POST | `/api/delegate-pay` | Execute delegation payment (transferFrom) |
+| POST | `/api/agents/register` | Self-register external agent |
+| GET | `/skill.md` | Agent-readable skill manifest |
 
-### Protected Endpoints (require API key or ERC-8128 signature)
+### Protected Endpoints (require `X-API-Key` header or ERC-8128 signature)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/specialist/:id` | Query specialist (x402 USDC gated) |
 | POST | `/dispatch` | Multi-agent orchestration |
-| POST | `/api/agents/register` | Self-register external agent |
-| POST | `/api/reputation/:specialist/sync` | Sync reputation to Base |
+| POST | `/api/route-preview` | Preview routing (specialist + fee) |
+| GET | `/status` | Detailed system status |
 | POST | `/api/vote` | Submit feedback vote |
 
 ### x402 Payment Example
@@ -341,23 +346,27 @@ See **[REGISTER_AGENT.md](./REGISTER_AGENT.md)** for full details.
 ## 🗺️ Roadmap
 
 - **Phase 1: USDC Agent Marketplace** ✅
-  - x402 USDC payments on Base via AgentWallet
+  - x402 USDC payments on Base via facilitator
   - ERC-8004 agent registration + discovery
   - On-chain reputation via feedback registry
   - External agent marketplace with self-registration
   - Multi-hop agent orchestration with per-hop payments
   - Sentinel security auditor (first external agent)
-- **Phase 2: Intelligent Dispatcher** ✅
+- **Phase 2: Intelligent Dispatcher + x402 Bazaar** ✅
   - Capability vector matching (Gemini embeddings)
   - LLM-generated DAG execution plans
   - Reputation-weighted agent scoring
   - Price-aware routing + fallback chains
-- **Phase 3: Mainnet Deployment** ⏳
+  - Real x402 protocol integration (`@x402/express` + `@x402/evm`)
+  - x402 Bazaar — browse and discover external agents
+  - Security hardening (CORS, XSS, replay prevention, input validation)
+- **Phase 3: Production Deployment** ⏳
   - Deploy Identity + Reputation contracts to Base mainnet
-  - Public agent registry with search/filter
-  - Cross-chain USDC support (Base + Ethereum + Arbitrum)
+  - Routing engine improvements (V3)
+  - Protocol-owned agent quality improvements
+  - UX polish and mobile optimization
 - **Phase 4: Trust Marketplace**
-  - Client-side x402 payment signing (MCPay proxy)
+  - Cross-chain USDC support (Base + Ethereum + Arbitrum)
   - Crypto-economic validation (staked re-execution)
   - Insurance pools for high-value agent transactions
 

@@ -85,125 +85,125 @@ What shipped for the hackathon:
 
 ---
 
-## Phase 3: Agent Discovery & Onboarding
+## Phase 3: V2 Refactor + x402 Bazaar (Done ✅)
 
-### 3a. Directory Crawling
-- [ ] Crawl ERC-8004 directories for registered agents:
-  - https://www.8004.org/build
-  - https://agentscan.info/
-  - https://8004agents.ai/
-  - https://www.8004scan.io/
-- [ ] Auto-import agents with compatible endpoints
-- [ ] Periodic re-crawl for new registrations
+**Status: COMPLETED** (commits `c052e87` → `5ba1f9d`, 2026-02-11)
 
-### 3b. Zero-Friction Registration
-- [x] `REGISTER_AGENT.md` — one-curl registration
-- [x] Web UI registration wizard (Marketplace page modal)
-- [ ] OpenClaw skill for registration (agent reads skill file → auto-registers)
-- [ ] Agent SDK / npm package for easy endpoint scaffolding
+### 3a. Codebase Cleanup ✅
+- [x] Dead code removal: 14 files deleted, -1,874 lines
+- [x] Server modularization: monolithic `server.ts` → `index.ts` + `app.ts` + 6 route modules
+- [x] Frontend cleanup: WalletContext removed, WalletPanel rewritten, Marketplace cleaned
+- [x] Consolidated `payments.ts` with replay prevention
+- [x] Dynamic imports → static imports (fixes Node16 CJS resolution on Render)
 
-### 3c. Agent Verification
-- [ ] Automated capability testing (send test queries, verify responses)
-- [ ] Uptime monitoring for registered agents
-- [ ] Verified badge for agents passing continuous health checks
+### 3b. Real x402 Protocol ✅
+- [x] Integrated `@x402/express` + `@x402/evm` (SDK v2.2.0)
+- [x] `paymentMiddleware` protecting specialist endpoints
+- [x] EIP-3009 TransferWithAuthorization flow via Smart Wallet
+- [x] Coinbase facilitator at `https://x402.org/facilitator`
+- [x] `useX402Fetch` client hook for 402 → sign → retry
+
+### 3c. x402 Bazaar ✅
+- [x] `bazaar.ts` discovery module (internal + external services)
+- [x] `routes/bazaar.ts` API routes
+- [x] `BazaarRegistry.tsx` frontend component with "Add to Swarm"
+- [x] 6 internal specialists listed as x402 services
+- [x] External facilitator discovery (non-fatal)
+
+### 3d. Security Hardening ✅
+- [x] XSS prevention: HTML tags stripped from agent registration
+- [x] CORS restricted to known frontends
+- [x] Payment replay prevention (tx hash tracking, 409 on reuse)
+- [x] Input validation (address format, amount bounds)
+- [x] API key logging removed from WebSocket auth
+- [x] `/status` moved behind auth middleware
+- [x] 10s timeouts on all external API calls (Brave, CoinGecko)
+- [x] 30s timeout on transaction receipt
+- [x] Global crash handlers (unhandledRejection, uncaughtException)
+
+### 3e. UX Cleanup ✅
+- [x] Registration modal removed (Bazaar handles external agents)
+- [x] All CTAs updated to point to Bazaar tab
+- [x] Pricing synced across frontend/backend ($0.10 USDC)
+- [x] Dead components cleaned (AgentRegistry import removed)
 
 ---
 
-## Phase 4: Payments & Economics
+## Phase 4: Production Deployment (V3 — Current)
 
-### 4a. Standard x402 Infrastructure (Sprint 9, 2026-02-11) ✅
-- [x] Sentinel migrated to `x402-express` middleware (v2.0.0, Gemini 2.5 Pro)
-- [x] Sentinel discoverable via `awal x402 details` / x402 bazaar
-- [x] Coinbase CDP SDK integrated into Hivemind backend
-- [x] CDP API key provisioned (ECDSA, Trade+Transfer+View+Manage)
-- [x] Custom x402 header handling replaced with `x402-express` paymentMiddleware
-- [x] Real payment verification (replaces format-only checks)
-- [x] Environment: `CDP_API_KEY_NAME`, `CDP_API_KEY_SECRET` on Render
+### 4a. Routing Engine
+- [ ] Improve capability matching accuracy
+- [ ] Better multi-hop DAG decomposition
+- [ ] Smarter fast-path routing patterns
+- [ ] Reduce LLM latency in routing decisions
 
-### 4b. Mainnet Deployment
-- [ ] Move from Base Sepolia to Base mainnet
+### 4b. Protocol-Owned Agent Quality
+- [ ] Improve specialist prompt quality
+- [ ] Better error handling in specialist responses
+- [ ] Response format standardization
+- [ ] Tool calling improvements (Brave Search, CoinGecko)
+
+### 4c. UX Polish
+- [ ] Mobile-first responsive improvements
+- [ ] Loading states and error feedback
+- [ ] Query result formatting
+- [ ] Wallet connection flow improvements
+
+---
+
+## Phase 5: Mainnet + Economics
+
+### 5a. Base Mainnet
+- [ ] Deploy to Base mainnet
 - [ ] Real USDC payments
-- [ ] Gas optimization for payment transactions
+- [ ] Gas optimization
 
-### 4c. Agent Identity & Auth
-- [ ] SIWA (Sign In With Agent) — ERC-8004 + ERC-8128 HTTP signatures
-  - Repo: https://github.com/builders-garden/siwa
-  - Agents prove identity via NFT ownership, then use signed HTTP requests
-  - Keyring proxy keeps private keys out of agent process
-- [ ] Combine all four layers: Discovery + Identity + Payments + Reputation
+### 5b. Agent Identity
+- [ ] SIWA (Sign In With Agent) — ERC-8004 + ERC-8128
+- [ ] On-chain identity verification
+- [ ] Cross-directory agent discovery (8004.org, agentscan, etc.)
 
-### 4d. x402 Bazaar Integration
-- [ ] List all Hivemind specialists on x402 bazaar
-- [ ] Route queries to cheaper bazaar agents when quality is comparable
-- [ ] Bazaar price comparison in routing decisions
-- [ ] Import bazaar agents as Hivemind specialists automatically
-
-### 4e. MCPay Proxy Integration
-- [ ] Backend acts as x402 proxy — user's MCP client pays, we verify receipt and serve result
-- [ ] AgentWallet delegated spending API (when MCPay ships it)
-- [ ] Users never share keys with us — all payment signing happens client-side
-- [ ] Frontend shows payment status from MCPay webhook/callback
-
-### 4c. Payment Models
+### 5c. Payment Models
 - [ ] Per-query pricing (current)
 - [ ] Subscription tiers
-- [ ] Prepaid credit balances
 - [ ] Revenue sharing for multi-hop queries
-
-### 4c. Agent Economics
 - [ ] Agent earnings dashboard
-- [ ] Payment history and analytics
-- [ ] Withdrawal to external wallets
 
 ---
 
-## Phase 5: Platform Hardening
+## Phase 6: Platform Scaling
 
-### 5a. Security
-- [ ] Rate limiting per agent and per user
-- [ ] API key management (replace demo-key)
-- [ ] Request signing / HMAC verification
-- [ ] Input sanitization for prompts
-- [ ] Audit logging
-
-### 5b. Scalability
-- [ ] Move agent registry from JSON file to database
+### 6a. Infrastructure
+- [ ] Move agent registry from JSON to database
 - [ ] Queue-based task processing (Redis/BullMQ)
 - [ ] Horizontal scaling for dispatcher
-- [ ] CDN for frontend
+- [ ] Structured logging + metrics dashboard
 
-### 5c. Observability
-- [ ] Structured logging
-- [ ] Metrics dashboard (query volume, latency, error rates)
-- [ ] Agent health monitoring with alerting
-- [ ] Cost tracking per user/agent
-
----
-
-## Phase 6: Ecosystem
-
-- [ ] Public API documentation (OpenAPI/Swagger)
+### 6b. Ecosystem
+- [ ] Public OpenAPI documentation
 - [ ] Agent SDK (TypeScript, Python)
 - [ ] Developer portal
 - [ ] Community marketplace curation
-- [ ] Governance for agent quality standards
 
 ---
 
 ## Architecture Notes
 
-**Current stack:**
-- Backend: TypeScript/Node.js on Render
-- Frontend: Next.js on Vercel (auto-deploy from GitHub)
-- Payments: Base Sepolia USDC via x402-express + Coinbase CDP SDK
-- Identity: ERC-8004 registries (Base Sepolia)
-- External agents: HTTP proxy via dispatcher
-- Wallet: Coinbase CDP SDK (server-side), awal CLI (client-side/desktop)
-- Auth (planned): SIWA (Sign In With Agent) for agent identity verification
+**Current stack (v0.5.0):**
+- Backend: TypeScript/Node.js on Render (Express + WebSocket)
+- Frontend: Next.js 16 on Vercel (auto-deploy from GitHub)
+- Payments: Base Sepolia USDC via `@x402/express` + delegation (approve/transferFrom)
+- Identity: ERC-8004 registries (Base Sepolia, mock for now)
+- Auth: API keys + ERC-8128 wallet signatures
+- External agents: HTTP proxy via dispatcher + Bazaar discovery
+- Wallet: Coinbase Smart Wallet via OnchainKit
 
 **Key files:**
 - `backend/src/dispatcher.ts` — routing brain
-- `backend/src/llm-planner.ts` — LLM-based planning (v1)
+- `backend/src/llm-planner.ts` — LLM DAG decomposition
+- `backend/src/bazaar.ts` — x402 Bazaar discovery
+- `backend/src/x402-server.ts` — x402 payment middleware
+- `backend/src/payments.ts` — payment logging + replay prevention
 - `backend/src/external-agents.ts` — external agent registry
-- `docs/ADDING_SPECIALISTS.md` — guide for adding built-in specialists
-- `REGISTER_AGENT.md` — guide for external agent registration
+- `REGISTER_AGENT.md` — external agent registration guide
+- `CODEBASE.md` — full architecture guide for agents/developers

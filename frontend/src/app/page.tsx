@@ -12,7 +12,6 @@ import {
   MessageLog,
   ResultDisplay,
   Marketplace,
-  AgentRegistry,
   BazaarRegistry,
   ResultCard,
   QueryHistory,
