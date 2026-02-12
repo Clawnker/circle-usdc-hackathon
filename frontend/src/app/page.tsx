@@ -918,7 +918,7 @@ export default function CommandCenter() {
               {/* Main Grid */}
               <div className="lg:flex-1 grid grid-cols-12 gap-4 lg:min-h-0">
                 {/* Left Column - Swarm Graph + Activity */}
-                <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 lg:max-h-[calc(100vh-250px)]">
+                <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 lg:max-h-[calc(100vh-250px)] overflow-y-auto">
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -946,7 +946,7 @@ export default function CommandCenter() {
                 </div>
 
                 {/* Right Column - Panels */}
-                <div className="col-span-12 lg:col-span-7 flex flex-col gap-4">
+                <div className="col-span-12 lg:col-span-7 flex flex-col gap-4 lg:max-h-[calc(100vh-250px)] overflow-y-auto">
                   {/* Wallet Panel */}
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}

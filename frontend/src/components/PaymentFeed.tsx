@@ -156,10 +156,34 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
   useEffect(() => {
     const handler = (e: Event) => {
       const payment = (e as CustomEvent).detail as Payment;
-      setUserPayments(prev => [payment, ...prev]);
+      setUserPayments(prev => {
+        const updated = [payment, ...prev];
+        // Persist to localStorage
+        try {
+          localStorage.setItem('hivemind-user-payments', JSON.stringify(updated.map(p => ({
+            ...p,
+            timestamp: typeof p.timestamp === 'string' ? p.timestamp : String(p.timestamp),
+          }))));
+        } catch {}
+        return updated;
+      });
     };
     window.addEventListener('hivemind-payment', handler);
     return () => window.removeEventListener('hivemind-payment', handler);
+  }, []);
+
+  // Load persisted user payments on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('hivemind-user-payments');
+      if (saved) {
+        const parsed = JSON.parse(saved).map((p: any) => ({
+          ...p,
+          timestamp: new Date(p.timestamp),
+        }));
+        setUserPayments(parsed);
+      }
+    } catch {}
   }, []);
 
   // Fetch persisted payment history from backend
