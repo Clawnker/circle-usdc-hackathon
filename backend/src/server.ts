@@ -111,18 +111,37 @@ const BASE_USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base 
 // --- PUBLIC ROUTES ---
 
 /**
- * Route preview — returns specialist + fee without executing
+ * Route preview — returns specialist + fee without executing.
+ * For multi-step DAG queries, returns total cost across all steps.
  */
 app.post('/api/route-preview', async (req: Request, res: Response) => {
   try {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'prompt required' });
     
-    const { routePrompt } = await import('./dispatcher');
-    const specialist = await routePrompt(prompt);
-    const fee = (config.fees as any)[specialist] || 0;
+    // Try DAG planning first to get accurate multi-step cost
+    const { planDAG } = await import('./llm-planner');
+    const dagPlan = await planDAG(prompt);
     
-    res.json({ specialist, fee, currency: 'USDC', network: 'base-sepolia' });
+    if (dagPlan.steps.length > 1) {
+      // Multi-step: return total cost and first specialist
+      const totalFee = dagPlan.totalEstimatedCost || dagPlan.steps.reduce((sum, s) => sum + (s.estimatedCost || 0), 0);
+      const specialists = dagPlan.steps.map(s => s.specialist);
+      res.json({ 
+        specialist: specialists.join(' → '), 
+        specialists,
+        fee: totalFee, 
+        currency: 'USDC', 
+        network: 'base-sepolia',
+        isMultiStep: true,
+        steps: dagPlan.steps.length,
+      });
+    } else {
+      // Single step
+      const specialist = dagPlan.steps[0]?.specialist || 'scribe';
+      const fee = dagPlan.steps[0]?.estimatedCost || (config.fees as any)[specialist] || 0;
+      res.json({ specialist, fee, currency: 'USDC', network: 'base-sepolia' });
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
