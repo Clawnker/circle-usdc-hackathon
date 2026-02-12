@@ -69,7 +69,50 @@ export async function discoverAgents(options?: {
       limit: String(limit),
       offset: String(offset),
     });
-    if (search) params.set('search', search);
+    if (search) {
+      params.set('search', search);
+    } else {
+      // Without search, fetch multiple pages and filter/sort client-side
+      // since the API returns newest-first (mostly empty registrations)
+      const allItems: any[] = [];
+      const pagesToFetch = 5; // 5 pages × 100 = scan 500 agents
+      for (let page = 0; page < pagesToFetch; page++) {
+        const pageParams = new URLSearchParams({
+          limit: '100',
+          offset: String(page * 100),
+        });
+        try {
+          const pageRes = await fetch(`${SCAN_8004_API}/agents?${pageParams}`, {
+            headers: { 'Accept': 'application/json' },
+          });
+          if (pageRes.ok) {
+            const pageData = await pageRes.json();
+            allItems.push(...(pageData.items || []));
+          }
+        } catch { /* skip failed pages */ }
+      }
+
+      // Filter, sort, and return
+      const agents: DiscoveredAgent[] = allItems
+        .filter((a: any) => {
+          if (!a.x402_supported) return false;
+          if (a.chain_id === 11155111 || a.chain_id === 84532) return false;
+          if (!a.name || /^Agent #\d+$/.test(a.name)) return false;
+          return true;
+        })
+        .map((a: any) => mapAgent(a))
+        .sort((a, b) => b.score - a.score)
+        .slice(offset, offset + limit);
+
+      const total = allItems.length;
+      console.log(`[Discovery] Found ${agents.length} x402 agents from ${allItems.length} scanned`);
+
+      if (!search && offset === 0) {
+        agentCache = { agents, total, timestamp: Date.now() };
+      }
+
+      return { agents, total };
+    }
 
     const url = `${SCAN_8004_API}/agents?${params}`;
     const response = await fetch(url, {
@@ -90,17 +133,16 @@ export async function discoverAgents(options?: {
       .filter((a: any) => {
         // Must have x402 support
         if (!a.x402_supported) return false;
-        // Must have at least one real service endpoint
-        const svc = a.services || {};
-        const hasEndpoint = !!(
-          svc?.a2a?.endpoint ||
-          svc?.mcp?.endpoint ||
-          svc?.oasf?.endpoint ||
-          svc?.web?.endpoint
-        );
-        return hasEndpoint;
+        // Must not be a testnet-only agent (unless searching)
+        if (!search && (a.chain_id === 11155111 || a.chain_id === 84532)) return false;
+        // Must have a name (not just "Agent #12345")
+        if (!a.name || /^Agent #\d+$/.test(a.name)) return false;
+        return true;
       })
-      .map((a: any) => mapAgent(a));
+      .map((a: any) => mapAgent(a))
+      // Sort by score descending (8004scan API doesn't support sort)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
 
     console.log(`[Discovery] Found ${agents.length} agents with x402 + endpoints (of ${items.length} returned, ${total} total)`);
 

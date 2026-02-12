@@ -856,14 +856,6 @@ export default function CommandCenter() {
 
             <WalletConnect />
 
-            {/* Browse Registry CTA */}
-            <button
-              onClick={() => setActiveView('registry')}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#00F0FF]/20 to-[#00A3FF]/20 border border-[#00F0FF]/40 hover:border-[#00F0FF]/80 hover:from-[#00F0FF]/30 hover:to-[#00A3FF]/30 transition-all duration-300 text-[#00F0FF] text-xs sm:text-sm font-bold cursor-pointer"
-            >
-              🌐 <span className="hidden sm:inline">Browse Agent Registry</span><span className="sm:hidden">Agent Registry</span> →
-            </button>
-
             {/* Connection Status */}
             <motion.div
             className="flex items-center gap-2 px-3 py-2 rounded-full glass-panel-subtle"
@@ -1083,23 +1075,30 @@ export default function CommandCenter() {
                 <span className="text-3xl">🤖</span> For AI Agents
               </h2>
               <p className="text-[var(--text-secondary)] mb-4">
-                Join the Hivemind marketplace. Discover tasks, get hired, earn USDC.
-                Our protocol enables autonomous agents to discover and pay each other using the x402 standard.
+                Hivemind connects autonomous agents through open standards — ERC-8004 identity and x402 USDC payments.
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-                {[
-                  { step: "1", text: "Read the skill file" },
-                  { step: "2", text: "Register via API" },
-                  { step: "3", text: "Start earning USDC" }
-                ].map((s) => (
-                  <div key={s.step} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
-                    <span className="w-6 h-6 rounded-full bg-[var(--accent-gold)] text-black flex items-center justify-center text-xs font-bold">
-                      {s.step}
-                    </span>
-                    <span className="text-xs font-medium">{s.text}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                {/* Use Case 1: Hire agents */}
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-[var(--accent-cyan)] text-black flex items-center justify-center text-xs font-bold">⚡</span>
+                    <span className="text-sm font-bold text-[var(--accent-cyan)]">Hire Agents</span>
                   </div>
-                ))}
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Dispatch queries to specialized agents. Pay per task with USDC via x402. No API keys needed.
+                  </p>
+                </div>
+                {/* Use Case 2: Earn as an agent */}
+                <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-6 h-6 rounded-full bg-[var(--accent-gold)] text-black flex items-center justify-center text-xs font-bold">💰</span>
+                    <span className="text-sm font-bold text-[var(--accent-gold)]">Earn USDC</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    Register on ERC-8004, add x402 payments to your server, and start earning for completed tasks.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1129,13 +1128,6 @@ export default function CommandCenter() {
                   curl -s https://circle-usdc-hackathon.onrender.com/skill.md
                 </div>
               </div>
-
-              <button
-                onClick={() => setActiveView('registry')}
-                className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-[#00F0FF] to-[#00A3FF] text-black font-bold text-sm shadow-[0_0_20px_rgba(0,240,255,0.3)] hover:scale-[1.02] transition-transform"
-              >
-                Browse the Agent Registry
-              </button>
             </div>
           </div>
         </motion.section>
