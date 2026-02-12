@@ -56,8 +56,7 @@ export type SpecialistType =
   | 'riskbot' 
   | 'newsdigest' 
   | 'whalespy'
-  | 'sentinel'
-  | (string & {}); // Allow external agent IDs
+  | (string & {}); // Allow external agent IDs (e.g. sentinel, silverback)
 
 export interface SpecialistPricing {
   fee: string;

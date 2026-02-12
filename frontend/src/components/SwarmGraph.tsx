@@ -26,7 +26,7 @@ interface SwarmGraphProps {
 }
 
 // Specialist configurations
-const SPECIALISTS: Record<SpecialistType, {
+const SPECIALISTS: Record<string, {
   name: string;
   description: string;
   icon: typeof Brain;
@@ -109,13 +109,6 @@ const SPECIALISTS: Record<SpecialistType, {
     icon: Search,
     color: '#00F5FF',
     glowColor: 'rgba(0, 245, 255, 0.6)',
-  },
-  sentinel: {
-    name: 'Sentinel',
-    description: 'Security Audit',
-    icon: Shield,
-    color: '#ef4444',
-    glowColor: 'rgba(239, 68, 68, 0.6)',
   },
 };
 

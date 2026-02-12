@@ -145,10 +145,9 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
     
     const fetchData = async () => {
       try {
-        const [repRes, agentsRes, externalRes] = await Promise.all([
+        const [repRes, agentsRes] = await Promise.all([
           fetch(`${apiUrl}/api/reputation`),
           fetch(`${apiUrl}/api/agents`),
-          fetch(`${apiUrl}/api/agents/external`).catch(() => null),
         ]);
 
         const repData = await repRes.json();
@@ -157,8 +156,9 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
         const agentsData = await agentsRes.json();
         
         // Map API agents to card format using metadata
+        // Only show internal agents (not external ones) — external agents belong in the Agent Registry tab
         const mappedAgents = agentsData.agents
-          .filter((a: any) => a.name !== 'Hivemind Dispatcher')
+          .filter((a: any) => a.name !== 'Hivemind Dispatcher' && !a.external)
           .map((a: any) => {
             const meta = AGENT_METADATA[a.name] || {
               id: a.name.toLowerCase().replace(/\s+/g, ''),
@@ -180,42 +180,10 @@ export function Marketplace({ hiredAgents, onHire }: MarketplaceProps) {
               description: a.description,
               isVerified: true,
               capabilities: meta.capabilities || a.capabilities || ['general'],
-              external: a.external || false,
+              external: false,
               endpoint: a.services?.[0]?.endpoint,
             };
           });
-
-        // Also add external agents
-        if (externalRes && externalRes.ok) {
-          const externalData = await externalRes.json();
-          for (const ext of (externalData.agents || [])) {
-            if (mappedAgents.some((a: any) => a.id === ext.id)) continue;
-            
-            const meta = AGENT_METADATA[ext.name] || {
-              id: ext.id,
-              tagline: ext.capabilities?.[0] || 'External Agent',
-              icon: Shield,
-              price: Object.values(ext.pricing || {})[0] || 0,
-              successRate: 0,
-              responseTime: '?',
-              tasksCompleted: 0,
-              color: 'red',
-              capabilities: ext.capabilities || ['general'],
-              tier: 'marketplace',
-              erc8004Id: `agent:base:${ext.wallet?.slice(0, 6)}...${ext.wallet?.slice(-3)}`
-            };
-            
-            mappedAgents.push({
-              ...meta,
-              name: ext.name,
-              description: ext.description,
-              isVerified: ext.erc8004?.registered || false,
-              external: true,
-              endpoint: ext.endpoint,
-              healthy: ext.healthy,
-            });
-          }
-        }
 
         setAgents(mappedAgents);
         setIsLoading(false);

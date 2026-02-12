@@ -88,14 +88,60 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
       const params = new URLSearchParams({ limit: '50' });
       if (search) params.set('search', search);
       
-      const response = await fetch(`${API_URL}/api/bazaar/discovery?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAgents(data.agents || []);
-        setTotal(data.total || 0);
-      } else {
-        throw new Error('Failed to fetch agents');
+      // Fetch from both 8004scan discovery AND locally registered external agents
+      const [discoveryRes, externalRes] = await Promise.all([
+        fetch(`${API_URL}/api/bazaar/discovery?${params}`),
+        fetch(`${API_URL}/api/agents/external`).catch(() => null),
+      ]);
+
+      let allAgents: DiscoveredAgent[] = [];
+      let discoveryTotal = 0;
+
+      if (discoveryRes.ok) {
+        const data = await discoveryRes.json();
+        allAgents = data.agents || [];
+        discoveryTotal = data.total || 0;
       }
+
+      // Also include locally registered external agents (e.g., Sentinel)
+      // These may not be on 8004scan yet but are registered with our backend
+      if (externalRes && externalRes.ok) {
+        const extData = await externalRes.json();
+        for (const ext of (extData.agents || [])) {
+          // Skip if already in discovery results (by name match)
+          if (allAgents.some(a => a.name.toLowerCase() === ext.name.toLowerCase())) continue;
+          // Skip if searching and doesn't match
+          if (search && !ext.name.toLowerCase().includes(search.toLowerCase()) && 
+              !ext.description?.toLowerCase().includes(search.toLowerCase())) continue;
+          
+          // Map to DiscoveredAgent format
+          allAgents.push({
+            id: ext.id,
+            agentId: `agent:base:${ext.wallet?.slice(0, 6)}...${ext.wallet?.slice(-3)}`,
+            tokenId: '',
+            chainId: 84532,
+            name: ext.name,
+            description: ext.description || '',
+            wallet: ext.wallet || '',
+            ownerAddress: ext.wallet || '',
+            x402Supported: ext.x402Support ?? true,
+            score: ext.healthy ? 75 : 0,
+            healthStatus: ext.healthy ? 'healthy' : 'unknown',
+            healthScore: ext.healthy ? 75 : 0,
+            services: {
+              a2a: ext.endpoint ? { endpoint: ext.endpoint, version: '1.0' } : undefined,
+            },
+            protocols: ['x402', ...(ext.erc8128Support ? ['ERC-8128'] : [])],
+            feedbackCount: 0,
+            starCount: 0,
+            createdAt: ext.registeredAt || '',
+            pricing: ext.pricing?.generic ? { amount: ext.pricing.generic, network: `eip155:84532`, payTo: ext.wallet } : undefined,
+          });
+        }
+      }
+
+      setAgents(allAgents);
+      setTotal(allAgents.length);
     } catch (err: any) {
       console.error('Registry fetch error:', err);
       setError('Could not load agent registry. Please try again.');
