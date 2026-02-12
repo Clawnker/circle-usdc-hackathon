@@ -942,7 +942,14 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
   const lower = prompt.toLowerCase();
   const planningMode = process.env.PLANNING_MODE || 'capability';
   
-  // 0. Intent Classifier (LLM-powered with cache)
+  // 0. Fast-path: DeFi liquidity queries → silverback (or other external DeFi agent)
+  // Check this BEFORE intent classifier because LLM might misclassify "liquidity" as "research"
+  if (/\b(liquidity|pool|deepest|best)\b/i.test(prompt) && /\b(clawnch|token|base)\b/i.test(prompt)) {
+    console.log(`[Router] DeFi liquidity query detected, routing to silverback`);
+    if (!hiredAgents || hiredAgents.includes('silverback')) return 'silverback';
+  }
+  
+  // 0b. Intent Classifier (LLM-powered with cache)
   try {
     const intent = await classifyIntent(prompt);
     if (intent && intent.confidence >= 0.7) {
@@ -1005,6 +1012,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     if (!hiredAgents || hiredAgents.includes('aura')) return 'aura';
   }
   
+
   // 3. Multi-hop / Complex Query Detection
   if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
     console.log(`[Router] Complex query or multi-hop pattern detected, routing to multi-hop`);
