@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon, Activity, History, ShieldCheck } from 'lucide-react';
-import { useWallet } from '@/contexts/WalletContext';
+// Legacy WalletContext removed — using OnchainKit useAccount instead
 import {
   TaskInput,
   SwarmGraph,
@@ -62,7 +62,7 @@ export default function CommandCenter() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { wallet: connectedWallet } = useWallet();
+  // Legacy wallet context removed
   const { address: onchainAddress, isConnected: isWalletConnected } = useAccount();
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
@@ -560,7 +560,7 @@ export default function CommandCenter() {
         body: JSON.stringify({
           prompt,
           userId: process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
-          walletUsername: connectedWallet?.username || undefined,
+          walletUsername: undefined,
           customInstructions,
           hiredAgents,
           approvedAgent,  // Pass the approved agent if user approved

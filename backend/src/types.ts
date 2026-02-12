@@ -85,7 +85,7 @@ export interface SpecialistResult {
 export interface PaymentInfo {
   amount: string;
   currency: string;
-  network: 'solana' | 'base' | 'ethereum';
+  network: 'solana' | 'base' | 'base-sepolia' | 'ethereum' | string;
   recipient: string;
 }
 
@@ -167,6 +167,8 @@ export interface BankrAction {
   type: 'swap' | 'transfer' | 'balance' | 'dca' | 'monitor';
   status: 'executed' | 'pending' | 'simulated' | 'confirmed' | 'failed';
   txSignature?: string;
+  requiresWalletAction?: boolean;
+  requiresApproval?: boolean;
   details: Record<string, any>;
 }
 

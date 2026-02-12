@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wallet, Copy, Check, ExternalLink, RefreshCw, Activity, ChevronDown, ChevronUp, LogIn, LogOut, User, Loader2 } from 'lucide-react';
-import { useWallet } from '@/contexts/WalletContext';
 import { useAccount, useBalance } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
 
@@ -19,7 +18,6 @@ interface TokenBalance {
 }
 
 const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135';
-const AGENTWALLET_USERNAME = 'claw';
 const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
 
 const TOKEN_CONFIG: Record<string, { icon: string; color: string; decimals: number }> = {
@@ -30,8 +28,6 @@ const TOKEN_CONFIG: Record<string, { icon: string; color: string; decimals: numb
 };
 
 export function WalletPanel({ className = '' }: WalletPanelProps) {
-  const { wallet: userWallet, isConnecting, error: walletError, connect, disconnect } = useWallet();
-  
   // OnchainKit / wagmi connected wallet
   const { address: onchainAddress, isConnected: isOnchainConnected } = useAccount();
   const { data: ethBalance, refetch: refetchEth } = useBalance({
@@ -54,13 +50,11 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showAllTokens, setShowAllTokens] = useState(false);
-  const [showConnect, setShowConnect] = useState(false);
-  const [connectInput, setConnectInput] = useState('');
 
   // Prefer OnchainKit wallet, fall back to legacy AgentWallet, then treasury
-  const displayAddress = isOnchainConnected ? (onchainAddress || '') : (userWallet?.evmAddress || TREASURY_ADDRESS);
-  const displayUsername = isOnchainConnected ? '' : (userWallet?.username || AGENTWALLET_USERNAME);
-  const isUserConnected = isOnchainConnected || !!userWallet;
+  const displayAddress = isOnchainConnected ? (onchainAddress || '') : (onchainAddress || TREASURY_ADDRESS);
+  const displayUsername = isOnchainConnected ? '' : ('');
+  const isUserConnected = isOnchainConnected;
 
   const truncateAddress = (address: string) => {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -155,14 +149,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
     return amount.toFixed(config.decimals);
   };
 
-  const handleConnect = async () => {
-    if (!connectInput.trim()) return;
-    const success = await connect(connectInput.trim());
-    if (success) {
-      setShowConnect(false);
-      setConnectInput('');
-    }
-  };
+  // Legacy AgentWallet connect removed — use OnchainKit ConnectWallet instead
 
   useEffect(() => {
     fetchBalance();
@@ -192,7 +179,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
         <div className="flex items-center gap-1">
           {isUserConnected ? (
             <motion.button
-              onClick={disconnect}
+              onClick={() => {}}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               className="p-1 text-[var(--text-muted)] hover:text-red-400 transition-colors"
@@ -202,7 +189,6 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
             </motion.button>
           ) : (
             <motion.button
-              onClick={() => setShowConnect(!showConnect)}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               className="p-1 text-[var(--accent-cyan)] hover:text-[var(--accent-cyan-bright)] transition-colors"
@@ -228,67 +214,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
         </div>
       </div>
 
-      {/* Connect Wallet Form */}
-      <AnimatePresence>
-        {showConnect && !isUserConnected && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-b border-[var(--glass-border)]"
-          >
-            <div className="p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <User size={14} className="text-[var(--accent-cyan)]" />
-                <span className="text-xs font-medium text-[var(--text-secondary)]">
-                  Connect your AgentWallet
-                </span>
-              </div>
-              <p className="text-[10px] text-[var(--text-muted)]">
-                No extension needed. Enter your AgentWallet username to connect.
-                {' '}
-                <a 
-                  href="https://agentwallet.mcpay.tech/onboarding" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-[var(--accent-cyan)] hover:underline"
-                >
-                  Don&apos;t have one? Create free →
-                </a>
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={connectInput}
-                  onChange={(e) => setConnectInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
-                  placeholder="your-username"
-                  className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-cyan)] transition-colors"
-                  disabled={isConnecting}
-                />
-                <motion.button
-                  onClick={handleConnect}
-                  disabled={isConnecting || !connectInput.trim()}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="px-4 py-2 rounded-lg bg-[var(--accent-cyan)]/20 text-[var(--accent-cyan)] text-sm font-medium border border-[var(--accent-cyan)]/30 hover:bg-[var(--accent-cyan)]/30 transition-colors disabled:opacity-50"
-                >
-                  {isConnecting ? <Loader2 size={14} className="animate-spin" /> : 'Connect'}
-                </motion.button>
-              </div>
-              {walletError && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-xs text-red-400"
-                >
-                  {walletError}
-                </motion.p>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Connect Wallet Form — use OnchainKit ConnectWallet instead */}
 
       {/* Content */}
       <div className="p-4 space-y-4">

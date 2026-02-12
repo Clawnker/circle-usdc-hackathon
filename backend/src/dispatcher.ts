@@ -21,9 +21,7 @@ import {
   DAGPlan,
 } from './types';
 import config from './config';
-import { getBalances, logTransaction, createPaymentRecord } from './x402';
-import { executeDemoPayment } from './x402-protocol';
-import { sendOnChainPayment } from './onchain-payments';
+import { logTransaction, createPaymentRecord, getTreasuryBalance } from './payments';
 import { recordSuccess, recordFailure, getSuccessRate, recordLatency, getReputationScore } from './reputation';
 import { planWithLLM, planDAG } from './llm-planner';
 import { executeDAG, resolveVariables } from './dag-executor';
@@ -447,34 +445,11 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       // 5. Handle x402 payment for this step
       const fee = step.estimatedCost || (config.fees as any)[step.specialist] || 0;
       if (fee > 0 && !dryRun && !paymentProof) {
-        let specialistUrl: string;
-        const externalAgent = isExternalAgent(step.specialist) ? getExternalAgent(step.specialist) : null;
-        
-        if (externalAgent) {
-          const cap = externalAgent.capabilities[0] || 'execute';
-          specialistUrl = (cap === 'security-audit' || cap === 'audit')
-            ? `${externalAgent.endpoint}/audit`
-            : `${externalAgent.endpoint}/execute`;
-        } else {
-          const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
-          specialistUrl = `${baseUrl}/api/specialist/${step.specialist}`;
-        }
-        
-        const paymentResult = await executeDemoPayment(specialistUrl, { prompt: resolvedPrompt }, fee);
-        
-        if (paymentResult.success && paymentResult.txSignature) {
-          const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', step.specialist, paymentResult.txSignature, 'x402');
-          task.payments.push(feeRecord);
-          addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${fee} USDC → ${step.specialist}`);
-        } else {
-          // Fallback: on-chain
-          const onChainResult = await sendOnChainPayment(step.specialist, String(fee));
-          if (onChainResult) {
-            const feeRecord = createPaymentRecord(onChainResult.amount, 'USDC', 'base-sepolia' as any, step.specialist, onChainResult.txHash, 'on-chain');
-            task.payments.push(feeRecord);
-            addMessage(task, 'x402', 'dispatcher', `💰 On-chain Payment: ${fee} USDC → ${step.specialist}`);
-          }
-        }
+        // Log the fee for this step — actual payment handled by delegation or x402 protocol
+        const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base-sepolia', step.specialist, undefined, 'pending');
+        task.payments.push(feeRecord);
+        logTransaction(feeRecord);
+        addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${fee} USDC → ${step.specialist}`);
       }
       
       return {
@@ -571,47 +546,10 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       // Execute x402 payment for this hop (primary), on-chain fallback
       const specialistFee = (config.fees as any)[specialist] || 0;
       if (specialistFee > 0 && !dryRun && !paymentProof) {
-        // For external agents, route x402 to their endpoint
-        let specialistUrl: string;
-        const extAgent = isExternalAgent(specialist) ? getExternalAgent(specialist) : null;
-        
-        if (extAgent) {
-          const cap = extAgent.capabilities[0] || 'execute';
-          specialistUrl = (cap === 'security-audit' || cap === 'audit')
-            ? `${extAgent.endpoint}/audit`
-            : `${extAgent.endpoint}/execute`;
-        } else {
-          const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
-          specialistUrl = `${baseUrl}/api/specialist/${specialist}`;
-        }
-        
-        const paymentResult = await executeDemoPayment(specialistUrl, { prompt: currentContext }, specialistFee);
-
-        if (paymentResult.success && paymentResult.txSignature) {
-          const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist, paymentResult.txSignature, 'x402');
-          task.payments.push(feeRecord);
-          addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${specialistFee} USDC → ${specialist}`);
-          
-          // Use the response from x402/fetch if available
-          if (paymentResult.response) {
-            multiResults[multiResults.length - 1].result = paymentResult.response;
-          }
-        } else {
-          // Fallback: on-chain transfer
-          const onChainResult = await sendOnChainPayment(specialist, String(specialistFee));
-          if (onChainResult) {
-            const feeRecord = createPaymentRecord(
-              onChainResult.amount, 'USDC', 'base-sepolia' as any, specialist, onChainResult.txHash, 'on-chain'
-            );
-            task.payments.push(feeRecord);
-            addMessage(task, 'x402', 'dispatcher', `💰 On-chain Payment: ${specialistFee} USDC → ${specialist} (tx: ${onChainResult.txHash.slice(0, 10)}...)`);
-          } else {
-            const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base', specialist, undefined, 'x402');
-            task.payments.push(feeRecord);
-            logTransaction(feeRecord);
-            addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Pending): ${specialistFee} USDC → ${specialist}`);
-          }
-        }
+        const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base-sepolia', specialist, undefined, 'pending');
+        task.payments.push(feeRecord);
+        logTransaction(feeRecord);
+        addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${specialistFee} USDC → ${specialist}`);
       }
       
       // Update context for next hop
@@ -675,12 +613,12 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
     addMessage(task, 'dispatcher', task.specialist, 'Checking x402 payment...');
     
     // Check balance
-    const balances = await getBalances();
-    console.log(`[Dispatcher] Wallet balances:`, balances);
+    const balances = await getTreasuryBalance();
+    console.log(`[Dispatcher] Treasury balance:`, balances);
     
     // Enforce payment if config flag is set
     const fee = (config.fees as any)[task.specialist] || 0;
-    const usdcBalance = balances.evm?.usdc || balances.solana?.usdc; // Primary: Base
+    const usdcBalance = balances.usdc;
 
     if (config.enforcePayments && usdcBalance < fee) {
       const errorMsg = `Insufficient balance: ${usdcBalance} USDC < ${fee} USDC required for ${task.specialist}`;
@@ -759,51 +697,10 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
   if (fee > 0 && !dryRun && !paymentProof) {
     addMessage(task, 'x402', 'dispatcher', `⏳ Processing ${fee} USDC payment via x402...`);
     
-    // For external agents, route x402 payment to their endpoint directly
-    // For built-in specialists, use our own /api/specialist/:id endpoint
-    let specialistUrl: string;
-    const externalAgent = isExternalAgent(task.specialist) ? getExternalAgent(task.specialist) : null;
-    
-    if (externalAgent) {
-      // External agent: x402 payment goes directly to their audit/execute endpoint
-      const capability = externalAgent.capabilities[0] || 'execute';
-      if (capability === 'security-audit' || capability === 'audit') {
-        specialistUrl = `${externalAgent.endpoint}/audit`;
-      } else {
-        specialistUrl = `${externalAgent.endpoint}/execute`;
-      }
-      console.log(`[Dispatcher] x402 routing to external agent: ${specialistUrl}`);
-    } else {
-      const baseUrl = process.env.BASE_URL || 'https://circle-usdc-hackathon.onrender.com';
-      specialistUrl = `${baseUrl}/api/specialist/${task.specialist}`;
-    }
-    
-    const paymentResult = await executeDemoPayment(specialistUrl, { prompt: task.prompt }, fee);
-
-    if (paymentResult.success && paymentResult.txSignature) {
-      const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist, paymentResult.txSignature, 'x402');
-      task.payments.push(feeRecord);
-      addMessage(task, 'x402', 'dispatcher', `💰 x402 Payment: ${fee} USDC → ${task.specialist}`);
-    } else {
-      // Fallback: real on-chain USDC transfer
-      console.warn(`[Dispatcher] x402 payment failed, falling back to on-chain transfer...`);
-      // For external agents, send to their wallet; for built-in, send to treasury
-      const recipientWallet = externalAgent?.wallet || undefined;
-      const onChainResult = await sendOnChainPayment(task.specialist, String(fee), recipientWallet);
-      
-      if (onChainResult) {
-        const feeRecord = createPaymentRecord(
-          onChainResult.amount, 'USDC', 'base-sepolia' as any, task.specialist, onChainResult.txHash, 'on-chain'
-        );
-        task.payments.push(feeRecord);
-        addMessage(task, 'x402', 'dispatcher', `💰 On-chain Payment: ${fee} USDC → ${task.specialist} (tx: ${onChainResult.txHash.slice(0, 10)}...)`);
-      } else {
-        const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base', task.specialist, undefined, 'x402');
-        task.payments.push(feeRecord);
-        logTransaction(feeRecord);
-        addMessage(task, 'x402', 'dispatcher', `💰 x402 Fee (Pending): ${fee} USDC → ${task.specialist}`);
-      }
-    }
+    const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base-sepolia', task.specialist, undefined, 'pending');
+    task.payments.push(feeRecord);
+    logTransaction(feeRecord);
+    addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${fee} USDC → ${task.specialist}`);
   }
   
   // Log any additional payments from the specialist result

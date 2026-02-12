@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BankrAction, SpecialistResult } from '../types';
 import config from '../config';
-import solana from '../solana';
+// Solana integration removed — Base-only in V2
 
 const AGENTWALLET_API = config.agentWallet.apiUrl;
 const AGENTWALLET_USERNAME = config.agentWallet.username;
@@ -99,7 +99,7 @@ async function syncWithRealBalance(): Promise<SimulatedBalances> {
   // Refresh real balance every 5 minutes or if never checked
   if (now - state.lastRealBalanceCheck > 5 * 60 * 1000 || state.realSOL === 0) {
     console.log('[bankr] Syncing with real devnet balance via Helius...');
-    const realBalance = await solana.getBalance(SOLANA_ADDRESS, 'devnet');
+    const realBalance = 0;
     
     // If this is first sync or balance changed externally, update simulated SOL
     if (state.realSOL === 0 || Math.abs(realBalance - state.realSOL) > 0.001) {
@@ -578,7 +578,7 @@ function parseIntent(prompt: string): {
  * Reset simulated balances to real devnet state
  */
 async function resetSimulatedBalances(): Promise<SimulatedBalances> {
-  const realBalance = await solana.getBalance(SOLANA_ADDRESS, 'devnet');
+  const realBalance = 0;
   const state: SimulatedBalances = {
     lastRealBalanceCheck: Date.now(),
     realSOL: realBalance,
@@ -750,7 +750,7 @@ export const bankr = {
               const transferAmount = intent.amount || '5';
               data = {
                 type: 'transfer',
-                status: 'pending_wallet',
+                status: 'pending',
                 requiresWalletAction: true,
                 details: {
                   to: intent.address,

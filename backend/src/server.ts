@@ -14,11 +14,8 @@ import * as path from 'path';
 import config from './config';
 import { authMiddleware } from './middleware/auth';
 import dispatcher, { dispatch, getTask, getRecentTasks, subscribeToTask, getSpecialists, callSpecialist, executeTask, updateTaskStatus } from './dispatcher';
-import { getBalances, getTransactionLog, logTransaction } from './x402';
-import { getSimulatedBalances } from './specialists/bankr';
+import { getTreasuryBalance, getTransactionLog, logTransaction } from './payments';
 import { submitVote, getVote, getReputationStats, getAllReputation, updateSyncStatus } from './reputation';
-import { syncReputationToChain } from './solana-reputation';
-import solana from './solana';
 import { DispatchRequest, Task, WSEvent, SpecialistType, RegisterRequest } from './types';
 import { registerAgent, getExternalAgents, getExternalAgent, healthCheckAgent, removeAgent } from './external-agents';
 import { costTracker } from './llm-client';
@@ -68,7 +65,6 @@ const rateLimiter = (req: Request, res: Response, next: NextFunction) => {
 app.use(rateLimiter);
 
 // Treasury wallets for receiving payments
-const TREASURY_WALLET_SOLANA = '5xUugg8ysgqpcGneM6qpM2AZ8ZGuMaH5TnGNWdCQC1Z1';
 const TREASURY_WALLET_EVM = '0x676fF3d546932dE6558a267887E58e39f405B135';
 
 // Manual 402 payment middleware (x402-express v2 API incompatible with simple use)
@@ -105,7 +101,6 @@ const payment = (req: Request, res: Response, next: NextFunction) => {
     x402Version: 1,
   });
 };
-const DEVNET_USDC_MINT = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
 const BASE_USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia USDC
 
 // --- PUBLIC ROUTES ---
@@ -186,6 +181,7 @@ app.post('/api/delegate-pay', async (req: Request, res: Response) => {
 
     // Pull USDC from user's wallet to treasury via their on-chain approval
     const hash = await walletClient.writeContract({
+      account,
       address: USDC,
       abi: [{
         name: 'transferFrom',
@@ -215,7 +211,7 @@ app.post('/api/delegate-pay', async (req: Request, res: Response) => {
       txHash: hash,
       status: 'completed',
       method: 'delegated',
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(),
     });
 
     res.json({ 
@@ -727,28 +723,23 @@ app.get('/api/vote/:taskId/:voterId', (req: Request, res: Response) => {
 });
 
 /**
- * Get system status including wallet balances and RPC health
+ * Get system status including wallet balances
  */
 app.get('/status', async (req: Request, res: Response) => {
   try {
-    const [balances, heliusOk] = await Promise.all([
-      getBalances(),
-      solana.testConnection('devnet'),
-    ]);
+    const balances = await getTreasuryBalance();
 
     res.json({
       status: 'ok',
-      wallet: {
-        solana: config.agentWallet.solanaAddress,
-        evm: config.agentWallet.evmAddress,
-        balances,
+      treasury: {
+        address: TREASURY_WALLET_EVM,
+        balances: {
+          eth: balances.eth,
+          usdc: balances.usdc,
+        },
       },
-      rpc: {
-        helius: heliusOk ? 'connected' : 'disconnected',
-        devnet: config.helius.devnet ? 'configured' : 'missing',
-        mainnet: config.helius.mainnet ? 'configured' : 'missing',
-      },
-      specialists: ['magos', 'aura', 'bankr'],
+      chain: 'Base Sepolia (EIP-155:84532)',
+      specialists: ['magos', 'aura', 'bankr', 'seeker', 'scribe'],
       uptime: process.uptime(),
     });
   } catch (error: any) {
@@ -903,14 +894,15 @@ app.get('/v1/specialists', (req: Request, res: Response) => {
 });
 
 /**
- * Get wallet balances
+ * Get treasury wallet balances
  * GET /wallet/balances
  */
 app.get('/wallet/balances', async (req: Request, res: Response) => {
   try {
-    const balances = await getBalances();
+    const balances = await getTreasuryBalance();
     res.json({
-      address: config.agentWallet.solanaAddress,
+      address: TREASURY_WALLET_EVM,
+      chain: 'base-sepolia',
       balances,
     });
   } catch (error: any) {
@@ -925,39 +917,6 @@ app.get('/wallet/balances', async (req: Request, res: Response) => {
 app.get('/wallet/transactions', (req: Request, res: Response) => {
   const transactions = getTransactionLog();
   res.json({ transactions, count: transactions.length });
-});
-
-/**
- * Get Solana balance for any address
- * GET /solana/balance/:address
- */
-app.get('/solana/balance/:address', async (req: Request, res: Response) => {
-  try {
-    const { address } = req.params;
-    const network = (req.query.network as 'devnet' | 'mainnet') || 'mainnet';
-    
-    const balance = await solana.getBalance(address, network);
-    res.json({ address, balance, network });
-  } catch (error: any) {
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-/**
- * Get recent transactions for an address
- * GET /solana/transactions/:address
- */
-app.get('/solana/transactions/:address', async (req: Request, res: Response) => {
-  try {
-    const { address } = req.params;
-    const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
-    const network = (req.query.network as 'devnet' | 'mainnet') || 'mainnet';
-    
-    const transactions = await solana.getRecentTransactions(address, limit, network);
-    res.json({ address, transactions, count: transactions.length, network });
-  } catch (error: any) {
-    res.status(500).json({ error: "Internal server error" });
-  }
 });
 
 /**
@@ -1203,23 +1162,10 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 const PORT = config.port;
 
 async function start() {
-  // Test connections on startup
-  console.log('[Hivemind] Testing connections...');
+  console.log('[Hivemind] Starting up...');
   
-  const heliusOk = await solana.testConnection('devnet');
-  console.log(`[Hivemind] Helius devnet: ${heliusOk ? '✓' : '✗'}`);
-  
-  // Initialize CDP wallet (lazy import, non-critical)
-  try {
-    const { getOrCreateServerWallet } = await import('./cdp-wallet');
-    const cdpClient = await getOrCreateServerWallet();
-    console.log(`[Hivemind] CDP Client initialized ✓`);
-  } catch (err: any) {
-    console.warn(`[Hivemind] CDP initialization failed: ${err.message}`);
-  }
-
-  const balances = await getBalances();
-  console.log(`[Hivemind] AgentWallet balances:`, balances);
+  const balances = await getTreasuryBalance();
+  console.log(`[Hivemind] Treasury balance: ${balances.usdc} USDC, ${balances.eth} ETH`);
 
   server.listen(PORT, () => {
     console.log(`
