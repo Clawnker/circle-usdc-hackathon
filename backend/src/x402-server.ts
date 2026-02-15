@@ -11,6 +11,7 @@
  * 4. Middleware verifies via Coinbase facilitator → settles on-chain → passes through
  */
 
+import { Request, Response } from 'express';
 import { paymentMiddleware, x402ResourceServer } from '@x402/express';
 import { HTTPFacilitatorClient } from '@x402/core/server';
 import { registerExactEvmScheme } from '@x402/evm/exact/server';
@@ -26,8 +27,8 @@ const BASE_SEPOLIA_NETWORK = 'eip155:84532';
  * Build x402 route config from our specialist fee config.
  * Each specialist endpoint gets a payment requirement.
  */
-function buildRoutes(): RoutesConfig {
-  const routes: RoutesConfig = {};
+function buildRoutes(): Record<string, any> {
+  const routes: Record<string, any> = {};
 
   const specialists = ['magos', 'aura', 'bankr', 'scribe', 'seeker', 'sentinel'] as const;
   
@@ -63,12 +64,28 @@ function buildRoutes(): RoutesConfig {
   return routes;
 }
 
+function isProtectedRoute(req: Request): boolean {
+  return req.method === 'POST' && (
+    req.path.startsWith('/api/specialist/') ||
+    req.path.startsWith('/api/query/')
+  );
+}
+
+export function createFailClosedMiddleware(reason = 'x402 middleware unavailable') {
+  return (req: Request, res: Response, next: any) => {
+    if (isProtectedRoute(req)) {
+      return res.status(503).json({
+        error: 'Service temporarily unavailable',
+        reason,
+      });
+    }
+    return next();
+  };
+}
+
 /**
  * Create the x402 payment middleware for Express.
  * Uses the Coinbase-hosted facilitator for verification and settlement.
- * 
- * Fully defensive — if facilitator is unreachable or SDK throws,
- * we return a no-op middleware so the server stays alive.
  */
 export function createX402Middleware() {
   try {
@@ -94,17 +111,17 @@ export function createX402Middleware() {
       {
         title: 'Hivemind Protocol',
         description: 'Pay-per-query AI agent marketplace on Base',
-      },
+      } as any,
       undefined,
-      false, // don't sync facilitator on start — avoids crash if unreachable
+      false,
     );
 
     console.log('[x402] Payment middleware created successfully');
     return middleware;
   } catch (err: any) {
     console.error('[x402] Failed to create middleware:', err.message);
-    // Return a no-op middleware so the server keeps running
-    return (_req: any, _res: any, next: any) => next();
+    // Fail CLOSED for payment-protected routes; do not pass-through.
+    return createFailClosedMiddleware(err.message || 'x402 initialization failed');
   }
 }
 

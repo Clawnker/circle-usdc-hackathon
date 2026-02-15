@@ -1,22 +1,16 @@
 import { Router, Request, Response } from 'express';
-import * as fs from 'fs';
-import * as path from 'path';
 import config from '../config';
+import { authMiddleware } from '../middleware/auth';
 import { registerAgent, getExternalAgents, getExternalAgent, healthCheckAgent, removeAgent } from '../external-agents';
 import { RegisterRequest } from '../types';
+import { validateExternalEndpointUrl, revalidateEndpointResolution } from '../utils/ssrf';
+import { getRegistrations } from '../utils/registrations-cache';
 
 const router = Router();
 
-// Load registrations file path
-const REGISTRATIONS_PATH = path.join(__dirname, '../../../agents/registrations.json');
-
-/**
- * ERC-8004 Agent Registration Files
- * GET /api/agents - List all registered agents
- */
-router.get('/agents', (req: Request, res: Response) => {
+router.get('/agents', async (_req: Request, res: Response) => {
   try {
-    const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_PATH, 'utf8'));
+    const registrations = await getRegistrations();
     res.json({
       agents: registrations.map((r: any, i: number) => ({
         agentId: i + 1,
@@ -30,31 +24,25 @@ router.get('/agents', (req: Request, res: Response) => {
       reputationRegistry: config.erc8004.reputationRegistry || 'pending-deployment',
       chain: 'Base Sepolia (EIP-155:84532)',
     });
-  } catch (error: any) {
-    res.status(500).json({ error: "Internal server error" });
+  } catch (_error: any) {
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-/**
- * GET /api/agents/:id/registration - Get agent registration file
- */
-router.get('/agents/:id/registration', (req: Request, res: Response) => {
+router.get('/agents/:id/registration', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id) - 1;
-    const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_PATH, 'utf8'));
+    const registrations = await getRegistrations();
     if (id < 0 || id >= registrations.length) {
       return res.status(404).json({ error: 'Agent not found' });
     }
     res.json(registrations[id]);
-  } catch (error: any) {
-    res.status(500).json({ error: "Internal server error" });
+  } catch (_error: any) {
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-/**
- * POST /api/agents/register - Register an external agent on the marketplace
- */
-router.post('/agents/register', async (req: Request, res: Response) => {
+router.post('/agents/register', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { name, description, endpoint, wallet, capabilities, pricing, chain } = req.body as RegisterRequest;
 
@@ -64,7 +52,6 @@ router.post('/agents/register', async (req: Request, res: Response) => {
       });
     }
 
-    // Sanitize text inputs (strip HTML tags to prevent XSS)
     const sanitize = (s: string) => s.replace(/<[^>]*>/g, '').trim();
     const cleanName = sanitize(name);
     const cleanDescription = sanitize(description);
@@ -76,36 +63,36 @@ router.post('/agents/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Description too long (max 1000 chars)' });
     }
 
-    // Validate endpoint URL
+    let endpointUrl: URL;
+    let initialIps: string[];
     try {
-      new URL(endpoint);
-    } catch {
-      return res.status(400).json({ error: 'Invalid endpoint URL' });
+      const validated = await validateExternalEndpointUrl(endpoint);
+      endpointUrl = validated.url;
+      initialIps = validated.resolvedIps;
+    } catch (err: any) {
+      return res.status(400).json({ error: err.message || 'Invalid endpoint URL' });
     }
 
-    // Health check the agent before registering
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
     let healthOk = false;
     let agentInfo: any = null;
 
     try {
-      const healthRes = await fetch(`${endpoint.replace(/\/$/, '')}/health`, {
-        signal: controller.signal,
+      await revalidateEndpointResolution(endpointUrl, initialIps);
+      const healthRes = await fetch(`${endpointUrl.toString().replace(/\/$/, '')}/health`, {
+        signal: AbortSignal.timeout(8000),
       });
-      clearTimeout(timeout);
       healthOk = healthRes.ok;
       if (healthOk) agentInfo = await healthRes.json();
     } catch (err: any) {
-      clearTimeout(timeout);
       console.warn(`[Register] Health check failed for ${endpoint}:`, err.message);
     }
 
-    const agent = registerAgent({ name: cleanName, description: cleanDescription, endpoint, wallet, capabilities, pricing, chain });
+    const normalizedEndpoint = endpointUrl.toString().replace(/\/$/, '');
+    const agent = registerAgent({ name: cleanName, description: cleanDescription, endpoint: normalizedEndpoint, wallet, capabilities, pricing, chain });
 
-    // Also try to get /info for richer metadata
     try {
-      const infoRes = await fetch(`${agent.endpoint}/info`, { signal: AbortSignal.timeout(5000) });
+      await revalidateEndpointResolution(endpointUrl, initialIps);
+      const infoRes = await fetch(`${normalizedEndpoint}/info`, { signal: AbortSignal.timeout(5000) });
       if (infoRes.ok) {
         const infoData = await infoRes.json() as any;
         agentInfo = { ...agentInfo, ...infoData };
@@ -121,22 +108,16 @@ router.post('/agents/register', async (req: Request, res: Response) => {
       },
       message: `Agent '${agent.name}' registered successfully. It will now appear in the marketplace.`,
     });
-  } catch (error: any) {
-    res.status(500).json({ error: "Internal server error" });
+  } catch (_error: any) {
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-/**
- * GET /api/agents/external - List all registered external agents
- */
-router.get('/agents/external', (req: Request, res: Response) => {
+router.get('/agents/external', (_req: Request, res: Response) => {
   const agents = getExternalAgents();
   res.json({ agents, count: agents.length });
 });
 
-/**
- * GET /api/agents/external/:id - Get details about a specific external agent
- */
 router.get('/agents/external/:id', (req: Request, res: Response) => {
   const agent = getExternalAgent(req.params.id);
   if (!agent) {
@@ -145,10 +126,7 @@ router.get('/agents/external/:id', (req: Request, res: Response) => {
   res.json(agent);
 });
 
-/**
- * POST /api/agents/external/:id/health - Health check an external agent
- */
-router.post('/agents/external/:id/health', async (req: Request, res: Response) => {
+router.post('/agents/external/:id/health', authMiddleware, async (req: Request, res: Response) => {
   const healthy = await healthCheckAgent(req.params.id);
   const agent = getExternalAgent(req.params.id);
   res.json({
@@ -158,10 +136,7 @@ router.post('/agents/external/:id/health', async (req: Request, res: Response) =
   });
 });
 
-/**
- * DELETE /api/agents/external/:id - Remove an external agent
- */
-router.delete('/agents/external/:id', (req: Request, res: Response) => {
+router.delete('/agents/external/:id', authMiddleware, (req: Request, res: Response) => {
   const removed = removeAgent(req.params.id);
   if (!removed) {
     return res.status(404).json({ error: 'External agent not found' });
