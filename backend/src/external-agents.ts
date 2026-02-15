@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { SpecialistResult, Capability, ExternalAgent, RegisterRequest } from './types';
+import { parsePaymentRequiredHeader } from './utils/payment-required';
 
 // Use require to avoid tsc following transitive type issues
 const { createSignerClient } = require('@slicekit/erc8128');
@@ -403,15 +404,21 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
           }
 
           try {
-            // Parse the payment-required header (base64 JSON)
-            const paymentRequiredHeader = res.headers.get('payment-required');
+            // Parse payment-required header (supports base64 JSON + raw JSON)
+            const paymentRequiredHeader = res.headers.get('payment-required') || res.headers.get('PAYMENT-REQUIRED');
             if (!paymentRequiredHeader) {
               throw new Error('402 response missing payment-required header');
             }
 
-            const paymentRequired = JSON.parse(Buffer.from(paymentRequiredHeader, 'base64').toString());
+            const parsedPayment = parsePaymentRequiredHeader(paymentRequiredHeader);
+            const paymentRequired = parsedPayment.raw;
             console.log(`[ExternalAgents] Payment requirements:`, JSON.stringify({
-              accepts: paymentRequired.accepts?.map((a: any) => ({ scheme: a.scheme, network: a.network, amount: a.amount })),
+              accepts: paymentRequired.accepts?.map((a: any) => ({
+                scheme: a.scheme,
+                network: a.network,
+                amount: a.maxAmountRequired || a.amount,
+                recipient: a.recipient || a.payTo || a.to,
+              })),
               resource: paymentRequired.resource?.url,
             }));
 
@@ -451,9 +458,9 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
               // Attach payment metadata to the response
               successfulResponse._x402Payment = {
                 paid: true,
-                amount: paymentRequired.accepts?.[0]?.amount,
-                network: paymentRequired.accepts?.[0]?.network,
-                payTo: paymentRequired.accepts?.[0]?.payTo,
+                amount: parsedPayment.amount,
+                network: parsedPayment.network,
+                payTo: parsedPayment.recipient,
                 txHash: settleTxHash,
               };
               break; // Success!
