@@ -118,10 +118,11 @@ export function createX402Middleware() {
 
     console.log('[x402] Payment middleware created successfully');
     return middleware;
-  } catch (err: any) {
-    console.error('[x402] Failed to create middleware:', err.message);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'x402 initialization failed';
+    console.error('[x402] Failed to create middleware:', message);
     // Fail CLOSED for payment-protected routes; do not pass-through.
-    return createFailClosedMiddleware(err.message || 'x402 initialization failed');
+    return createFailClosedMiddleware(message);
   }
 }
 

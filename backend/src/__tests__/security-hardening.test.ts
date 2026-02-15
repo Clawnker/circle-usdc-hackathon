@@ -122,4 +122,33 @@ describe('HM-004 async cached registrations loading', () => {
     expect(mockedStat).toHaveBeenCalledTimes(2);
     expect(mockedReadFile).toHaveBeenCalledTimes(1);
   });
+
+  it('deduplicates concurrent reads per mtime generation', async () => {
+    mockedStat.mockResolvedValue({ mtimeMs: 222 });
+
+    let resolveRead: ((value: string) => void) | undefined;
+    mockedReadFile.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveRead = resolve;
+        }),
+    );
+
+    const p1 = getRegistrations();
+    const p2 = getRegistrations();
+    const p3 = getRegistrations();
+
+    await Promise.resolve();
+    expect(mockedReadFile).toHaveBeenCalledTimes(1);
+    expect(resolveRead).toBeDefined();
+
+    resolveRead!('[{"name":"concurrent"}]');
+
+    await expect(Promise.all([p1, p2, p3])).resolves.toEqual([
+      [{ name: 'concurrent' }],
+      [{ name: 'concurrent' }],
+      [{ name: 'concurrent' }],
+    ]);
+    expect(mockedReadFile).toHaveBeenCalledTimes(1);
+  });
 });
