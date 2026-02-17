@@ -13,10 +13,23 @@ import { v4 as uuidv4 } from 'uuid';
 import { SpecialistResult, Capability, ExternalAgent, RegisterRequest } from './types';
 import { parsePaymentRequiredHeader } from './utils/payment-required';
 
-// Use require to avoid tsc following transitive type issues
-const { createSignerClient } = require('@slicekit/erc8128');
-const { x402Client, x402HTTPClient } = require('@x402/core/client');
-const { registerExactEvmScheme } = require('@x402/evm/exact/client');
+// Lazy-load x402/erc8128 deps so Jest (CJS) doesn't choke on ESM-only packages.
+let createSignerClient: any = null;
+let x402Client: any = null;
+let x402HTTPClient: any = null;
+let registerExactEvmScheme: any = null;
+
+function loadPaymentDeps(): void {
+  if (createSignerClient && x402Client && x402HTTPClient && registerExactEvmScheme) return;
+  try {
+    const req = eval('require');
+    ({ createSignerClient } = req('@slicekit/erc8128'));
+    ({ x402Client, x402HTTPClient } = req('@x402/core/client'));
+    ({ registerExactEvmScheme } = req('@x402/evm/exact/client'));
+  } catch (err) {
+    console.warn('[ExternalAgents] Payment deps unavailable in this runtime:', (err as any)?.message || err);
+  }
+}
 
 const DATA_DIR = path.join(__dirname, '../data');
 const EXTERNAL_AGENTS_FILE = path.join(DATA_DIR, 'external-agents.json');
@@ -28,7 +41,11 @@ let signerAddress: string | null = null;
 
 if (privateKey) {
   try {
+    loadPaymentDeps();
     const account = privateKeyToAccount(privateKey as `0x${string}`);
+    if (!createSignerClient) {
+      throw new Error('erc8128 module not loaded');
+    }
     signerAddress = account.address;
     signerClient = createSignerClient({
       chainId: baseSepolia.id,
@@ -48,7 +65,11 @@ let x402HttpClient: any = null;
 
 if (privateKey) {
   try {
+    loadPaymentDeps();
     const account = privateKeyToAccount(privateKey as `0x${string}`);
+    if (!x402Client || !x402HTTPClient || !registerExactEvmScheme) {
+      throw new Error('x402 modules not loaded');
+    }
     const client = new x402Client();
     registerExactEvmScheme(client, { signer: account });
     x402HttpClient = new x402HTTPClient(client);

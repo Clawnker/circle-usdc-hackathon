@@ -146,9 +146,9 @@ describe('DAG Execution Engine', () => {
     const template2 = 'Status: {{step-2.output.status}}';
     expect(resolveVariables(template2, context)).toBe('Status: success');
 
-    // Test non-existent path returns original match
+    // Test non-existent path falls back to step output JSON
     const template3 = '{{step-1.missing}}';
-    expect(resolveVariables(template3, context)).toBe('{{step-1.missing}}');
+    expect(resolveVariables(template3, context)).toBe('{"token":"SOL","price":100}');
   });
 
   test('Step failure skips dependents but runs independent steps', async () => {

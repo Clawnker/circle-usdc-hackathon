@@ -175,10 +175,10 @@ describe('CapabilityMatcher', () => {
   });
 
   describe('Threshold Behavior', () => {
-    it('should exclude agents with similarity below 0.75', async () => {
+    it('should exclude agents with similarity below 0.6', async () => {
       const mockVectorStore = new Map();
-      // Similarity with [1, 0, 0] is 0.707
-      mockVectorStore.set('aura', [[0.707, 0.707, 0]]); 
+      // Similarity with [1, 0, 0] is ~0.55
+      mockVectorStore.set('aura', [[0.55, 0.835, 0]]);
       (matcher as any).vectorStore = mockVectorStore;
 
       jest.spyOn((matcher as any).embeddingService, 'generateEmbedding').mockResolvedValue([1, 0, 0]);

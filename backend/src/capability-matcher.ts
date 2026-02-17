@@ -77,9 +77,11 @@ export class CapabilityMatcher {
     this.embeddingService = new EmbeddingService();
     this.loadManifests();
     this.loadEmbeddings();
-    
-    // Background sync of missing embeddings
-    this.initializeEmbeddings().catch(err => console.error('[CapabilityMatcher] Init failed:', err));
+
+    // Background sync of missing embeddings (skip in tests to avoid open handles/noise)
+    if (process.env.NODE_ENV !== 'test') {
+      this.initializeEmbeddings().catch(err => console.error('[CapabilityMatcher] Init failed:', err));
+    }
   }
 
   /**
@@ -165,6 +167,16 @@ export class CapabilityMatcher {
     }
   }
 
+  private async callGeminiFlash(systemPrompt: string, prompt: string): Promise<UserIntent> {
+    const { data } = await chatJSON(systemPrompt, prompt, {
+      model: MODELS.fast,
+      caller: 'capability-matcher',
+      temperature: 0.1,
+      maxTokens: 500,
+    });
+    return data as UserIntent;
+  }
+
   /**
    * Extract user intent from prompt using LLM
    */
@@ -199,18 +211,16 @@ Example: "Audit this contract 0x123... on Base"
 }`;
 
     try {
-      const { data } = await chatJSON(systemPrompt, prompt, {
-        model: MODELS.fast,
-        caller: 'capability-matcher',
-        temperature: 0.1,
-        maxTokens: 500,
-      });
+      const data = await this.callGeminiFlash(systemPrompt, prompt);
+      if (typeof data === 'string') {
+        return JSON.parse(data) as UserIntent;
+      }
       return data;
     } catch (err) {
       console.error('[CapabilityMatcher] Intent extraction failed:', err);
       return {
         category: 'generic',
-        requiredCapabilities: ['An internal error occurred during intent extraction.'],
+        requiredCapabilities: [prompt || 'An internal error occurred during intent extraction.'],
         constraints: {},
         entities: {}
       };
