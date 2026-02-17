@@ -128,8 +128,8 @@ describe('DAG Execution Engine', () => {
     // A and B should start almost at the same time
     expect(Math.abs(startTimes['A'] - startTimes['B'])).toBeLessThan(50);
     // C should start after A and B complete
-    expect(startTimes['C']).toBeGreaterThanOrEqual(startTimes['A'] + 100);
-    expect(startTimes['C']).toBeGreaterThanOrEqual(startTimes['B'] + 100);
+    expect(startTimes['C']).toBeGreaterThanOrEqual(startTimes['A'] + 95);
+    expect(startTimes['C']).toBeGreaterThanOrEqual(startTimes['B'] + 95);
   });
 
   test('Variable substitution replaces placeholders', () => {

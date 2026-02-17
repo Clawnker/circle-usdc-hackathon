@@ -16,6 +16,15 @@ export interface LedgerStateV1 {
   sequence: number;
   balances: Record<string, number>;
   appliedMessageIds: string[];
+  lastCausationIdByAccount?: Record<string, string>;
+}
+
+export interface LedgerReconcileResult {
+  state: LedgerStateV1;
+  applied: string[];
+  duplicates: string[];
+  deferred: string[];
+  errors: Array<{ messageId: string; reason: string }>;
 }
 
 export class LedgerTransitionError extends Error {
@@ -31,6 +40,7 @@ export function createLedgerStateV1(): LedgerStateV1 {
     sequence: 0,
     balances: {},
     appliedMessageIds: [],
+    lastCausationIdByAccount: {},
   };
 }
 
@@ -67,6 +77,12 @@ export function applyLedgerTransitionV1(
 
   validatePayload(envelope.payload);
 
+  if (envelope.causality?.sourceSeq !== undefined && envelope.causality.sourceSeq !== envelope.payload.seq) {
+    throw new LedgerTransitionError(
+      `Causality/source sequence mismatch sourceSeq=${envelope.causality.sourceSeq}, payload.seq=${envelope.payload.seq}`
+    );
+  }
+
   if (envelope.payload.seq !== state.sequence + 1) {
     throw new LedgerTransitionError(
       `Out-of-order transition seq=${envelope.payload.seq}, expected=${state.sequence + 1}`
@@ -84,10 +100,50 @@ export function applyLedgerTransitionV1(
 
   balances[envelope.payload.account] = nextBalance;
 
+  const lastCausationIdByAccount = {
+    ...(state.lastCausationIdByAccount || {}),
+    ...(envelope.causality?.causationId ? { [envelope.payload.account]: envelope.causality.causationId } : {}),
+  };
+
   return {
     version: LEDGER_STATE_VERSION_V1,
     sequence: envelope.payload.seq,
     balances: cloneBalances(balances),
     appliedMessageIds: [...state.appliedMessageIds, envelope.messageId],
+    lastCausationIdByAccount,
   };
+}
+
+export function reconcileLedgerTransitionsV1(
+  state: LedgerStateV1,
+  envelopes: HivemindEnvelopeV1<LedgerTransitionPayload>[]
+): LedgerReconcileResult {
+  let current = state;
+  const applied: string[] = [];
+  const duplicates: string[] = [];
+  const deferred: string[] = [];
+  const errors: Array<{ messageId: string; reason: string }> = [];
+
+  const queue = [...envelopes].sort((a, b) => a.payload.seq - b.payload.seq);
+
+  for (const envelope of queue) {
+    if (current.appliedMessageIds.includes(envelope.messageId) || applied.includes(envelope.messageId)) {
+      duplicates.push(envelope.messageId);
+      continue;
+    }
+
+    if (envelope.payload.seq > current.sequence + 1) {
+      deferred.push(envelope.messageId);
+      continue;
+    }
+
+    try {
+      current = applyLedgerTransitionV1(current, envelope);
+      applied.push(envelope.messageId);
+    } catch (error: any) {
+      errors.push({ messageId: envelope.messageId, reason: error?.message || 'unknown error' });
+    }
+  }
+
+  return { state: current, applied, duplicates, deferred, errors };
 }

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { createHash } from 'crypto';
 import dispatcher, { dispatch, getTask, getRecentTasks, executeTask, updateTaskStatus, routePrompt, isComplexQuery } from '../dispatcher';
 import { DispatchRequest, SpecialistType } from '../types';
 import config from '../config';
@@ -7,8 +8,28 @@ import { validateAndConsumePaymentProof } from '../payments';
 import { getExternalAgent } from '../external-agents';
 import { parseEnvelopeV1 } from '../hivemind/envelope';
 import { applyLedgerTransitionV1, createLedgerStateV1, LedgerTransitionPayload } from '../hivemind/ledger';
+import { dispatchIdempotencyStore } from '../reliability/idempotency-store';
 
 const router = Router();
+
+function computeDispatchFingerprint(input: Record<string, any>): string {
+  const normalized = JSON.stringify({
+    prompt: String(input.prompt || '').trim(),
+    userId: input.userId || 'anonymous',
+    preferredSpecialist: input.preferredSpecialist || null,
+    dryRun: Boolean(input.dryRun),
+    hiredAgents: Array.isArray(input.hiredAgents) ? [...input.hiredAgents].sort() : [],
+    approvedAgent: input.approvedAgent || null,
+    previewOnly: Boolean(input.previewOnly),
+  });
+  return createHash('sha256').update(normalized).digest('hex');
+}
+
+function resolveIdempotencyKey(req: Request, fallbackFingerprint: string): string {
+  const headerKey = req.header('x-idempotency-key');
+  const envelopeMessageId = req.body?.hivemindEnvelope?.messageId;
+  return String(headerKey || envelopeMessageId || `dispatch:${fallbackFingerprint}`);
+}
 
 /**
  * Route preview — returns specialist + fee without executing.
@@ -108,6 +129,35 @@ const dispatchHandler = async (req: Request, res: Response) => {
       }
     }
 
+    const effectiveUserId = userId || (req as any).user?.id || 'anonymous';
+    const fingerprint = computeDispatchFingerprint({
+      prompt,
+      userId: effectiveUserId,
+      preferredSpecialist,
+      dryRun,
+      hiredAgents,
+      approvedAgent,
+      previewOnly,
+    });
+    const idempotencyKey = resolveIdempotencyKey(req, fingerprint);
+
+    const idempotencyEnabled = process.env.RELIABILITY_ENABLE_IDEMPOTENCY !== 'false';
+    if (idempotencyEnabled) {
+      const reservation = dispatchIdempotencyStore.reserve(idempotencyKey, fingerprint);
+      if (reservation.duplicate) {
+        const existing = reservation.record;
+        if (existing.response) {
+          return res.status(202).json(existing.response);
+        }
+        return res.status(202).json({
+          taskId: existing.taskId || '',
+          status: existing.status === 'failed' ? 'failed' : 'pending',
+          specialist: req.body?.preferredSpecialist || 'general',
+          idempotentReplay: true,
+        });
+      }
+    }
+
     const paymentProof = req.headers['x-payment-proof'] as string | undefined;
     
     // Validate payment proof format (must be a valid tx hash if provided)
@@ -122,7 +172,7 @@ const dispatchHandler = async (req: Request, res: Response) => {
     
     const result = await dispatch({
       prompt,
-      userId: userId || (req as any).user?.id || 'anonymous',
+      userId: effectiveUserId,
       preferredSpecialist,
       dryRun,
       callbackUrl,
@@ -131,6 +181,10 @@ const dispatchHandler = async (req: Request, res: Response) => {
       previewOnly,
       paymentProof,  // Skip internal payment if user already paid via delegation
     });
+
+    if (idempotencyEnabled) {
+      dispatchIdempotencyStore.complete(idempotencyKey, result, result.taskId);
+    }
 
     res.status(202).json(result);
   } catch (error: any) {

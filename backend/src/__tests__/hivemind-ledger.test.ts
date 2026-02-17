@@ -4,6 +4,7 @@ import {
   createLedgerStateV1,
   LedgerTransitionError,
   LedgerTransitionPayload,
+  reconcileLedgerTransitionsV1,
 } from '../hivemind/ledger';
 
 function transitionEnvelope(params: {
@@ -140,5 +141,38 @@ describe('deterministic ledger transition engine', () => {
     const duplicate = transitionEnvelope({ messageId: 'm12', seq: 2, op: 'credit', account: 'alice', amount: 5 });
 
     expect(() => applyLedgerTransitionV1(state, duplicate)).toThrow(LedgerTransitionError);
+  });
+
+  it('accepts causality metadata and tracks last causation id', () => {
+    const envelope = parseEnvelopeV1<LedgerTransitionPayload>({
+      version: 1,
+      messageId: 'causal-1',
+      createdAt: '2026-02-17T20:00:00Z',
+      source: 'scheduler',
+      type: 'ledger.transition',
+      causality: { traceId: 'trace-1', causationId: 'cause-1', sourceSeq: 1 },
+      payload: { seq: 1, op: 'credit', account: 'alice', amount: 10 },
+    });
+
+    const state = applyLedgerTransitionV1(createLedgerStateV1(), envelope);
+    expect(state.lastCausationIdByAccount?.alice).toBe('cause-1');
+  });
+
+  it('reconciles out-of-order and duplicate envelopes deterministically', () => {
+    const envelopes = [
+      transitionEnvelope({ messageId: 'r2', seq: 2, op: 'credit', account: 'alice', amount: 10 }),
+      transitionEnvelope({ messageId: 'r1', seq: 1, op: 'credit', account: 'alice', amount: 5 }),
+      transitionEnvelope({ messageId: 'r1', seq: 1, op: 'credit', account: 'alice', amount: 5 }),
+      transitionEnvelope({ messageId: 'r4', seq: 4, op: 'credit', account: 'bob', amount: 1 }),
+      transitionEnvelope({ messageId: 'r3', seq: 3, op: 'debit', account: 'alice', amount: 2 }),
+    ];
+
+    const result = reconcileLedgerTransitionsV1(createLedgerStateV1(), envelopes);
+    expect(result.applied).toEqual(['r1', 'r2', 'r3', 'r4']);
+    expect(result.duplicates).toContain('r1');
+    expect(result.deferred).toEqual([]);
+    expect(result.state.sequence).toBe(4);
+    expect(result.state.balances.alice).toBe(13);
+    expect(result.state.balances.bob).toBe(1);
   });
 });

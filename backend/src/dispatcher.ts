@@ -36,6 +36,9 @@ import aura from './specialists/aura';
 import bankr from './specialists/bankr';
 import scribe from './specialists/scribe';
 import seeker from './specialists/seeker';
+import { processingIdempotencyStore } from './reliability/idempotency-store';
+import { withRetry, isTransientError } from './reliability/retry';
+import { enqueueDlq } from './reliability/dlq';
 
 // Persistence settings
 const DATA_DIR = path.join(__dirname, '../data');
@@ -468,6 +471,20 @@ function getSpecialistDisplayName(specialist: SpecialistType): string {
  * Execute a task
  */
 export async function executeTask(task: Task, dryRun: boolean, paymentProof?: string): Promise<void> {
+  const processingKey = `task:${task.id}:execute`;
+  const processingFingerprint = `${task.id}:${task.updatedAt.toISOString()}`;
+  const processingReservation = processingIdempotencyStore.reserve(processingKey, processingFingerprint, task.id);
+  if (processingReservation.duplicate && processingReservation.record.status === 'in_progress') {
+    console.log(`[Dispatcher] Skipping duplicate executeTask for ${task.id} (already in progress)`);
+    return;
+  }
+
+  if (task.status === 'completed' || task.status === 'failed') {
+    console.log(`[Dispatcher] Skipping executeTask for ${task.id} (terminal status: ${task.status})`);
+    processingIdempotencyStore.complete(processingKey, { status: task.status }, task.id);
+    return;
+  }
+
   // Phase 2b: Multi-step DAG Execution
   if (task.dagPlan && task.dagPlan.steps.length > 1) {
     updateTaskStatus(task, 'processing');
@@ -956,6 +973,11 @@ export function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<
   }
   tasks.set(task.id, task);
   saveTasks();
+
+  if (status === 'completed' || status === 'failed') {
+    processingIdempotencyStore.complete(`task:${task.id}:execute`, { status, updatedAt: task.updatedAt.toISOString() }, task.id);
+  }
+
   emitTaskUpdate(task);
 }
 
@@ -1236,30 +1258,46 @@ async function checkPaymentRequired(specialist: SpecialistType): Promise<boolean
  */
 export async function callSpecialistGated(specialistId: string, prompt: string, context?: any): Promise<SpecialistResult> {
   const startTime = Date.now();
-  
+  const retryEnabled = process.env.RELIABILITY_ENABLE_RETRY !== 'false';
+
   try {
-    // In a real production app, we would use axios to call http://localhost:PORT/api/specialist/:id
-    // But since we are server-side and want to demo the flow, we will:
-    // 1. Manually check if it's a 402 (payment required)
-    // 2. If 402, simulate/execute payment
-    // 3. Then call the actual specialist
-    
     console.log(`[x402-Client] Requesting gated access to ${specialistId}...`);
-    
-    // Simulate checking the x402-gated endpoint
-    // In actual implementation: const response = await axios.post(`/api/specialist/${specialistId}`, { prompt });
-    
-    // For demo purposes, we call the specialist directly but log the x402 flow
-    const result = await callSpecialist(specialistId as SpecialistType, prompt, context);
-    
+
+    const invoke = async () => {
+      const result = await callSpecialist(specialistId as SpecialistType, prompt, context);
+      if (!result.success && isTransientError(result?.data?.error || result?.data?.details?.error || '')) {
+        throw new Error(String(result?.data?.error || result?.data?.details?.error || 'Transient specialist failure'));
+      }
+      return result;
+    };
+
+    const result = retryEnabled
+      ? await withRetry(invoke, {
+          onRetry: ({ attempt, error, delayMs }) => {
+            console.warn(`[Retry] ${specialistId} attempt ${attempt} failed: ${error?.message || error}. Retrying in ${delayMs}ms`);
+          },
+        })
+      : await invoke();
+
     return {
       ...result,
       executionTimeMs: Date.now() - startTime
     };
   } catch (error: any) {
+    const transient = isTransientError(error);
+    if (transient) {
+      enqueueDlq({
+        taskId: context?.id,
+        specialist: specialistId,
+        reason: error?.message || 'Transient specialist failure',
+        transient,
+        payload: { prompt: String(prompt).slice(0, 500) },
+      });
+    }
+
     return {
       success: false,
-      data: { error: error.message },
+      data: { error: error.message, transient },
       timestamp: new Date(),
       executionTimeMs: Date.now() - startTime
     };

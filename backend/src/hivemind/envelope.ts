@@ -1,5 +1,12 @@
 export const ENVELOPE_VERSION_V1 = 1 as const;
 
+export interface EnvelopeCausalityV1 {
+  traceId?: string;
+  correlationId?: string;
+  causationId?: string;
+  sourceSeq?: number;
+}
+
 export interface HivemindEnvelopeV1<TPayload = unknown> {
   version: typeof ENVELOPE_VERSION_V1;
   messageId: string;
@@ -7,6 +14,7 @@ export interface HivemindEnvelopeV1<TPayload = unknown> {
   source: string;
   type: string;
   payload: TPayload;
+  causality?: EnvelopeCausalityV1;
   meta?: Record<string, unknown>;
 }
 
@@ -19,6 +27,7 @@ export interface LegacyEnvelope<TPayload = unknown> {
   type?: string;
   source?: string;
   payload?: TPayload;
+  causality?: EnvelopeCausalityV1;
   meta?: Record<string, unknown>;
 }
 
@@ -51,6 +60,23 @@ function normalizeIsoDate(value: unknown, field: string): string {
   return parsed.toISOString();
 }
 
+function parseCausality(value: unknown): EnvelopeCausalityV1 | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const out: EnvelopeCausalityV1 = {};
+  if (value.traceId !== undefined) out.traceId = ensureNonEmptyString(value.traceId, 'causality.traceId');
+  if (value.correlationId !== undefined) out.correlationId = ensureNonEmptyString(value.correlationId, 'causality.correlationId');
+  if (value.causationId !== undefined) out.causationId = ensureNonEmptyString(value.causationId, 'causality.causationId');
+  if (value.sourceSeq !== undefined) {
+    if (!Number.isInteger(value.sourceSeq) || Number(value.sourceSeq) <= 0) {
+      throw new EnvelopeValidationError('Invalid envelope field: causality.sourceSeq');
+    }
+    out.sourceSeq = Number(value.sourceSeq);
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 /**
  * Backward-compatible parser for legacy (versionless) payloads and v1 envelopes.
  */
@@ -70,6 +96,7 @@ export function parseEnvelopeV1<TPayload = unknown>(input: unknown): HivemindEnv
       source: ensureNonEmptyString(legacy.source ?? 'legacy', 'source'),
       type: ensureNonEmptyString(legacy.type ?? legacy.kind, 'type'),
       payload: legacy.payload as TPayload,
+      ...(parseCausality(legacy.causality ?? legacy.meta?.causality) ? { causality: parseCausality(legacy.causality ?? legacy.meta?.causality) } : {}),
       ...(legacy.meta ? { meta: legacy.meta } : {}),
     };
   }
@@ -85,6 +112,9 @@ export function parseEnvelopeV1<TPayload = unknown>(input: unknown): HivemindEnv
     source: ensureNonEmptyString(input.source, 'source'),
     type: ensureNonEmptyString(input.type, 'type'),
     payload: input.payload as TPayload,
+    ...(parseCausality(input.causality ?? (isRecord(input.meta) ? input.meta.causality : undefined))
+      ? { causality: parseCausality(input.causality ?? (isRecord(input.meta) ? input.meta.causality : undefined)) }
+      : {}),
     ...(isRecord(input.meta) ? { meta: input.meta } : {}),
   };
 }
