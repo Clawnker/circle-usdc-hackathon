@@ -5,6 +5,8 @@ import config from '../config';
 import { planDAG } from '../llm-planner';
 import { validateAndConsumePaymentProof } from '../payments';
 import { getExternalAgent } from '../external-agents';
+import { parseEnvelopeV1 } from '../hivemind/envelope';
+import { applyLedgerTransitionV1, createLedgerStateV1, LedgerTransitionPayload } from '../hivemind/ledger';
 
 const router = Router();
 
@@ -88,6 +90,22 @@ const dispatchHandler = async (req: Request, res: Response) => {
     // Cap prompt length to prevent abuse (10k chars max)
     if (typeof prompt === 'string' && prompt.length > 10000) {
       return res.status(400).json({ error: 'Prompt too long (max 10,000 characters)' });
+    }
+
+    // Optional lightweight Hivemind envelope+ledger validation path for Sprint 1 rollout.
+    // No-op unless caller explicitly requests validation.
+    if (req.body?.validateHivemindEnvelope === true && req.body?.hivemindEnvelope) {
+      try {
+        const envelope = parseEnvelopeV1<LedgerTransitionPayload>(req.body.hivemindEnvelope);
+        if (envelope.type === 'ledger.transition') {
+          applyLedgerTransitionV1(createLedgerStateV1(), envelope);
+        }
+      } catch (e: any) {
+        return res.status(400).json({
+          error: 'Invalid hivemindEnvelope',
+          detail: e?.message || 'Envelope validation failed',
+        });
+      }
     }
 
     const paymentProof = req.headers['x-payment-proof'] as string | undefined;
