@@ -18,6 +18,9 @@ import { authMiddleware } from '../middleware/auth';
 import { createFailClosedMiddleware } from '../x402-server';
 import { getRegistrations, resetRegistrationsCacheForTest } from '../utils/registrations-cache';
 import { isUnsafeIp, revalidateEndpointResolution, validateExternalEndpointUrl } from '../utils/ssrf';
+import { computeDispatchSignature, dispatchGuardMiddleware, resetDispatchGuardStateForTest } from '../middleware/dispatch-guard';
+import { evaluateDispatchRollout } from '../reliability/rollout-guard';
+import { getDispatchSloSnapshot, recordDispatchSlo, resetDispatchSloForTest } from '../reliability/slo';
 
 function makeRes() {
   const res: any = {
@@ -150,5 +153,125 @@ describe('HM-004 async cached registrations loading', () => {
       [{ name: 'concurrent' }],
     ]);
     expect(mockedReadFile).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('HM-005 dispatch integrity + strict auth guard', () => {
+  beforeEach(() => {
+    delete process.env.DISPATCH_HMAC_SECRET;
+    delete process.env.DISPATCH_REQUIRE_AUTH;
+    resetDispatchGuardStateForTest();
+  });
+
+  it('blocks public user when strict dispatch auth is enabled', () => {
+    process.env.DISPATCH_REQUIRE_AUTH = 'true';
+    const req: any = {
+      method: 'POST',
+      path: '/dispatch',
+      headers: {},
+      header(name: string) { return this.headers[name.toLowerCase()]; },
+      body: {},
+      user: { id: 'demo-user', authMethod: 'public' },
+    };
+    const res = makeRes();
+    const next = jest.fn();
+
+    dispatchGuardMiddleware(req, res as any, next);
+    expect(res.statusCode).toBe(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('accepts valid HMAC signature and rejects nonce replay', () => {
+    process.env.DISPATCH_HMAC_SECRET = 'test-secret';
+    const now = Date.now();
+    const body = { prompt: 'hello' };
+    const req: any = {
+      method: 'POST',
+      path: '/dispatch',
+      headers: {
+        'x-dispatch-timestamp': String(now),
+        'x-dispatch-nonce': 'nonce-1234',
+      },
+      header(name: string) { return this.headers[name.toLowerCase()]; },
+      body,
+      user: { id: 'abc', authMethod: 'api-key' },
+    };
+
+    req.headers['x-dispatch-signature'] = computeDispatchSignature({
+      method: req.method,
+      path: req.path,
+      timestamp: req.headers['x-dispatch-timestamp'],
+      nonce: req.headers['x-dispatch-nonce'],
+      body,
+      secret: process.env.DISPATCH_HMAC_SECRET,
+    });
+
+    const res = makeRes();
+    const next = jest.fn();
+    dispatchGuardMiddleware(req, res as any, next);
+    expect(next).toHaveBeenCalled();
+
+    const replayRes = makeRes();
+    const replayNext = jest.fn();
+    dispatchGuardMiddleware(req, replayRes as any, replayNext);
+    expect(replayRes.statusCode).toBe(409);
+    expect(replayNext).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed nonce and signature format before verification', () => {
+    process.env.DISPATCH_HMAC_SECRET = 'test-secret';
+    const req: any = {
+      method: 'POST',
+      path: '/dispatch',
+      headers: {
+        'x-dispatch-timestamp': String(Date.now()),
+        'x-dispatch-nonce': 'bad nonce with spaces',
+        'x-dispatch-signature': 'abc123',
+      },
+      header(name: string) { return this.headers[name.toLowerCase()]; },
+      body: { prompt: 'hi' },
+      user: { id: 'abc', authMethod: 'api-key' },
+    };
+
+    const res = makeRes();
+    const next = jest.fn();
+    dispatchGuardMiddleware(req, res as any, next);
+    expect(res.statusCode).toBe(400);
+    expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe('HM-006 rollout + SLO hooks', () => {
+  beforeEach(() => {
+    delete process.env.DISPATCH_KILL_SWITCH;
+    delete process.env.DISPATCH_ROLLOUT_MODE;
+    delete process.env.DISPATCH_CANARY_PERCENT;
+    delete process.env.DISPATCH_CANARY_ALLOWLIST;
+    resetDispatchSloForTest();
+  });
+
+  it('supports kill-switch rollback and allowlist canary', () => {
+    process.env.DISPATCH_KILL_SWITCH = 'true';
+    expect(evaluateDispatchRollout('user-1').allowed).toBe(false);
+
+    process.env.DISPATCH_KILL_SWITCH = 'false';
+    process.env.DISPATCH_ROLLOUT_MODE = 'canary';
+    process.env.DISPATCH_CANARY_PERCENT = '0';
+    process.env.DISPATCH_CANARY_ALLOWLIST = 'vip-user';
+
+    expect(evaluateDispatchRollout('regular-user').allowed).toBe(false);
+    expect(evaluateDispatchRollout('vip-user').allowed).toBe(true);
+  });
+
+  it('captures dispatch SLO snapshot', () => {
+    for (let i = 0; i < 20; i++) {
+      recordDispatchSlo(i < 2 ? 'failure' : 'success', i < 2 ? 5000 : 120);
+    }
+
+    const snapshot = getDispatchSloSnapshot();
+    expect(snapshot.total).toBe(20);
+    expect(snapshot.failures).toBe(2);
+    expect(snapshot.errorRate).toBeGreaterThan(0);
+    expect(snapshot.p95Ms).toBeGreaterThan(0);
   });
 });
