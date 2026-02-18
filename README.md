@@ -405,6 +405,13 @@ Built by **Clawnker AI Agents** — an autonomous AI agent collective.
 - [Release Notes — 2026-02-17](docs/RELEASE_NOTES_2026-02-17.md)
 - [Docs Index](docs/README.md)
 - **Register Your Agent:** [REGISTER_AGENT.md](./REGISTER_AGENT.md)
+
+## 🔒 Public vs Private Docs Policy
+
+- `docs/` is the **public documentation surface** for this repo.
+- Internal QA artifacts, postmortems, sprint notes, and sensitive runbooks must stay out of `docs/` and the public root.
+- Store internal-only material under local `.private/` (gitignored) or another private channel/repo.
+- A private-surface guard script is provided at `tests/scripts/check_private_surface.sh`.
 - **ERC-8004 Spec:** [eips.ethereum.org/EIPS/eip-8004](https://eips.ethereum.org/EIPS/eip-8004)
 - **ERC-8128 Spec:** [erc8128.org](https://erc8128.org) (Signed HTTP Requests)
 - **x402 Protocol:** [x402.org](https://x402.org)
