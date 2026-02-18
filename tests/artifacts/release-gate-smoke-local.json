@@ -1,0 +1,71 @@
+{
+  "startedAt": "2026-02-18T03:45:05.422Z",
+  "baseUrl": "http://localhost:3000",
+  "networkMode": "local",
+  "health": false,
+  "latencyBudgetMs": 2500,
+  "p95LatencyMs": 6,
+  "pass": false,
+  "failureSlices": {
+    "http": 3,
+    "latency": 0,
+    "routing": 3,
+    "payload": 3
+  },
+  "results": [
+    {
+      "case": "routing-social",
+      "prompt": "What tokens are people talking about on Base today?",
+      "expected": [
+        "aura"
+      ],
+      "specialist": "",
+      "ok": false,
+      "status": 404,
+      "latencyMs": 6,
+      "routePass": false,
+      "payloadPass": false,
+      "latencyPass": true,
+      "raw": {
+        "message": "Not found"
+      }
+    },
+    {
+      "case": "routing-payment",
+      "prompt": "Approve 25 USDC for router spending",
+      "expected": [
+        "bankr",
+        "multi-hop"
+      ],
+      "specialist": "",
+      "ok": false,
+      "status": 404,
+      "latencyMs": 6,
+      "routePass": false,
+      "payloadPass": false,
+      "latencyPass": true,
+      "raw": {
+        "message": "Not found"
+      }
+    },
+    {
+      "case": "readability",
+      "prompt": "Summarize Base ecosystem opportunities in bullet points for this week",
+      "expected": [
+        "general",
+        "scribe",
+        "multi-hop"
+      ],
+      "specialist": "",
+      "ok": false,
+      "status": 404,
+      "latencyMs": 2,
+      "routePass": false,
+      "payloadPass": false,
+      "latencyPass": true,
+      "raw": {
+        "message": "Not found"
+      }
+    }
+  ]
+}

@@ -70,11 +70,19 @@ Decision notes
 ---
 
 ## Sprint 4.4 — Network Mode UX
-- [ ] Not started in this cycle
+- [x] Added user-facing network-mode toggle (testnet/mainnet) in dispatch header
+- [x] Added sticky network preference persistence (`localStorage`)
+- [x] Added explicit network badges/labels in query and payment surfaces
+- [x] Threaded selected network through route-preview/dispatch requests and result history metadata
+- [x] Added guardrails: mainnet mode blocks risky payment intents in current rollout unless explicitly enabled (`ENABLE_MAINNET_DISPATCH`/`NEXT_PUBLIC_ENABLE_MAINNET_PAYMENTS`)
+- [x] Acceptance criteria met
 
 ## Sprint 4.5 — Performance + Observability
-- [~] Partial (route cache latency optimization landed)
-- [ ] Remaining observability/release gating enhancements pending
+- [x] Added lightweight release-gate smoke script with routing/readability/payment-preview checks
+- [x] Added measurable latency budget check + p95 summary
+- [x] Added failure-slice summary (http/latency/routing/payload)
+- [x] Added local/prod artifact generation under `tests/artifacts/`
+- [x] Acceptance criteria met (with explicit local/prod distinction)
 
 ---
 
@@ -107,3 +115,7 @@ Prod checks (read-only/live)
 
 Notes
 - Prod deploy status depends on separate CI/CD deployment of this branch state.
+- Release-gate smoke artifacts generated:
+  - `tests/artifacts/release-gate-smoke-local.json` (local backend unavailable in this run; expected fail slice for HTTP/routing/payload)
+  - `tests/artifacts/release-gate-smoke-testnet.json` (prod testnet run; health pass, route+latency slices captured)
+- Current prod smoke indicates latency budget/routing expectation misses on selected prompts; script now exposes these slices for release decisioning.

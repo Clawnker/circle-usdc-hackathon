@@ -56,6 +56,8 @@ Shipped:
 - Sprint 4.2 advanced: readability fallback formatting improved; response-quality regression tests added.
 - Sprint 4.3 advanced: x402 client reliability hardened for malformed/non-JSON payment responses and timeout handling.
 - Sprint 4.5 partial: route-level cache optimization added for repeated prompt latency reduction.
+- Sprint 4.4 completed: network-mode UX toggle (testnet/mainnet), sticky preference, explicit network labeling, and execution guardrails for unsupported payment rail.
+- Sprint 4.5 completed: release-gate smoke script added with latency + failure-slice summaries and local/prod artifact output.
 - Execution artifact: `docs/PHASE4_SPRINT_EXECUTION_2026-02-17.md`.
 
 

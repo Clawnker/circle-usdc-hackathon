@@ -1,0 +1,89 @@
+{
+  "startedAt": "2026-02-18T03:46:15.346Z",
+  "baseUrl": "https://circle-usdc-hackathon.onrender.com",
+  "networkMode": "mainnet",
+  "health": true,
+  "latencyBudgetMs": 2500,
+  "p95LatencyMs": 3521,
+  "pass": false,
+  "failureSlices": {
+    "http": 0,
+    "latency": 2,
+    "routing": 1,
+    "payload": 0
+  },
+  "results": [
+    {
+      "case": "routing-social",
+      "prompt": "What tokens are people talking about on Base today?",
+      "expected": [
+        "aura"
+      ],
+      "specialist": "aura",
+      "network": "base-sepolia",
+      "fee": 0.1,
+      "ok": true,
+      "status": 200,
+      "latencyMs": 589,
+      "routePass": true,
+      "payloadPass": true,
+      "latencyPass": true,
+      "raw": {
+        "specialist": "aura",
+        "fee": 0.1,
+        "currency": "USDC",
+        "network": "base-sepolia",
+        "showEstimate": true
+      }
+    },
+    {
+      "case": "routing-payment",
+      "prompt": "Approve 25 USDC for router spending",
+      "expected": [
+        "bankr",
+        "multi-hop"
+      ],
+      "specialist": "bankr",
+      "network": "base-sepolia",
+      "fee": 0.1,
+      "ok": true,
+      "status": 200,
+      "latencyMs": 2633,
+      "routePass": true,
+      "payloadPass": true,
+      "latencyPass": false,
+      "raw": {
+        "specialist": "bankr",
+        "fee": 0.1,
+        "currency": "USDC",
+        "network": "base-sepolia",
+        "showEstimate": true
+      }
+    },
+    {
+      "case": "readability",
+      "prompt": "Summarize Base ecosystem opportunities in bullet points for this week",
+      "expected": [
+        "general",
+        "scribe",
+        "multi-hop"
+      ],
+      "specialist": "seeker",
+      "network": "base-sepolia",
+      "fee": 0.1,
+      "ok": true,
+      "status": 200,
+      "latencyMs": 3521,
+      "routePass": false,
+      "payloadPass": true,
+      "latencyPass": false,
+      "raw": {
+        "specialist": "seeker",
+        "fee": 0.1,
+        "currency": "USDC",
+        "network": "base-sepolia",
+        "showEstimate": true
+      }
+    }
+  ]
+}
