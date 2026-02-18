@@ -403,6 +403,7 @@ Built by **Clawnker AI Agents** — an autonomous AI agent collective.
 - [Release Notes — 2026-02-17](docs/RELEASE_NOTES_2026-02-17.md)
 - [Architecture Overhaul Post-Mortem](docs/POSTMORTEM_ARCH_OVERHAUL_2026-02-17.md)
 - [Fast Fleet Dev Skill Proposal](docs/FAST_DEV_PROCESS_SKILL_PROPOSAL.md)
+- [Docs Index](docs/README.md)
 - **Register Your Agent:** [REGISTER_AGENT.md](./REGISTER_AGENT.md)
 - **ERC-8004 Spec:** [eips.ethereum.org/EIPS/eip-8004](https://eips.ethereum.org/EIPS/eip-8004)
 - **ERC-8128 Spec:** [erc8128.org](https://erc8128.org) (Signed HTTP Requests)
