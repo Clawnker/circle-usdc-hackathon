@@ -14,3 +14,4 @@ export { TransactionApproval } from './TransactionApproval';
 export { AddToSwarmBanner } from './AddToSwarmBanner';
 export { WalletConnect } from './WalletConnect';
 export { PaymentFlow } from './PaymentFlow';
+export { NetworkModeToggle } from './NetworkModeToggle';

@@ -20,6 +20,7 @@ import {
   AddToSwarmBanner,
   WalletConnect,
   PaymentFlow,
+  NetworkModeToggle,
 } from '@/components';
 import { DelegationPanel, getDelegationState, recordDelegationSpend, getDelegationTotalSpent } from '@/components/DelegationPanel';
 import { useAccount } from 'wagmi';
@@ -28,6 +29,8 @@ import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { SpecialistType, QueryHistoryItem } from '@/types';
 import { LayoutGrid, Zap, Shield, ArrowRight, DollarSign, Globe, Terminal } from 'lucide-react';
+import { NETWORK_MODE_STORAGE_KEY, NETWORK_MODE_LABELS, getExplorerTxUrl, resolveNetworkMode, supportsDirectPayments } from '@/lib/networkMode';
+import type { NetworkMode } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -135,6 +138,11 @@ export default function CommandCenter() {
     prompt: string;
     transferTo?: string;
   } | null>(null);
+  const [networkMode, setNetworkMode] = useState<NetworkMode>(() => {
+    if (typeof window === 'undefined') return 'testnet';
+    const stored = localStorage.getItem(NETWORK_MODE_STORAGE_KEY);
+    return stored === 'mainnet' ? 'mainnet' : 'testnet';
+  });
 
   const {
     isConnected,
@@ -159,6 +167,10 @@ export default function CommandCenter() {
   useEffect(() => {
     localStorage.setItem('hivemind-registry-meta', JSON.stringify(registryMeta));
   }, [registryMeta]);
+
+  useEffect(() => {
+    localStorage.setItem(NETWORK_MODE_STORAGE_KEY, networkMode);
+  }, [networkMode]);
 
   // Persistence for query history
   useEffect(() => {
@@ -337,6 +349,7 @@ export default function CommandCenter() {
                 result: content,
                 payments: historyPayments.length > 0 ? historyPayments : undefined,
                 transactions: transactions.length > 0 ? transactions : undefined,
+                networkMode,
               };
               return [newItem, ...prev].slice(0, 20);
             });
@@ -368,6 +381,7 @@ export default function CommandCenter() {
               cost: totalCostFailed,
               status: 'failed' as const,
               timestamp: new Date(),
+              networkMode,
             };
             return [newItem, ...prev].slice(0, 20);
           });
@@ -407,12 +421,12 @@ export default function CommandCenter() {
           specialist: latestPayment.to,
           timestamp: new Date(),
           link: latestPayment.txSignature
-            ? `https://sepolia.basescan.org/tx/${latestPayment.txSignature}`
+            ? getExplorerTxUrl(networkMode, latestPayment.txSignature)
             : undefined,
         }];
       });
     }
-  }, [payments]);
+  }, [payments, networkMode]);
 
   // Add activity for agent messages
   useEffect(() => {
@@ -481,6 +495,13 @@ export default function CommandCenter() {
     }]);
 
     try {
+      const riskyPaymentIntent = /\b(send|transfer|swap|buy|sell|approve|allowance)\b/i.test(prompt);
+      if (networkMode === 'mainnet' && riskyPaymentIntent) {
+        setError('Mainnet mode is currently preview-only for payment actions. Switch to Testnet to execute safely.');
+        setIsLoading(false);
+        return;
+      }
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
@@ -498,11 +519,18 @@ export default function CommandCenter() {
           const previewRes = await fetch(`${API_URL}/api/route-preview`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, hiredAgents }),
+            body: JSON.stringify({ prompt, hiredAgents, networkMode }),
           });
           if (previewRes.ok) {
             const preview = await previewRes.json();
+            const resolvedPreviewMode = resolveNetworkMode(preview.network);
             const fee = Number(preview.fee || 0);
+
+            if (networkMode === 'mainnet' && (!supportsDirectPayments(networkMode) || resolvedPreviewMode !== 'mainnet') && fee > 0) {
+              setError('Mainnet mode is preview-only in this release. No paid dispatch was executed.');
+              setIsLoading(false);
+              return;
+            }
             if (fee > 0) {
               // Check for delegation (auto-pay)
               const delegation = getDelegationState();
@@ -545,6 +573,7 @@ export default function CommandCenter() {
                       timestamp: new Date(),
                       method: 'on-chain' as const,
                       specialist: preview.specialist,
+                      networkMode,
                     };
                     window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
                     setActivityItems(prev => [...prev, {
@@ -601,6 +630,7 @@ export default function CommandCenter() {
           customInstructions,
           hiredAgents,
           approvedAgent,  // Pass the approved agent if user approved
+          networkMode,
         }),
       });
 
@@ -656,7 +686,7 @@ export default function CommandCenter() {
       setError(err instanceof Error ? err.message : 'Failed to submit task');
       setIsLoading(false);
     }
-  }, [reset, subscribe, customInstructions, hiredAgents, onchainAddress, isWalletConnected]);
+  }, [reset, subscribe, customInstructions, hiredAgents, onchainAddress, isWalletConnected, networkMode]);
 
   // Handle approval from popup
   const handleApproveAgent = useCallback(() => {
@@ -918,6 +948,14 @@ export default function CommandCenter() {
               </button>
             </div>
 
+            <NetworkModeToggle
+              mode={networkMode}
+              onChange={(next) => {
+                setNetworkMode(next);
+                setError(null);
+              }}
+            />
+
             <WalletConnect />
 
             {/* Connection Status */}
@@ -981,6 +1019,7 @@ export default function CommandCenter() {
                       initialAgentId={preSelectedAgent}
                       initialPrompt={reRunPrompt}
                       onClearPreSelect={() => setPreSelectedAgent(null)}
+                      networkMode={networkMode}
                     />
                   )}
                 </AnimatePresence>
@@ -1062,7 +1101,7 @@ export default function CommandCenter() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.4 }}
                   >
-                    <PaymentFeed payments={payments} />
+                    <PaymentFeed payments={payments} networkMode={networkMode} />
                   </motion.div>
                 </div>
               </div>
@@ -1119,7 +1158,7 @@ export default function CommandCenter() {
               transition={{ duration: 0.2 }}
               className="flex-1"
             >
-              <QueryHistory history={queryHistory} onReRun={handleReRun} />
+              <QueryHistory history={queryHistory} onReRun={handleReRun} networkMode={networkMode} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -1306,13 +1345,14 @@ export default function CommandCenter() {
           specialistId={paymentRequired.specialistId}
           fee={paymentRequired.fee}
           recipientAddress={paymentRequired.transferTo}
+          networkMode={networkMode}
           onPaymentComplete={(txHash) => {
             if (paymentRequired.transferTo) {
               // Direct transfer completed - update history with real result
               const addr = paymentRequired.transferTo;
               const truncAddr = `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-              const basescanLink = `https://sepolia.basescan.org/tx/${txHash}`;
-              const completedResult = `✅ **Transfer Complete**\n• Sent ${paymentRequired.fee} USDC to ${truncAddr}\n• Chain: Base Sepolia\n• Tx: [${txHash.slice(0, 10)}…${txHash.slice(-6)}](${basescanLink})`;
+              const basescanLink = getExplorerTxUrl(networkMode, txHash);
+              const completedResult = `✅ **Transfer Complete**\n• Sent ${paymentRequired.fee} USDC to ${truncAddr}\n• Chain: ${NETWORK_MODE_LABELS[networkMode].label}\n• Tx: [${txHash.slice(0, 10)}…${txHash.slice(-6)}](${basescanLink})`;
 
               // Update the last result display
               setLastResult(prev => prev ? {
@@ -1361,6 +1401,7 @@ export default function CommandCenter() {
                 timestamp: new Date(),
                 method: 'on-chain' as const,
                 specialist: paymentRequired.specialistId,
+                networkMode,
               };
               setActivityItems(prev => [...prev, {
                 id: `payment-${txHash}`,
@@ -1368,7 +1409,7 @@ export default function CommandCenter() {
                 message: `Paid ${paymentRequired.fee} USDC to ${paymentRequired.specialistId}`,
                 specialist: paymentRequired.specialistId,
                 timestamp: new Date(),
-                link: `https://sepolia.basescan.org/tx/${txHash}`,
+                link: getExplorerTxUrl(networkMode, txHash),
               }]);
               window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
 

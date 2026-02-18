@@ -5,10 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ExternalLink, ArrowRight, Coins, RefreshCw } from 'lucide-react';
 import type { Payment } from '@/types';
 import { getDelegationTotalSpent } from '@/components/DelegationPanel';
+import type { NetworkMode } from '@/types';
+import { NETWORK_MODE_LABELS, getExplorerTxUrl } from '@/lib/networkMode';
 
 interface PaymentFeedProps {
   payments: Payment[];
   className?: string;
+  networkMode?: NetworkMode;
 }
 
 // Agent display names
@@ -34,7 +37,7 @@ function getAgentDisplay(id: string) {
   return { name: id, color: 'var(--text-secondary)' };
 }
 
-function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
+function PaymentCard({ payment, index, networkMode }: { payment: Payment; index: number; networkMode: NetworkMode }) {
   const from = getAgentDisplay(payment.from || payment.specialist || 'unknown');
   const to = getAgentDisplay(payment.to || 'agent');
   
@@ -114,7 +117,7 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
           {/* Basescan link for on-chain user transactions */}
           {hasOnChainTx && (
             <motion.button
-              onClick={() => window.open(`https://sepolia.basescan.org/tx/${sig}`, '_blank')}
+              onClick={() => window.open(getExplorerTxUrl(networkMode, sig), '_blank')}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               className="flex items-center gap-1 hover:text-orange-400 transition-colors"
@@ -147,7 +150,7 @@ function PaymentCard({ payment, index }: { payment: Payment; index: number }) {
   );
 }
 
-export function PaymentFeed({ payments: realtimePayments, className = '' }: PaymentFeedProps) {
+export function PaymentFeed({ payments: realtimePayments, className = '', networkMode = 'testnet' }: PaymentFeedProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [historicPayments, setHistoricPayments] = useState<Payment[]>([]);
   const [userPayments, setUserPayments] = useState<Payment[]>([]);
@@ -300,6 +303,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
         <div className="flex items-center gap-2">
           <CreditCard size={16} className="text-[var(--accent-purple)]" />
           <span className="text-sm font-medium text-[var(--text-primary)]">Agent Payments</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/20 text-white/70">{NETWORK_MODE_LABELS[networkMode].badge}</span>
         </div>
         {allPayments.length > 0 && (
           <div className="flex items-center gap-2">
@@ -366,6 +370,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '' }: Paym
                   key={payment.id} 
                   payment={payment} 
                   index={index}
+                  networkMode={networkMode}
                 />
               ))
             )}

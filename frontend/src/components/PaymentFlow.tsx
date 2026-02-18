@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { Transaction, TransactionButton, TransactionStatus } from '@coinbase/onchainkit/transaction';
 import { useAccount } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
+import type { NetworkMode } from '@/types';
+import { NETWORK_MODE_LABELS, supportsDirectPayments } from '@/lib/networkMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, HelpCircle } from 'lucide-react';
 
@@ -16,9 +18,10 @@ interface PaymentFlowProps {
   onPaymentComplete: (txHash: string) => void;
   onCancel: () => void;
   recipientAddress?: string; // Custom recipient for transfers (default: treasury)
+  networkMode?: NetworkMode;
 }
 
-export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, recipientAddress }: PaymentFlowProps) {
+export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, recipientAddress, networkMode = 'testnet' }: PaymentFlowProps) {
   const { address, isConnected } = useAccount();
   
   const recipient = recipientAddress || TREASURY_ADDRESS;
@@ -48,6 +51,29 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, re
   }];
 
   const isTransfer = !!recipientAddress;
+  const paymentsSupported = supportsDirectPayments(networkMode);
+
+  if (!paymentsSupported) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="glass-panel p-6 max-w-md w-full text-center">
+          <h3 className="text-xl font-bold mb-3">Execution Guard Active</h3>
+          <p className="text-[var(--text-secondary)] mb-2">
+            {NETWORK_MODE_LABELS[networkMode].label} is set to preview mode in this build.
+          </p>
+          <p className="text-xs text-[var(--text-muted)] mb-6">
+            Switch to Testnet to complete on-chain payment and dispatch execution safely.
+          </p>
+          <button
+            onClick={onCancel}
+            className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors font-bold"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -77,7 +103,7 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, re
           </p>
         )}
         <p className="text-xs text-[var(--text-muted)] mb-6">
-          Network: Base Sepolia
+          Network: {NETWORK_MODE_LABELS[networkMode].label}
         </p>
         
         <button 

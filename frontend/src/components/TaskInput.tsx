@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Zap, TrendingUp, Coins, Loader2, AlertCircle, CheckCircle2, ChevronRight } from 'lucide-react';
-import { SpecialistPricing, SpecialistType } from '../types';
+import { SpecialistPricing, SpecialistType, NetworkMode } from '../types';
+import { NETWORK_MODE_LABELS, supportsDirectPayments } from '@/lib/networkMode';
 
 interface TaskInputProps {
   onSubmit: (prompt: string) => void;
@@ -12,6 +13,7 @@ interface TaskInputProps {
   initialAgentId?: string | null;
   onClearPreSelect?: () => void;
   initialPrompt?: string;
+  networkMode?: NetworkMode;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -49,6 +51,7 @@ export function TaskInput({
   initialAgentId, 
   onClearPreSelect,
   initialPrompt,
+  networkMode = 'testnet',
 }: TaskInputProps) {
   const [prompt, setPrompt] = useState('');
   const [pricing, setPricing] = useState<Record<string, SpecialistPricing> | null>(null);
@@ -224,6 +227,13 @@ export function TaskInput({
                     <span className="text-sm text-white/70">
                       Hivemind Routing Enabled
                     </span>
+                    <span className="text-white/20">•</span>
+                    <span className={`text-[11px] px-1.5 py-0.5 rounded border ${networkMode === 'mainnet' ? 'border-amber-400/40 text-amber-300' : 'border-cyan-400/40 text-cyan-300'}`}>
+                      {NETWORK_MODE_LABELS[networkMode].badge}
+                    </span>
+                    {!supportsDirectPayments(networkMode) && (
+                      <span className="text-[11px] text-amber-300">Execution guard enabled</span>
+                    )}
                   </div>
                   
                   {showConfirmation && (

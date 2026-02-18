@@ -111,6 +111,7 @@ export interface DispatchRequest {
   hiredAgents?: SpecialistType[];  // Only route to specialists in the user's swarm
   approvedAgent?: SpecialistType;  // User approved this agent (bypasses swarm check)
   paymentProof?: string;  // Pre-paid tx hash from delegation — skip internal payment
+  networkMode?: 'testnet' | 'mainnet';
 }
 
 export interface BudgetBreakdown {

@@ -1,3 +1,5 @@
+export type NetworkMode = 'testnet' | 'mainnet';
+
 export interface Payment {
   id?: string;
   specialist?: string;
@@ -11,6 +13,7 @@ export interface Payment {
   createdAt?: string;
   timestamp?: string;
   method?: 'x402' | 'on-chain';
+  networkMode?: NetworkMode;
 }
 
 export interface TransactionDetails {
@@ -33,6 +36,7 @@ export interface QueryHistoryItem {
   result?: string;
   payments?: Payment[];
   transactions?: TransactionDetails[];
+  networkMode?: NetworkMode;
 }
 
 export interface AgentMessage {

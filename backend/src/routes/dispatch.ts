@@ -19,6 +19,7 @@ import {
   getReliabilitySloView,
   requestReliabilityDlqReplay,
 } from '../reliability/orchestrator';
+import { isExecutionSupportedForMode, normalizeClientNetworkMode, toRouteNetworkLabel } from '../utils/client-network';
 import { getReliabilityConfig } from '../reliability/config';
 import {
   auditReliabilityOpsAction,
@@ -39,6 +40,7 @@ function computeDispatchFingerprint(input: Record<string, any>): string {
     hiredAgents: Array.isArray(input.hiredAgents) ? [...input.hiredAgents].sort() : [],
     approvedAgent: input.approvedAgent || null,
     previewOnly: Boolean(input.previewOnly),
+    networkMode: input.networkMode || 'testnet',
   });
   return createHash('sha256').update(normalized).digest('hex');
 }
@@ -55,7 +57,10 @@ function resolveIdempotencyKey(req: Request, fallbackFingerprint: string): strin
  */
 router.post('/route-preview', async (req: Request, res: Response) => {
   try {
-    const { prompt, hiredAgents } = req.body;
+    const { prompt, hiredAgents, networkMode } = req.body;
+    const mode = normalizeClientNetworkMode(networkMode);
+    const routeNetwork = toRouteNetworkLabel(mode);
+    const executionSupported = isExecutionSupportedForMode(mode);
     if (!prompt || (typeof prompt === 'string' && prompt.trim().length === 0)) {
       return res.status(400).json({ error: 'prompt required' });
     }
@@ -75,7 +80,9 @@ router.post('/route-preview', async (req: Request, res: Response) => {
           specialists,
           fee: totalFee, 
           currency: 'USDC', 
-          network: 'base-sepolia',
+          network: routeNetwork,
+          networkMode: mode,
+          executionSupported,
           isMultiStep: true,
           steps: dagPlan.steps.length,
           showEstimate: true // Complex plan usually has a reasonably accurate estimate sum
@@ -108,7 +115,7 @@ router.post('/route-preview', async (req: Request, res: Response) => {
       }
     }
 
-    res.json({ specialist, fee, currency: 'USDC', network: 'base-sepolia', showEstimate });
+    res.json({ specialist, fee, currency: 'USDC', network: routeNetwork, networkMode: mode, executionSupported, showEstimate });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -121,7 +128,16 @@ router.post('/route-preview', async (req: Request, res: Response) => {
 const dispatchHandler = async (req: Request, res: Response) => {
   const startedAt = Date.now();
   try {
-    const { prompt, userId, preferredSpecialist, dryRun, callbackUrl, hiredAgents, approvedAgent, previewOnly } = req.body as DispatchRequest;
+    const { prompt, userId, preferredSpecialist, dryRun, callbackUrl, hiredAgents, approvedAgent, previewOnly, networkMode } = req.body as DispatchRequest;
+    const mode = normalizeClientNetworkMode(networkMode);
+
+    if (!isExecutionSupportedForMode(mode)) {
+      return res.status(409).json({
+        error: 'Mainnet execution is disabled by release guard',
+        networkMode: mode,
+        hint: 'Use testnet mode or set ENABLE_MAINNET_DISPATCH=true after rollout verification.',
+      });
+    }
 
     if (!prompt || (typeof prompt === 'string' && prompt.trim().length === 0)) {
       return res.status(400).json({ error: 'Prompt is required' });
@@ -166,6 +182,7 @@ const dispatchHandler = async (req: Request, res: Response) => {
       hiredAgents,
       approvedAgent,
       previewOnly,
+      networkMode: mode,
     });
     const idempotencyKey = resolveIdempotencyKey(req, fingerprint);
 
@@ -208,6 +225,7 @@ const dispatchHandler = async (req: Request, res: Response) => {
       approvedAgent,
       previewOnly,
       paymentProof,  // Skip internal payment if user already paid via delegation
+      networkMode: mode,
     });
 
     if (idempotencyEnabled) {

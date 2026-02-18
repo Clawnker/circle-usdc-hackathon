@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { History, RotateCcw, CheckCircle2, XCircle, Search, Clock, ChevronDown, ChevronUp, Coins, ArrowRightLeft, Send, ExternalLink, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import type { QueryHistoryItem, Payment, TransactionDetails } from '@/types';
+import type { QueryHistoryItem, Payment, TransactionDetails, NetworkMode } from '@/types';
+import { NETWORK_MODE_LABELS, getExplorerTxUrl } from '@/lib/networkMode';
 
 interface QueryHistoryProps {
   history: QueryHistoryItem[];
   onReRun: (prompt: string) => void;
   className?: string;
+  networkMode?: NetworkMode;
 }
 
 const SPECIALIST_NAMES: Record<string, string> = {
@@ -26,7 +28,7 @@ const SPECIALIST_NAMES: Record<string, string> = {
   dispatcher: 'Dispatcher',
 };
 
-export function QueryHistory({ history, onReRun, className = '' }: QueryHistoryProps) {
+export function QueryHistory({ history, onReRun, className = '', networkMode = 'testnet' }: QueryHistoryProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const formatTime = (date: Date | string) => {
@@ -93,6 +95,7 @@ ${new Date(item.timestamp).toLocaleString()}
         <div className="flex items-center gap-2">
           <History size={16} className="text-[var(--accent-cyan)]" />
           <span className="text-sm font-medium text-[var(--text-primary)]">Query History</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/20 text-white/70">{NETWORK_MODE_LABELS[networkMode].badge}</span>
         </div>
         {history.length > 0 && (
           <span className="text-xs text-[var(--text-muted)]">
@@ -309,7 +312,7 @@ ${new Date(item.timestamp).toLocaleString()}
                                       )}
                                       {tx.txHash && (
                                         <a 
-                                          href={`https://sepolia.basescan.org/tx/${tx.txHash}`}
+                                          href={getExplorerTxUrl(item.networkMode || networkMode, tx.txHash)}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className="flex items-center gap-1 text-xs text-[var(--accent-cyan)] hover:underline mt-2"
