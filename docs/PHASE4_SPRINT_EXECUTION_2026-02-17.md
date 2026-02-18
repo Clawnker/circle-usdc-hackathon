@@ -1,7 +1,52 @@
 # Phase 4 Sprint Execution — 2026-02-17
 
-Status: In progress (Sprints 4.1–4.3 advanced in this cycle)
+Status: In progress (Sprints 4.1–4.5 advanced; post-deploy tuning cycle run)
 Owner: autonomous cycle
+
+## Post-Phase4 autonomous tuning cycle (late 2026-02-17 / early 2026-02-18)
+
+### What changed
+- Expanded routing eval dataset from **16 → 44** prompts in `docs/phase4-query-eval-set.json`
+  - Added noisy real-user phrasing, mixed intent, and edge cases
+  - Added explicit readability bucket coverage (5 summarize/rewrite prompts)
+- Upgraded `backend/src/__tests__/phase4-routing-eval.test.ts`
+  - Reads eval set from docs JSON (single source of truth)
+  - Enforces dataset size >= 40
+  - Enforces readability coverage + readability routing expectation
+  - Tracks bucket-level precision with bucket-specific thresholds
+- Applied one low-risk routing/readability iteration in `backend/src/dispatcher.ts`
+  - Added **early readability fast-path** (before capability matcher) to reduce false routing of summarize/rewrite prompts to seeker
+
+### Metrics and outcomes
+- Backend tests: **PASS (117/117)**
+- Frontend build: **PASS** (`next build`)
+- Eval quality gates (local test harness): **PASS**
+  - Overall precision threshold >= 0.90: PASS
+  - Bucket precision thresholds: PASS
+  - Readability bucket strict expectation (scribe): PASS in test harness
+
+### Release-gate smoke (prod)
+Artifacts:
+- `tests/artifacts/release-gate-smoke-testnet.json`
+- `tests/artifacts/release-gate-smoke-mainnet.json`
+
+Latest results:
+- Testnet smoke: **FAIL**
+  - health: pass
+  - failure slices: latency=1, routing=1
+  - p95 latency: 2525ms (budget 2500ms)
+- Mainnet smoke: **FAIL**
+  - health: pass
+  - failure slices: latency=1, routing=1
+  - p95 latency: 3335ms (budget 2500ms)
+
+Observed failing prompt on prod:
+- `"Summarize Base ecosystem opportunities in bullet points for this week"`
+- routed to `seeker` on prod (expected readability-oriented: `scribe`/`general`/`multi-hop`)
+
+Interpretation:
+- Local routing logic has been hardened, but prod smoke still reflects an older deployed routing behavior and/or latency variability.
+- This cycle produced actionable artifacts and a low-risk fix ready for deployment validation.
 
 ## Sprint checklist, status, and decisions
 

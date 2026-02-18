@@ -1,17 +1,20 @@
-# Phase 4 Kanban Snapshot (2026-02-17)
+# Phase 4 Kanban Snapshot (2026-02-18)
 
 ## Todo
-- Sprint 4 continuation: tune routing/latency thresholds based on smoke failure slices
+- Re-run prod release-gate after latest router changes are deployed to Render
+- Tune/confirm latency budget realism for prod route-preview path (current 2500ms budget is tight)
 
 ## In Progress
-- Real-user phrase calibration against release-gate prompt set (latency + routing stability)
+- Post-deploy readability routing convergence (prevent summarize/rewrite prompts drifting to seeker in prod)
+- Monitoring release-gate failure slices (routing + latency) per network mode
 
 ## Done (this cycle)
-- Routing eval harness + precision tests
-- Routing fast-path/fallback improvements (sentiment/trade/multi-hop edge cases)
-- Response readability fallback formatter + tests
-- x402 frontend payment fetch reliability hardening
-- Sprint 4.4 complete: network-mode toggle UX (sticky mode + explicit badges + route/dispatch threading + wrong-network guards)
-- Sprint 4.5 complete: release-gate smoke scripts with latency budget and failure-slice summaries
-- Backend tests + backend build + frontend build
-- Live prod health/route-preview checks
+- Expanded Phase 4 eval dataset from 16 -> 44 prompts with mixed intent + noisy user phrasing
+- Added readability-specific bucket coverage and assertions in routing eval tests
+- Added bucket-level precision tracking with explicit thresholds
+- Added low-risk router fix: early readability/summarization fast-path before capability matcher
+- Backend tests: PASS (117/117)
+- Frontend build: PASS
+- Prod release-gate smoke executed for testnet + mainnet; artifacts refreshed:
+  - `tests/artifacts/release-gate-smoke-testnet.json`
+  - `tests/artifacts/release-gate-smoke-mainnet.json`
