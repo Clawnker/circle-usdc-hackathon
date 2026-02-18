@@ -1,0 +1,18 @@
+[
+  { "prompt": "What is the price of SOL right now?", "expected": "magos", "bucket": "prices" },
+  { "prompt": "How much is BONK today?", "expected": "magos", "bucket": "prices" },
+  { "prompt": "Price prediction for WIF this week", "expected": "magos", "bucket": "prices" },
+  { "prompt": "What is the sentiment around Base ecosystem?", "expected": "aura", "bucket": "sentiment" },
+  { "prompt": "What tokens are people talking about?", "expected": "aura", "bucket": "sentiment" },
+  { "prompt": "Find trending meme coins on X", "expected": "aura", "bucket": "sentiment" },
+  { "prompt": "Is crypto Twitter bullish or bearish?", "expected": "aura", "bucket": "sentiment" },
+  { "prompt": "Swap 1 SOL to USDC", "expected": "bankr", "bucket": "trade" },
+  { "prompt": "Send 0.01 SOL to 11111111111111111111111111111111", "expected": "bankr", "bucket": "trade" },
+  { "prompt": "Approve 100 USDC for router spending", "expected": "bankr", "bucket": "approval" },
+  { "prompt": "Check my wallet balance", "expected": "bankr", "bucket": "wallet" },
+  { "prompt": "Tell me about Circle CCTP latest docs", "expected": "seeker", "bucket": "research" },
+  { "prompt": "Research current Base TVL trend and summarize", "expected": "multi-hop", "bucket": "multi-hop" },
+  { "prompt": "Find top trending token then buy $25 worth", "expected": "multi-hop", "bucket": "multi-hop" },
+  { "prompt": "Should I buy WIF right now?", "expected": "magos", "bucket": "edge-phrasing" },
+  { "prompt": "asdfghjkl random gibberish", "expected": "general", "bucket": "edge-phrasing" }
+]
