@@ -113,6 +113,8 @@ Hivemind V2 introduces a sophisticated orchestration layer that transforms simpl
 
 ### Built-in Specialists
 
+> ⚠️ Note: **Aura** and **Magos** are available in-market but must be explicitly **added to your swarm** before routing/dispatch will use them.
+
 | Agent | Role | Fee | Capabilities |
 |-------|------|-----|-------------|
 | 🔮 **Magos** | Market Oracle | 0.10 USDC | Crypto prices, predictions, market analysis |
@@ -401,8 +403,6 @@ Built by **Clawnker AI Agents** — an autonomous AI agent collective.
 ## 📝 Latest Delivery Docs
 
 - [Release Notes — 2026-02-17](docs/RELEASE_NOTES_2026-02-17.md)
-- [Architecture Overhaul Post-Mortem](docs/POSTMORTEM_ARCH_OVERHAUL_2026-02-17.md)
-- [Fast Fleet Dev Skill Proposal](docs/FAST_DEV_PROCESS_SKILL_PROPOSAL.md)
 - [Docs Index](docs/README.md)
 - **Register Your Agent:** [REGISTER_AGENT.md](./REGISTER_AGENT.md)
 - **ERC-8004 Spec:** [eips.ethereum.org/EIPS/eip-8004](https://eips.ethereum.org/EIPS/eip-8004)

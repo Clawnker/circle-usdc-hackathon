@@ -32,8 +32,8 @@ Thumbs.db
 coverage/
 .nyc_output/
 
-# Internal documentation (not for public)
-docs/
+# Internal/private artifacts (not for public)
+.private/
 demo-video/
 demo-audio/
 data/simulated-balances.json
