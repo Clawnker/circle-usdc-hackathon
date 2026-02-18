@@ -8,6 +8,7 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc --noCheck",
     "test": "jest",
+    "test:ci": "jest --runInBand --detectOpenHandles",
     "lint": "eslint src/**/*.ts"
   },
   "dependencies": {

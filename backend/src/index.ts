@@ -3,6 +3,10 @@ import app from './app';
 import { setupWebSocket } from './websocket';
 import config from './config';
 import { getTreasuryBalance } from './payments';
+import { callSpecialistGated } from './dispatcher';
+import { startDlqReplayWorker } from './reliability/dlq-replay-worker';
+import { executeDlqReplayRecord } from './reliability/orchestrator';
+import { validateReliabilityConfigOrThrow } from './reliability/config';
 
 // Prevent unhandled rejections from crashing the server
 process.on('unhandledRejection', (reason: any) => {
@@ -20,6 +24,7 @@ const wss = setupWebSocket(server);
 const PORT = config.port;
 
 async function start() {
+  validateReliabilityConfigOrThrow();
   console.log('[Hivemind] Starting up...');
   
   try {
@@ -28,6 +33,18 @@ async function start() {
   } catch (err: any) {
     console.warn(`[Hivemind] Failed to fetch treasury balance: ${err.message}`);
   }
+
+  startDlqReplayWorker({
+    replayHandler: async (record) => {
+      const replay = await executeDlqReplayRecord(record, (specialistId, prompt, metadata) =>
+        callSpecialistGated(specialistId, prompt, metadata)
+      );
+      if (replay.success) {
+        console.log(`[DLQ Replay Worker] replayed ${record.id} via ${record.specialist}`);
+      }
+      return replay;
+    },
+  });
 
   server.listen(PORT, () => {
     console.log(`

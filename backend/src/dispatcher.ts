@@ -38,6 +38,7 @@ import scribe from './specialists/scribe';
 import seeker from './specialists/seeker';
 import { processingIdempotencyStore } from './reliability/idempotency-store';
 import { withRetry, isTransientError } from './reliability/retry';
+import { getReliabilityConfig } from './reliability/config';
 import { enqueueDlq } from './reliability/dlq';
 
 // Persistence settings
@@ -1258,7 +1259,7 @@ async function checkPaymentRequired(specialist: SpecialistType): Promise<boolean
  */
 export async function callSpecialistGated(specialistId: string, prompt: string, context?: any): Promise<SpecialistResult> {
   const startTime = Date.now();
-  const retryEnabled = process.env.RELIABILITY_ENABLE_RETRY !== 'false';
+  const retryEnabled = getReliabilityConfig().featureFlags.enableRetry;
 
   try {
     console.log(`[x402-Client] Requesting gated access to ${specialistId}...`);

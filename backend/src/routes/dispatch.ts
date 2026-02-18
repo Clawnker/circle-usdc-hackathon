@@ -9,8 +9,26 @@ import { getExternalAgent } from '../external-agents';
 import { parseEnvelopeV1 } from '../hivemind/envelope';
 import { applyLedgerTransitionV1, createLedgerStateV1, LedgerTransitionPayload } from '../hivemind/ledger';
 import { dispatchIdempotencyStore } from '../reliability/idempotency-store';
+import { evaluateDispatchRollout } from '../reliability/rollout-guard';
+import { recordDispatchSlo } from '../reliability/slo';
+import { dispatchGuardMiddleware } from '../middleware/dispatch-guard';
+import {
+  getReliabilityAuditView,
+  getReliabilityDlqView,
+  getReliabilityReplayWorkerView,
+  getReliabilitySloView,
+  requestReliabilityDlqReplay,
+} from '../reliability/orchestrator';
+import { getReliabilityConfig } from '../reliability/config';
+import {
+  auditReliabilityOpsAction,
+  reliabilityOpsRateLimitMiddleware,
+  requireReliabilityOpsAccess,
+} from '../reliability/ops-safety';
 
 const router = Router();
+
+router.use(['/dispatch', '/query', '/transactions/approve', '/transactions/reject'], dispatchGuardMiddleware);
 
 function computeDispatchFingerprint(input: Record<string, any>): string {
   const normalized = JSON.stringify({
@@ -101,6 +119,7 @@ router.post('/route-preview', async (req: Request, res: Response) => {
  * POST /dispatch or /query
  */
 const dispatchHandler = async (req: Request, res: Response) => {
+  const startedAt = Date.now();
   try {
     const { prompt, userId, preferredSpecialist, dryRun, callbackUrl, hiredAgents, approvedAgent, previewOnly } = req.body as DispatchRequest;
 
@@ -130,6 +149,15 @@ const dispatchHandler = async (req: Request, res: Response) => {
     }
 
     const effectiveUserId = userId || (req as any).user?.id || 'anonymous';
+
+    const rolloutDecision = evaluateDispatchRollout(String(effectiveUserId));
+    if (!rolloutDecision.allowed) {
+      return res.status(503).json({
+        error: 'Dispatch temporarily unavailable during controlled rollout',
+        reason: rolloutDecision.reason,
+      });
+    }
+
     const fingerprint = computeDispatchFingerprint({
       prompt,
       userId: effectiveUserId,
@@ -141,7 +169,7 @@ const dispatchHandler = async (req: Request, res: Response) => {
     });
     const idempotencyKey = resolveIdempotencyKey(req, fingerprint);
 
-    const idempotencyEnabled = process.env.RELIABILITY_ENABLE_IDEMPOTENCY !== 'false';
+    const idempotencyEnabled = getReliabilityConfig().featureFlags.enableIdempotency;
     if (idempotencyEnabled) {
       const reservation = dispatchIdempotencyStore.reserve(idempotencyKey, fingerprint);
       if (reservation.duplicate) {
@@ -186,8 +214,10 @@ const dispatchHandler = async (req: Request, res: Response) => {
       dispatchIdempotencyStore.complete(idempotencyKey, result, result.taskId);
     }
 
+    recordDispatchSlo('success', Date.now() - startedAt);
     res.status(202).json(result);
   } catch (error: any) {
+    recordDispatchSlo('failure', Date.now() - startedAt);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -229,6 +259,11 @@ router.post('/transactions/approve', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Task not found' });
     }
 
+    const actorId = (req as any).user?.id;
+    if (actorId && actorId !== 'demo-user' && task.userId !== actorId) {
+      return res.status(403).json({ error: 'Access denied: cannot approve another user task' });
+    }
+
     console.log(`[API] Transaction approved for task ${taskId}`);
     
     // Update task metadata and status
@@ -259,6 +294,11 @@ router.post('/transactions/reject', async (req: Request, res: Response) => {
 
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const actorId = (req as any).user?.id;
+    if (actorId && actorId !== 'demo-user' && task.userId !== actorId) {
+      return res.status(403).json({ error: 'Access denied: cannot reject another user task' });
     }
 
     console.log(`[API] Transaction rejected for task ${taskId}`);
@@ -309,5 +349,80 @@ router.get('/pricing', (req: Request, res: Response) => {
     note: 'Fees in USDC, paid via x402 protocol on Base'
   });
 });
+
+/**
+ * Operator reliability surface (authenticated)
+ */
+router.use('/ops/reliability', reliabilityOpsRateLimitMiddleware);
+
+router.get('/ops/reliability/slo', (req: Request, res: Response, next) =>
+  requireReliabilityOpsAccess(req, res, next, 'read'), (req: Request, res: Response) => {
+    auditReliabilityOpsAction(req, { action: 'slo_read', statusCode: 200, outcome: 'allowed' });
+    res.json(getReliabilitySloView());
+  }
+);
+
+router.get('/ops/reliability/dlq', (req: Request, res: Response, next) =>
+  requireReliabilityOpsAccess(req, res, next, 'read'), (req: Request, res: Response) => {
+    const limit = parseInt(String(req.query.limit || '50'), 10) || 50;
+    auditReliabilityOpsAction(req, { action: 'dlq_read', statusCode: 200, outcome: 'allowed' });
+    res.json(getReliabilityDlqView(limit));
+  }
+);
+
+router.post('/ops/reliability/dlq/replay', (req: Request, res: Response, next) =>
+  requireReliabilityOpsAccess(req, res, next, 'write'), (req: Request, res: Response) => {
+    const id = String(req.body?.id || '');
+    if (!id) {
+      auditReliabilityOpsAction(req, {
+        action: 'dlq_replay_request',
+        statusCode: 400,
+        outcome: 'error',
+        detail: 'id required',
+      });
+      return res.status(400).json({ error: 'id required' });
+    }
+
+    const replay = requestReliabilityDlqReplay(id, Boolean(req.body?.dryRun));
+    if (!replay) {
+      auditReliabilityOpsAction(req, {
+        action: 'dlq_replay_request',
+        statusCode: 404,
+        outcome: 'error',
+        detail: `missing record: ${id}`,
+      });
+      return res.status(404).json({ error: 'DLQ record not found' });
+    }
+
+    auditReliabilityOpsAction(req, {
+      action: 'dlq_replay_request',
+      statusCode: 200,
+      outcome: 'allowed',
+      detail: `dryRun=${replay.dryRun}; id=${id}`,
+    });
+
+    res.json({
+      success: true,
+      replay,
+      note: replay.dryRun
+        ? 'Dry-run only. No state mutation was performed.'
+        : 'Replay requested. Worker will process request with configured guardrails and observability metrics.',
+    });
+  }
+);
+
+router.get('/ops/reliability/dlq/replay-worker', (req: Request, res: Response, next) =>
+  requireReliabilityOpsAccess(req, res, next, 'read'), (req: Request, res: Response) => {
+    auditReliabilityOpsAction(req, { action: 'dlq_replay_worker_read', statusCode: 200, outcome: 'allowed' });
+    res.json(getReliabilityReplayWorkerView());
+  }
+);
+
+router.get('/ops/reliability/audit', (req: Request, res: Response, next) =>
+  requireReliabilityOpsAccess(req, res, next, 'read'), (req: Request, res: Response) => {
+    const limit = parseInt(String(req.query.limit || '50'), 10) || 50;
+    res.json(getReliabilityAuditView(limit));
+  }
+);
 
 export default router;

@@ -134,6 +134,48 @@ Configuration is loaded from:
 2. `~/.config/helius/config.json` - Helius RPC endpoints
 3. `.env` - Local overrides
 
+## Production Hardening Controls (Sprint 3 kickoff)
+
+Dispatch surface now supports optional hardening flags (disabled by default for backwards compatibility):
+
+- `DISPATCH_REQUIRE_AUTH=true` → require non-public auth for `/dispatch`, `/query`, and transaction approval endpoints.
+- `DISPATCH_HMAC_SECRET=...` → enforce signed request integrity headers:
+  - `x-dispatch-timestamp` (epoch ms)
+  - `x-dispatch-nonce`
+  - `x-dispatch-signature` (HMAC-SHA256 over method/path/timestamp/nonce/body hash)
+- `DISPATCH_ROLLOUT_MODE=canary` + `DISPATCH_CANARY_PERCENT=...` + `DISPATCH_CANARY_ALLOWLIST=...` → feature-flagged rollout guard.
+- `DISPATCH_KILL_SWITCH=true` → emergency rollback block for new dispatches.
+- SLO hooks: `SLO_MAX_ERROR_RATE`, `SLO_MAX_P95_MS`, `SLO_ALERT_MIN_SAMPLES`, `SLO_ALERT_COOLDOWN_MS`.
+- Persisted SLO telemetry (on by default): `SLO_PERSISTENCE_ENABLED`, `SLO_MAX_PERSISTED_SAMPLES`.
+- Operator reliability APIs (authenticated):
+  - `GET /api/ops/reliability/slo`
+  - `GET /api/ops/reliability/dlq?limit=50`
+  - `POST /api/ops/reliability/dlq/replay` with `{ "id": "dlq-...", "dryRun": false }`
+  - `GET /api/ops/reliability/dlq/replay-worker` (worker metrics/health)
+- Sprint 5 DLQ replay automation (safe-by-default, opt-in):
+  - `RELIABILITY_DLQ_REPLAY_WORKER_ENABLED=true` to enable background processing of `replay_requested` DLQ records.
+  - Guardrails: max replay count, minimum record age, retry cooldown, and transient-only replay.
+  - Observability: per-record replay outcome fields in DLQ + aggregate worker metrics endpoint.
+- Sprint 6 reliability ops safety/auditability (backward-compatible defaults):
+  - Optional operator key requirement: `RELIABILITY_OPS_REQUIRE_OPERATOR_KEY=true`, `RELIABILITY_OPS_KEYS=key1,key2`
+  - Optional non-public auth enforcement: `RELIABILITY_OPS_REQUIRE_NON_PUBLIC_AUTH=true`
+  - Optional demo-write lock: `RELIABILITY_OPS_ALLOW_DEMO_WRITE=false`
+  - Dedicated reliability endpoint rate-limits: `RELIABILITY_OPS_RATE_WINDOW_MS`, `RELIABILITY_OPS_RATE_MAX`
+  - Action audit trail persisted to `data/reliability-ops-audit.jsonl`
+  - New endpoint: `GET /api/ops/reliability/audit?limit=50`
+- Retry + idempotency reliability flags (backward-compatible defaults):
+  - `RELIABILITY_ENABLE_RETRY=true`
+  - `RELIABILITY_ENABLE_IDEMPOTENCY=true`
+  - Retry tuning: `RETRY_MAX_ATTEMPTS`, `RETRY_BASE_DELAY_MS`, `RETRY_MAX_DELAY_MS`
+- Sprint 7 reliability alert routing hooks (backward-compatible defaults):
+  - `RELIABILITY_ALERTS_ENABLED=true` enables structured reliability events
+  - Event schema is versioned (`schemaVersion: "v1"`) for both alert and ops-audit payloads
+  - Event types: `dispatch_slo_degraded` and `dlq_replay_failed`
+  - Optional webhook adapter: `RELIABILITY_ALERTS_WEBHOOK_URL` (+ timeout/secret env controls)
+  - Console adapter is on by default (`RELIABILITY_ALERTS_CONSOLE=true`) for immediate operator visibility
+
+Operational runbook: `RUNBOOK_DISPATCH_HARDENING.md`.
+
 ## Development
 
 ```bash
@@ -142,6 +184,9 @@ npm run dev
 
 # Build for production
 npm run build
+
+# CI test gate (serial + open-handle detection)
+npm run test:ci
 
 # Run production build
 npm start

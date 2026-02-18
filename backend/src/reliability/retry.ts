@@ -1,3 +1,5 @@
+import { getReliabilityConfig } from './config';
+
 export interface RetryOptions {
   maxAttempts?: number;
   baseDelayMs?: number;
@@ -29,9 +31,10 @@ export function isTransientError(error: any): boolean {
 }
 
 export async function withRetry<T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
-  const maxAttempts = options.maxAttempts ?? Number(process.env.RETRY_MAX_ATTEMPTS || 3);
-  const baseDelayMs = options.baseDelayMs ?? Number(process.env.RETRY_BASE_DELAY_MS || 250);
-  const maxDelayMs = options.maxDelayMs ?? Number(process.env.RETRY_MAX_DELAY_MS || 2000);
+  const retryConfig = getReliabilityConfig().retry;
+  const maxAttempts = options.maxAttempts ?? retryConfig.maxAttempts;
+  const baseDelayMs = options.baseDelayMs ?? retryConfig.baseDelayMs;
+  const maxDelayMs = options.maxDelayMs ?? retryConfig.maxDelayMs;
   const shouldRetry = options.shouldRetry ?? isTransientError;
 
   let lastError: any;
