@@ -1,20 +1,25 @@
 'use client';
 
-import React, { useState } from 'react';
-import { CheckCircle, Clock, XCircle, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { CheckCircle, Clock, XCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 
 interface MultiHopStep {
-  name: string;
+  name?: string;
   specialist: string;
-  status: 'completed' | 'in-progress' | 'failed' | 'pending';
-  output: string; // Could be markdown or plain text
+  status?: 'completed' | 'in-progress' | 'failed' | 'pending';
+  output?: string;
+  summary?: string;
+  success?: boolean;
   cost?: string;
   durationMs?: number;
 }
 
 interface MultiHopCardData {
-  workflowName: string;
+  workflowName?: string;
+  planId?: string;
+  summary?: string;
   steps: MultiHopStep[];
   totalCost?: string;
   totalExecutionTimeMs?: number;
@@ -26,6 +31,15 @@ interface MultiHopCardProps {
 
 const MultiHopCard: React.FC<MultiHopCardProps> = ({ data }) => {
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
+
+  const normalizedSteps = useMemo(() => {
+    return (data.steps || []).map((step, index) => ({
+      ...step,
+      name: step.name || `Step ${index + 1}`,
+      status: step.status || (step.success === false ? 'failed' : step.success === true ? 'completed' : 'pending'),
+      output: step.output || step.summary || '',
+    }));
+  }, [data.steps]);
 
   const toggleStep = (index: number) => {
     setExpandedStep(expandedStep === index ? null : index);
@@ -49,11 +63,19 @@ const MultiHopCard: React.FC<MultiHopCardProps> = ({ data }) => {
 
   return (
     <div className="glass-panel p-4 rounded-lg gradient-border flex flex-col gap-4">
-      <h3 className="text-xl font-bold text-text-primary">Multi-Hop Workflow: {data.workflowName}</h3>
+      <h3 className="text-xl font-bold text-text-primary">
+        Multi-Hop Workflow: {data.workflowName || data.planId || 'Orchestrated Plan'}
+      </h3>
+
+      {data.summary && (
+        <div className="glass-panel-subtle p-3 rounded-md text-sm text-text-secondary">
+          <ReactMarkdown>{data.summary}</ReactMarkdown>
+        </div>
+      )}
 
       {/* Step Timeline */}
       <div className="relative pl-6 border-l-2 border-gray-700">
-        {data.steps.map((step, index) => (
+        {normalizedSteps.map((step, index) => (
           <div key={index} className="mb-6 last:mb-0">
             <div className="absolute -left-3 mt-1 bg-gray-900 rounded-full p-1">
               {getStatusIcon(step.status)}
@@ -79,7 +101,7 @@ const MultiHopCard: React.FC<MultiHopCardProps> = ({ data }) => {
                     transition={{ duration: 0.2 }}
                     className="glass-panel-subtle p-3 rounded-md mt-2 text-sm text-text-secondary prose prose-invert"
                   >
-                    <p>{step.output}</p> {/* Assuming output is plain text for now, could be ReactMarkdown if needed */}
+                    {step.output ? <ReactMarkdown>{step.output}</ReactMarkdown> : <p>No output captured for this step.</p>}
                   </motion.div>
                 )}
               </AnimatePresence>

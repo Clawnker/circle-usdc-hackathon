@@ -25,8 +25,6 @@ const TOKEN_ALIASES: Record<string, string> = {
 
 const TOKEN_MINTS: Record<string, string> = {
   'SOL': 'So11111111111111111111111111111111111111112',
-  'BTC': '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh',
-  'ETH': '7vf79GH2nU78W973sRbeXfTPhEAtRPRQ8vKyS5FmP9',
   'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
   'USDT': 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
   'BONK': 'DezXAZ8z7Pnrn9jzX7BSS4CR1GY8PV2Swbe3PZimbUmA',
@@ -34,6 +32,8 @@ const TOKEN_MINTS: Record<string, string> = {
   'JUP': 'JUPyiwrYJFskR4ZBvMmcuyMvM8FmNdxUuzpzp7L6z8v',
   'POPCAT': '7GCih6mSgSwwZ9Y9CnyTmsL7w13r6uunqB7UStyK88w',
 };
+
+const JUPITER_ELIGIBLE_TOKENS = new Set(Object.keys(TOKEN_MINTS));
 
 // --- Structured output types ---
 interface MagosStructuredData {
@@ -206,9 +206,11 @@ async function fetchPriceData(token: string): Promise<{
     console.log(`[Magos] CoinGecko tool failed for ${token}:`, e.message);
   }
 
-  // Jupiter fallback for Solana tokens
-  const mint = TOKEN_MINTS[token.toUpperCase()] || (token.length >= 32 ? token : null);
-  if (mint) {
+  // Jupiter fallback for Solana-native tokens/mints only
+  const normalizedToken = token.toUpperCase();
+  const mint = TOKEN_MINTS[normalizedToken] || (token.length >= 32 ? token : null);
+  const canUseJupiter = JUPITER_ELIGIBLE_TOKENS.has(normalizedToken) || token.length >= 32;
+  if (mint && canUseJupiter) {
     try {
       const response = await axios.get(`${JUPITER_PRICE_API}?ids=${mint}`, { timeout: 5000 });
       const data = response.data?.data?.[mint];

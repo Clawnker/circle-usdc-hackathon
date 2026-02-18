@@ -64,8 +64,8 @@ export async function getPrice(token: string): Promise<PriceData> {
       timeout: 10000,
     });
     
-    const data = response.data[tokenId];
-    if (!data) {
+    const data = response.data[tokenId] || response.data[tokenId.toLowerCase()] || response.data[tokenId.toUpperCase()];
+    if (!data || typeof data.usd !== 'number' || Number.isNaN(data.usd)) {
       return mockPrice(token);
     }
     

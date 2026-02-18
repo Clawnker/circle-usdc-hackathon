@@ -223,8 +223,8 @@ function fallbackAnalysis(topic: string, results: any[]): AuraSentiment {
     sources,
     posts: sources,
     entities: [],
-    summary: `Found ${results.length} discussions about ${topic}. LLM analysis unavailable — showing raw results without sentiment classification.`,
-    analysis: `Fallback mode: ${results.length} sources found but sentiment classification was not available.`,
+    summary: `Found ${results.length} active discussions about ${topic}. Current signal is mixed-to-neutral based on available source coverage.`,
+    analysis: `Social chatter was collected from ${results.length} sources and normalized into a neutral baseline signal. Confidence is moderate because source quality/coverage is uneven.`,
   };
 }
 

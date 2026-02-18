@@ -287,6 +287,7 @@ export function useWebSocket(): UseWebSocketReturn {
     setMessages([]);
     setPayments([]);
     setResult(null);
+    setPendingTransaction(null);
   }, []);
 
   return {

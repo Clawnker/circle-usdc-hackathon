@@ -121,8 +121,12 @@ const ExternalAgentCard = ({ data, agentId }: { data: any; agentId: string }) =>
         </span>
       </div>
       {summary ? (
-        <div className="text-sm text-text-secondary whitespace-pre-wrap leading-relaxed">
-          {typeof summary === 'string' ? summary : JSON.stringify(summary, null, 2)}
+        <div className="text-sm text-text-secondary leading-relaxed">
+          {typeof summary === 'string' ? (
+            <ReactMarkdown>{summary}</ReactMarkdown>
+          ) : (
+            <pre className="whitespace-pre-wrap text-xs bg-black/30 p-3 rounded-md overflow-x-auto">{JSON.stringify(summary, null, 2)}</pre>
+          )}
         </div>
       ) : (
         <div className="text-sm text-text-muted italic">

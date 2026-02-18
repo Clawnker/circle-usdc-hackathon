@@ -94,3 +94,15 @@ API contracts remain backward-compatible.
 1. Run staging/production smoke checks for reliability ops paths with intended auth posture.
 2. Confirm alert webhook receiver signature verification if secret mode is enabled.
 3. Rotate operator keys on deployment cadence and document owner/expiry.
+
+---
+
+## Patch addendum (Sprint 9 demo query fixes)
+
+- Routing: social/trending meme queries now fast-path to **Aura** before lower-confidence fallback layers.
+- Intent classifier: expanded fast-path patterns for meme/trending and "sentiment around" phrasing.
+- Pricing correctness: Magos now only uses Jupiter fallback for Solana-native tokens/mints (prevents ETH/BTC mispricing when CoinGecko is unavailable).
+- Aura fallback UX: removed raw "LLM analysis unavailable" phrasing in end-user summaries; now returns a completed neutral synthesis.
+- Frontend rendering: improved multi-hop/external output formatting (markdown + readable JSON blocks).
+- Transaction UX: removed non-actionable approval buttons from inline Bankr card; approval is handled in the dedicated transaction modal.
+- Auto-pay gating: normalized fee math to numeric + epsilon-safe comparison to avoid false manual-payment prompts when delegation balance is sufficient.

@@ -502,17 +502,18 @@ export default function CommandCenter() {
           });
           if (previewRes.ok) {
             const preview = await previewRes.json();
-            if (preview.fee > 0) {
+            const fee = Number(preview.fee || 0);
+            if (fee > 0) {
               // Check for delegation (auto-pay)
               const delegation = getDelegationState();
-              const remaining = delegation ? Math.max(0, delegation.allowance - delegation.spent) : 0;
+              const remaining = delegation ? Math.max(0, Number(delegation.allowance || 0) - Number(delegation.spent || 0)) : 0;
 
               console.log('[pre-pay] Delegation check:', {
-                enabled: delegation?.enabled, remaining, fee: preview.fee,
+                enabled: delegation?.enabled, remaining, fee,
                 onchainAddress, hasAddress: !!onchainAddress
               });
 
-              if (delegation?.enabled && remaining >= preview.fee && onchainAddress && isWalletConnected) {
+              if (delegation?.enabled && (remaining + 1e-6) >= fee && onchainAddress && isWalletConnected) {
                 // Auto-pay: backend pulls USDC from user's wallet via on-chain approval
                 try {
                   const delegateRes = await fetch(`${API_URL}/api/delegate-pay`, {
@@ -520,21 +521,21 @@ export default function CommandCenter() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       userAddress: onchainAddress,
-                      amount: preview.fee,
+                      amount: fee,
                       specialist: preview.specialist,
                     }),
                   });
                   if (delegateRes.ok) {
                     const delegateData = await delegateRes.json();
                     headers['X-Payment-Proof'] = delegateData.txHash;
-                    recordDelegationSpend(preview.fee, preview.specialist, delegateData.txHash);
+                    recordDelegationSpend(fee, preview.specialist, delegateData.txHash);
 
                     // Record in Agent Payments
                     const feePayment = {
                       id: `delegate-${Date.now()}`,
                       from: 'user',
                       to: preview.specialist,
-                      amount: preview.fee,
+                      amount: fee,
                       token: 'USDC' as const,
                       txSignature: delegateData.txHash,
                       timestamp: new Date(),
@@ -545,7 +546,7 @@ export default function CommandCenter() {
                     setActivityItems(prev => [...prev, {
                       id: `payment-${delegateData.txHash}`,
                       type: 'payment',
-                      message: `Auto-paid ${preview.fee} USDC to ${preview.specialist}`,
+                      message: `Auto-paid ${fee} USDC to ${preview.specialist}`,
                       specialist: preview.specialist,
                       timestamp: new Date(),
                       link: delegateData.explorer,
@@ -556,7 +557,7 @@ export default function CommandCenter() {
                     console.warn('[auto-pay] transferFrom failed:', errData);
                     setPaymentRequired({
                       specialistId: preview.specialist,
-                      fee: preview.fee,
+                      fee,
                       prompt,
                     });
                     return;
@@ -565,7 +566,7 @@ export default function CommandCenter() {
                   console.warn('[auto-pay] Error:', delegateErr);
                   setPaymentRequired({
                     specialistId: preview.specialist,
-                    fee: preview.fee,
+                    fee,
                     prompt,
                   });
                   return;
@@ -574,7 +575,7 @@ export default function CommandCenter() {
                 // No delegation - show manual payment popup
                 setPaymentRequired({
                   specialistId: preview.specialist,
-                  fee: preview.fee,
+                  fee,
                   prompt,
                 });
                 return;

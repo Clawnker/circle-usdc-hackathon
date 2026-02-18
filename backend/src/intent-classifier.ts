@@ -13,7 +13,8 @@ function normalizePrompt(prompt: string): string {
 const priceRegex = /^(what is the price of|price of|how much is)\s(.+)/i;
 const buyRegex = /^(buy|purchase)\s(.+)/i;
 const auditRegex = /^(audit|check security of)\s(0x[a-fA-F0-9]{40})/i;
-const sentimentRegex = /^(sentiment of|how is the sentiment on)\s(.+)/i;
+const sentimentRegex = /^(?:sentiment of|how is the sentiment on|what(?:'s| is) the sentiment (?:on|around)|sentiment around)\s(.+)/i;
+const socialTrendingRegex = /^(?:find|show|what(?:'s| is)|list)?\s*(?:the\s+)?(?:top\s+)?(?:trending|popular|hot)\s+(?:meme\s+)?(?:coins?|tokens?)\s*(?:on|in)?\s*(.*)$/i;
 const researchRegex = /^(research|find information on|tell me about)\s(.+)/i;
 const tradeRegex = /^(swap|trade|exchange)\s(.+)/i;
 const multiHopRegex = /^(plan a multi-hop trade for|multi-hop trade)\s(.+)/i;
@@ -58,7 +59,9 @@ export async function classifyIntent(prompt: string): Promise<{ category: string
   } else if ((match = normalizedPrompt.match(auditRegex))) {
     fastPathResult = mapAndReturn('security', match[2]);
   } else if ((match = normalizedPrompt.match(sentimentRegex))) {
-    fastPathResult = mapAndReturn('sentiment', match[2]);
+    fastPathResult = mapAndReturn('sentiment', match[1]);
+  } else if ((match = normalizedPrompt.match(socialTrendingRegex))) {
+    fastPathResult = mapAndReturn('sentiment', (match[1] || '').trim() || 'crypto');
   } else if ((match = normalizedPrompt.match(researchRegex))) {
     fastPathResult = mapAndReturn('research', match[2]);
   } else if ((match = normalizedPrompt.match(multiHopRegex))) {

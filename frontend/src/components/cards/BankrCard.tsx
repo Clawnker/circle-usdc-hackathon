@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ArrowRight, Fuel, Wallet, CircleCheck, CircleX } from 'lucide-react';
+import { ArrowRight, Fuel, Wallet, AlertCircle } from 'lucide-react';
 
 interface BankrCardData {
   transactionSummary: {
@@ -99,15 +99,11 @@ const BankrCard: React.FC<BankrCardProps> = ({ data }) => {
         </div>
       )}
 
-      {/* Approve/Reject Buttons */}
+      {/* Approval notice: actionable controls are rendered in the global TransactionApproval modal */}
       {data.requiresApproval && (
-        <div className="flex justify-around gap-4 mt-4">
-          <button className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-white font-semibold flex items-center justify-center gap-2">
-            <CircleCheck size={20} /> Approve
-          </button>
-          <button className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-white font-semibold flex items-center justify-center gap-2">
-            <CircleX size={20} /> Reject
-          </button>
+        <div className="mt-4 p-3 rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-300 text-sm flex items-start gap-2">
+          <AlertCircle size={16} className="mt-0.5" />
+          <span>Transaction approval is pending. Use the approval modal to confirm or reject this action.</span>
         </div>
       )}
     </div>

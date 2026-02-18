@@ -162,18 +162,23 @@
     },
     "integration-test-agent": {
       "agentId": "integration-test-agent",
-      "successCount": 24,
-      "failureCount": 40,
-      "upvotes": 24,
-      "downvotes": 40,
-      "globalScore": 0.5604999988514581,
+      "successCount": 27,
+      "failureCount": 45,
+      "upvotes": 27,
+      "downvotes": 45,
+      "globalScore": 0.5604999990271327,
       "capabilities": {
         "test-capability": {
           "capabilityId": "test-capability",
-          "decayedUpvotes": 23.998941657065963,
-          "decayedDownvotes": 39.998236375123035,
-          "lastUpdateTimestamp": 1770685265256,
+          "decayedUpvotes": 13.833952020979465,
+          "decayedDownvotes": 23.056586838354722,
+          "lastUpdateTimestamp": 1771379219536,
           "latencySamples": [
+            150,
+            200,
+            250,
+            1000,
+            100,
             150,
             200,
             250,
@@ -218,34 +223,35 @@
           "p50": 200,
           "p95": 1000,
           "p99": 1000,
-          "totalTasks": 64,
-          "currentScore": 0.5604999988514581
+          "totalTasks": 72,
+          "currentScore": 0.5604999990271327
         }
       },
       "votes": []
     },
     "e2e-agent": {
       "agentId": "e2e-agent",
-      "successCount": 4,
+      "successCount": 6,
       "failureCount": 0,
-      "upvotes": 4,
+      "upvotes": 6,
       "downvotes": 0,
-      "globalScore": 0.8984,
+      "globalScore": 0.2994,
       "capabilities": {
         "e2e-cap": {
           "capabilityId": "e2e-cap",
-          "decayedUpvotes": 3.9998431220074084,
+          "decayedUpvotes": 3.8056674778554136,
           "decayedDownvotes": 0,
-          "lastUpdateTimestamp": 1770685265270,
+          "lastUpdateTimestamp": 1771379219551,
           "latencySamples": [
+            200,
             200,
             200
           ],
           "p50": 200,
           "p95": 200,
           "p99": 200,
-          "totalTasks": 4,
-          "currentScore": 0.8984
+          "totalTasks": 6,
+          "currentScore": 0.2994
         }
       },
       "votes": []

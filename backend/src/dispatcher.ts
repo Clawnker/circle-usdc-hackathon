@@ -1010,6 +1010,13 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     }
   }
 
+  // 0b. Fast-path: social/trending meme queries should route to Aura (before capability/intent fallbacks)
+  if (/\b(trending|popular|hot|buzz|hype|sentiment|mood|vibe|fomo|fud|talking\s+about)\b/i.test(prompt) &&
+      /\b(meme|coin|token|crypto|base|ecosystem)\b/i.test(prompt)) {
+    console.log(`[Router] Fast-path: social/trending query detected, routing to aura`);
+    if (!hiredAgents || hiredAgents.includes('aura')) return 'aura';
+  }
+
   // 1. Capability-Based Matching (FIRST — external agents get priority)
   // This runs before Intent Classifier so that external agents with real capabilities
   // (e.g. Minara for "market analysis") beat internal legacy defaults (e.g. Magos/Seeker)
