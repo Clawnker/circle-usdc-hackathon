@@ -33,6 +33,39 @@ interface PaymentRequirements {
   };
 }
 
+function ensurePaymentRequirements(input: any): PaymentRequirements {
+  if (!input || typeof input !== 'object') {
+    throw new Error('Invalid payment requirements payload');
+  }
+
+  const requiredFields = ['network', 'payTo', 'amount', 'asset'];
+  for (const field of requiredFields) {
+    if (!input[field]) {
+      throw new Error(`Payment requirements missing field: ${field}`);
+    }
+  }
+
+  return {
+    scheme: input.scheme || 'exact',
+    network: input.network,
+    payTo: input.payTo,
+    amount: input.amount,
+    asset: input.asset,
+    maxTimeoutSeconds: input.maxTimeoutSeconds || 300,
+    extra: input.extra,
+  };
+}
+
+async function parseJsonSafe(response: Response): Promise<any | null> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 interface X402FetchResult {
   response: Response;
   data: any;
@@ -53,12 +86,17 @@ export function useX402Fetch() {
     url: string,
     options: RequestInit = {},
   ): Promise<X402FetchResult> => {
+    const timeoutMs = 25000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     // First attempt — may return 402
-    const firstResponse = await fetch(url, options);
+    const firstResponse = await fetch(url, { ...options, signal: options.signal || controller.signal });
+    clearTimeout(timeoutId);
 
     if (firstResponse.status !== 402) {
       // Not a paid endpoint, return as-is
-      const data = await firstResponse.json().catch(() => null);
+      const data = await parseJsonSafe(firstResponse);
       return { response: firstResponse, data, paid: false };
     }
 
@@ -67,7 +105,7 @@ export function useX402Fetch() {
     }
 
     // Parse payment requirements from 402 response
-    const paymentRequired = await firstResponse.json();
+    const paymentRequired = await parseJsonSafe(firstResponse);
     
     // x402 v2: requirements in header; v1: in body
     let requirements: PaymentRequirements;
@@ -75,14 +113,15 @@ export function useX402Fetch() {
     if (headerPayment) {
       // v2 format
       const parsed = JSON.parse(headerPayment);
-      requirements = Array.isArray(parsed) ? parsed[0] : parsed;
-    } else if (paymentRequired.accepts) {
+      requirements = ensurePaymentRequirements(Array.isArray(parsed) ? parsed[0] : parsed);
+    } else if (paymentRequired?.accepts) {
       // v1 format (our fallback)
-      requirements = Array.isArray(paymentRequired.accepts)
+      const candidate = Array.isArray(paymentRequired.accepts)
         ? paymentRequired.accepts[0]
         : paymentRequired.accepts;
+      requirements = ensurePaymentRequirements(candidate);
     } else {
-      throw new Error('No payment requirements in 402 response');
+      throw new Error('No valid payment requirements in 402 response');
     }
 
     console.log('[x402] Payment required:', requirements);
@@ -145,7 +184,7 @@ export function useX402Fetch() {
       },
     });
 
-    const data = await retryResponse.json().catch(() => null);
+    const data = await parseJsonSafe(retryResponse);
 
     return {
       response: retryResponse,
