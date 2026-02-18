@@ -1,18 +1,54 @@
 [
-  { "prompt": "What is the price of SOL right now?", "expected": "magos", "bucket": "prices" },
+  { "prompt": "what's SOL price rn", "expected": "magos", "bucket": "prices" },
   { "prompt": "How much is BONK today?", "expected": "magos", "bucket": "prices" },
   { "prompt": "Price prediction for WIF this week", "expected": "magos", "bucket": "prices" },
+  { "prompt": "can you check eth value now", "expected": "magos", "bucket": "prices" },
+  { "prompt": "is btc worth buying at this level?", "expected": "magos", "bucket": "prices" },
+  { "prompt": "quick market analysis on AVAX momentum", "expected": "magos", "bucket": "prices" },
+
   { "prompt": "What is the sentiment around Base ecosystem?", "expected": "aura", "bucket": "sentiment" },
   { "prompt": "What tokens are people talking about?", "expected": "aura", "bucket": "sentiment" },
   { "prompt": "Find trending meme coins on X", "expected": "aura", "bucket": "sentiment" },
   { "prompt": "Is crypto Twitter bullish or bearish?", "expected": "aura", "bucket": "sentiment" },
+  { "prompt": "any buzz around aero today?", "expected": "aura", "bucket": "sentiment" },
+  { "prompt": "what's the vibe on Base memecoins this morning", "expected": "aura", "bucket": "sentiment" },
+
   { "prompt": "Swap 1 SOL to USDC", "expected": "bankr", "bucket": "trade" },
   { "prompt": "Send 0.01 SOL to 11111111111111111111111111111111", "expected": "bankr", "bucket": "trade" },
+  { "prompt": "sell 50 usdc for sol", "expected": "bankr", "bucket": "trade" },
+  { "prompt": "transfer 5 usdc to 0x1111111111111111111111111111111111111111", "expected": "bankr", "bucket": "trade" },
+  { "prompt": "withdraw 20 usdc", "expected": "bankr", "bucket": "trade" },
+  { "prompt": "deposit 15 usdc to my wallet", "expected": "bankr", "bucket": "trade" },
+
   { "prompt": "Approve 100 USDC for router spending", "expected": "bankr", "bucket": "approval" },
+  { "prompt": "set allowance 50 usdc for uniswap router", "expected": "bankr", "bucket": "approval" },
+  { "prompt": "need to approve usdc first right? do that", "expected": "bankr", "bucket": "approval" },
+
   { "prompt": "Check my wallet balance", "expected": "bankr", "bucket": "wallet" },
+  { "prompt": "what's in my portfolio right now", "expected": "bankr", "bucket": "wallet" },
+  { "prompt": "show my holdings", "expected": "bankr", "bucket": "wallet" },
+
   { "prompt": "Tell me about Circle CCTP latest docs", "expected": "seeker", "bucket": "research" },
+  { "prompt": "find latest stablecoin regulation update in US", "expected": "seeker", "bucket": "research" },
+  { "prompt": "look up recent Base TVL numbers", "expected": "seeker", "bucket": "research" },
+  { "prompt": "who launched native usdc on base?", "expected": "seeker", "bucket": "research" },
+  { "prompt": "research Jupiter routing changes this month", "expected": "seeker", "bucket": "research" },
+
   { "prompt": "Research current Base TVL trend and summarize", "expected": "multi-hop", "bucket": "multi-hop" },
   { "prompt": "Find top trending token then buy $25 worth", "expected": "multi-hop", "bucket": "multi-hop" },
+  { "prompt": "analyze market + sentiment then tell me what to buy", "expected": "multi-hop", "bucket": "multi-hop" },
+  { "prompt": "search latest airdrop rumors and summarize in bullets", "expected": "multi-hop", "bucket": "multi-hop" },
+  { "prompt": "discover hottest base token and swap 20 usdc", "expected": "multi-hop", "bucket": "multi-hop" },
+
+  { "prompt": "summarize this for me in bullet points: Base is seeing growth in DeFi and social activity", "expected": "scribe", "bucket": "readability" },
+  { "prompt": "rewrite this to be cleaner and easier to read: i ape'd too hard and now confused", "expected": "scribe", "bucket": "readability" },
+  { "prompt": "explain this simply like i'm new: slippage, MEV, and routing", "expected": "scribe", "bucket": "readability" },
+  { "prompt": "clean up grammar + make this readable: wen moon idk maybe never", "expected": "scribe", "bucket": "readability" },
+  { "prompt": "give me a concise summary only, no extra", "expected": "scribe", "bucket": "readability" },
+
   { "prompt": "Should I buy WIF right now?", "expected": "magos", "bucket": "edge-phrasing" },
-  { "prompt": "asdfghjkl random gibberish", "expected": "general", "bucket": "edge-phrasing" }
+  { "prompt": "yo, is bonk a good buy or nah", "expected": "magos", "bucket": "edge-phrasing" },
+  { "prompt": "asdfghjkl random gibberish", "expected": "general", "bucket": "edge-phrasing" },
+  { "prompt": "....???", "expected": "general", "bucket": "edge-phrasing" },
+  { "prompt": "idk what i need just help", "expected": "general", "bucket": "edge-phrasing" }
 ]

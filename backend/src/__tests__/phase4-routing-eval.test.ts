@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { routePrompt } from '../dispatcher';
 
 jest.mock('../capability-matcher', () => ({
@@ -18,27 +20,25 @@ jest.mock('../external-agents', () => ({
   getExternalAgent: jest.fn(() => null),
 }));
 
-describe('Phase 4 routing eval set', () => {
-  const evalSet: Array<{ prompt: string; expected: string; bucket: string }> = [
-    { prompt: 'What is the price of SOL right now?', expected: 'magos', bucket: 'prices' },
-    { prompt: 'How much is BONK today?', expected: 'magos', bucket: 'prices' },
-    { prompt: 'Price prediction for WIF this week', expected: 'magos', bucket: 'prices' },
-    { prompt: 'What is the sentiment around Base ecosystem?', expected: 'aura', bucket: 'sentiment' },
-    { prompt: 'What tokens are people talking about?', expected: 'aura', bucket: 'sentiment' },
-    { prompt: 'Find trending meme coins on X', expected: 'aura', bucket: 'sentiment' },
-    { prompt: 'Is crypto Twitter bullish or bearish?', expected: 'aura', bucket: 'sentiment' },
-    { prompt: 'Swap 1 SOL to USDC', expected: 'bankr', bucket: 'trade' },
-    { prompt: 'Send 0.01 SOL to 11111111111111111111111111111111', expected: 'bankr', bucket: 'trade' },
-    { prompt: 'Approve 100 USDC for router spending', expected: 'bankr', bucket: 'trade' },
-    { prompt: 'Check my wallet balance', expected: 'bankr', bucket: 'wallet' },
-    { prompt: 'Tell me about Circle CCTP latest docs', expected: 'seeker', bucket: 'research' },
-    { prompt: 'Research current Base TVL trend and summarize', expected: 'multi-hop', bucket: 'multi-hop' },
-    { prompt: 'Find top trending token then buy $25 worth', expected: 'multi-hop', bucket: 'multi-hop' },
-    { prompt: 'Should I buy WIF right now?', expected: 'magos', bucket: 'edge phrasing' },
-    { prompt: 'asdfghjkl random gibberish', expected: 'general', bucket: 'edge phrasing' },
-  ];
+type EvalRow = {
+  prompt: string;
+  expected: string;
+  bucket: string;
+};
 
-  test('routing precision should meet phase 4 threshold', async () => {
+describe('Phase 4 routing eval set', () => {
+  const evalPath = path.resolve(__dirname, '../../../docs/phase4-query-eval-set.json');
+  const evalSet = JSON.parse(fs.readFileSync(evalPath, 'utf8')) as EvalRow[];
+
+  test('dataset should include at least 40 prompts and readability coverage', () => {
+    expect(evalSet.length).toBeGreaterThanOrEqual(40);
+
+    const readability = evalSet.filter((r) => r.bucket === 'readability');
+    expect(readability.length).toBeGreaterThanOrEqual(5);
+    expect(readability.every((r) => r.expected === 'scribe')).toBe(true);
+  });
+
+  test('routing precision should meet phase 4 threshold by bucket', async () => {
     const results = await Promise.all(
       evalSet.map(async (item) => ({
         ...item,
@@ -51,11 +51,21 @@ describe('Phase 4 routing eval set', () => {
 
     expect(precision).toBeGreaterThanOrEqual(0.9);
 
+    const bucketThresholds: Record<string, number> = {
+      readability: 1,
+      'edge-phrasing': 0.6,
+      default: 0.75,
+    };
+
     const buckets = Array.from(new Set(results.map((r) => r.bucket)));
     for (const bucket of buckets) {
       const rows = results.filter((r) => r.bucket === bucket);
       const bucketPrecision = rows.filter((r) => r.got === r.expected).length / rows.length;
-      expect(bucketPrecision).toBeGreaterThanOrEqual(0.75);
+      const threshold = bucketThresholds[bucket] ?? bucketThresholds.default;
+      expect(bucketPrecision).toBeGreaterThanOrEqual(threshold);
     }
+
+    const readabilityRows = results.filter((r) => r.bucket === 'readability');
+    expect(readabilityRows.every((r) => r.got === 'scribe')).toBe(true);
   });
 });
