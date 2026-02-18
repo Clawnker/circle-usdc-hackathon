@@ -1074,6 +1074,18 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     }
   }
 
+  // 0c. Fast-path: readability/summarization requests should route to scribe early.
+  // Keep this before capability matcher to avoid embedding/intent over-routing to seeker
+  // on prompts that are fundamentally formatting/summarization asks.
+  if (/\b(summarize|summary|bullet\s*points?|explain|rewrite|clean\s+up|make\s+this\s+readable)\b/i.test(prompt) &&
+      !/\b(search|find|lookup|latest\s+on|news\s+about|research\b|google|brave|web)\b/i.test(prompt)) {
+    console.log(`[Router] Fast-path: readability/summarization query detected (early), routing to scribe`);
+    if (!hiredAgents || hiredAgents.includes('scribe')) {
+      setRouteCache(cacheKey, 'scribe');
+      return 'scribe';
+    }
+  }
+
   // 1. Capability-Based Matching (FIRST — external agents get priority)
   // This runs before Intent Classifier so that external agents with real capabilities
   // (e.g. Minara for "market analysis") beat internal legacy defaults (e.g. Magos/Seeker)
