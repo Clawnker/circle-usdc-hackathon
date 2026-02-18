@@ -222,6 +222,10 @@ function extractTokensFromResult(result: string): string[] {
 type TaskUpdateCallback = (task: Task) => void;
 const subscribers: Map<string, TaskUpdateCallback[]> = new Map();
 
+const routeCache: Map<string, { specialist: SpecialistType; expiresAt: number }> = new Map();
+const ROUTE_CACHE_TTL_MS = 2 * 60 * 1000;
+const MAX_ROUTE_CACHE_SIZE = 300;
+
 /**
  * Subscribe to task updates
  */
@@ -874,7 +878,29 @@ async function validateCallbackUrl(urlStr: string): Promise<boolean> {
 /**
  * Extract human-readable content from specialist result
  */
-function extractResponseContent(result: SpecialistResult): string {
+function formatObjectReadable(value: any): string {
+  if (!value || typeof value !== 'object') return String(value || '');
+  const entries = Object.entries(value)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .slice(0, 8)
+    .map(([k, v]) => {
+      if (Array.isArray(v)) {
+        return `• ${k}: ${v.slice(0, 4).map((item) => typeof item === 'object' ? JSON.stringify(item) : String(item)).join(', ')}`;
+      }
+      if (typeof v === 'object') {
+        const nested = Object.entries(v as Record<string, any>)
+          .slice(0, 4)
+          .map(([nk, nv]) => `${nk}=${typeof nv === 'object' ? JSON.stringify(nv) : String(nv)}`)
+          .join(', ');
+        return `• ${k}: ${nested}`;
+      }
+      return `• ${k}: ${String(v)}`;
+    });
+
+  return entries.length > 0 ? entries.join('\n') : 'No details provided.';
+}
+
+export function extractResponseContent(result: SpecialistResult): string {
   const data = result.data;
   if (data?.combined) return data.combined;
   if (data?.summary) return data.summary;
@@ -915,15 +941,15 @@ function extractResponseContent(result: SpecialistResult): string {
     // Generic external agent fallback
     if (typeof agentData === 'string') return agentData;
     if (agentData?.output) return agentData.output;
-    if (agentData?.response) return typeof agentData.response === 'string' ? agentData.response : JSON.stringify(agentData.response, null, 2);
-    return JSON.stringify(agentData, null, 2);
+    if (agentData?.response) return typeof agentData.response === 'string' ? agentData.response : formatObjectReadable(agentData.response);
+    return formatObjectReadable(agentData);
   }
   
   if (data?.details?.summary) return data.details.summary;
   if (data?.details?.response) {
     return typeof data.details.response === 'string' 
       ? data.details.response 
-      : JSON.stringify(data.details.response).slice(0, 200);
+      : formatObjectReadable(data.details.response);
   }
   
   // Specialist specific fallbacks
@@ -933,6 +959,10 @@ function extractResponseContent(result: SpecialistResult): string {
   
   if (data?.type) {
     return `${data.type} ${data.status || 'completed'}${data.txSignature ? ` (tx: ${data.txSignature.slice(0, 16)}...)` : ''}`;
+  }
+  if (data && typeof data === 'object') {
+    const readable = formatObjectReadable(data);
+    if (readable && readable !== '[object Object]') return readable;
   }
   return result.success 
     ? "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment." 
@@ -987,15 +1017,37 @@ export function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<
  * Supports Capability-based (modern), LLM-based (smart) and RegExp-based (fast) routing
  * Only routes to specialists in the hiredAgents list if provided
  */
+function buildRouteCacheKey(prompt: string, hiredAgents?: SpecialistType[]): string {
+  const normalizedPrompt = prompt.trim().toLowerCase();
+  const swarm = (hiredAgents || []).slice().sort().join(',');
+  return `${normalizedPrompt}::${swarm}`;
+}
+
+function setRouteCache(key: string, specialist: SpecialistType): void {
+  if (routeCache.size >= MAX_ROUTE_CACHE_SIZE) {
+    const oldestKey = routeCache.keys().next().value;
+    routeCache.delete(oldestKey);
+  }
+  routeCache.set(key, { specialist, expiresAt: Date.now() + ROUTE_CACHE_TTL_MS });
+}
+
 export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]): Promise<SpecialistType> {
   const lower = prompt.toLowerCase();
   const planningMode = process.env.PLANNING_MODE || 'capability';
+  const cacheKey = buildRouteCacheKey(prompt, hiredAgents);
+  const cached = routeCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.specialist;
+  }
   
   // 0. Fast-path: DeFi liquidity queries → silverback (or other external DeFi agent)
   // Check this BEFORE intent classifier because LLM might misclassify "liquidity" as "research"
   if (/\b(liquidity|pool|deepest|best)\b/i.test(prompt) && /\b(clawnch|token|base)\b/i.test(prompt)) {
     console.log(`[Router] DeFi liquidity query detected, routing to silverback`);
-    if (!hiredAgents || hiredAgents.includes('silverback')) return 'silverback';
+    if (!hiredAgents || hiredAgents.includes('silverback')) {
+      setRouteCache(cacheKey, 'silverback');
+      return 'silverback';
+    }
   }
   
   // 0a. Fast-path: Minara AI (Market/Liquidity Analysis)
@@ -1005,6 +1057,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
       const minaraId = hiredAgents.find(id => id.includes('minara'));
       if (minaraId) {
         console.log(`[Router] Minara query detected, routing to ${minaraId}`);
+        setRouteCache(cacheKey, minaraId as SpecialistType);
         return minaraId as SpecialistType;
       }
     }
@@ -1012,9 +1065,13 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
 
   // 0b. Fast-path: social/trending meme queries should route to Aura (before capability/intent fallbacks)
   if (/\b(trending|popular|hot|buzz|hype|sentiment|mood|vibe|fomo|fud|talking\s+about)\b/i.test(prompt) &&
-      /\b(meme|coin|token|crypto|base|ecosystem)\b/i.test(prompt)) {
+      /\b(meme|coin|token|crypto|base|ecosystem)\b/i.test(prompt) &&
+      !/\b(buy|sell|swap|trade|send|transfer)\b/i.test(prompt)) {
     console.log(`[Router] Fast-path: social/trending query detected, routing to aura`);
-    if (!hiredAgents || hiredAgents.includes('aura')) return 'aura';
+    if (!hiredAgents || hiredAgents.includes('aura')) {
+      setRouteCache(cacheKey, 'aura');
+      return 'aura';
+    }
   }
 
   // 1. Capability-Based Matching (FIRST — external agents get priority)
@@ -1036,6 +1093,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
           console.log(`[Capability Matcher] Top match: ${best.agentId} (score: ${best.score.toFixed(2)})`);
           
           if (best.score >= 0.6) {
+            setRouteCache(cacheKey, best.agentId as SpecialistType);
             return best.agentId as SpecialistType;
           }
         }
@@ -1053,6 +1111,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
       const specialist = intent.specialist;
       if (!hiredAgents || hiredAgents.includes(specialist)) {
         console.log(`[Intent Classifier] ${intent.category} → ${specialist} (${(intent.confidence * 100).toFixed(0)}%)`);
+        setRouteCache(cacheKey, specialist);
         return specialist;
       }
     }
@@ -1079,6 +1138,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     if (securityAgent) {
        console.log(`[Router] Found security agent: ${securityAgent.id}`);
        if (!hiredAgents || hiredAgents.includes(securityAgent.id as SpecialistType)) {
+         setRouteCache(cacheKey, securityAgent.id as SpecialistType);
          return securityAgent.id as SpecialistType;
        }
     }
@@ -1086,29 +1146,41 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
   
   // 2b. Fast-path: price/market queries → magos
   if (/\b(price|value|worth|cost|how much)\b/i.test(prompt) && 
-      /\b(bitcoin|btc|ethereum|eth|solana|sol|bonk|wif|pepe|doge|avax|matic|bnb|jup|crypto|token|coin)\b/i.test(prompt)) {
+      /\b(bitcoin|btc|ethereum|eth|solana|sol|bonk|wif|pepe|doge|avax|matic|bnb|jup|crypto|token|coin)\b/i.test(prompt) &&
+      !/\b(buy|sell|swap|trade|send|transfer)\b/i.test(prompt)) {
     console.log(`[Router] Fast-path: price query detected, routing to magos`);
-    if (!hiredAgents || hiredAgents.includes('magos')) return 'magos';
+    if (!hiredAgents || hiredAgents.includes('magos')) {
+      setRouteCache(cacheKey, 'magos');
+      return 'magos';
+    }
   }
   
   // 2c. Fast-path: sentiment/social queries → aura
-  if (/\b(sentiment|vibe|mood|social\s+analysis|what.+saying|what.+think|buzz|hype|fud|fomo)\b/i.test(prompt)) {
+  if (/\b(sentiment|vibe|mood|social\s+analysis|what.+saying|what.+think|buzz|hype|fud|fomo|talking\s+about|mentions?|discussing)\b/i.test(prompt) &&
+      !/\b(buy|sell|swap|trade|send|transfer)\b/i.test(prompt)) {
     console.log(`[Router] Fast-path: sentiment/social query detected, routing to aura`);
-    if (!hiredAgents || hiredAgents.includes('aura')) return 'aura';
+    if (!hiredAgents || hiredAgents.includes('aura')) {
+      setRouteCache(cacheKey, 'aura');
+      return 'aura';
+    }
   }
   
 
   // 3. Multi-hop / Complex Query Detection
   if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
     console.log(`[Router] Complex query or multi-hop pattern detected, routing to multi-hop`);
+    setRouteCache(cacheKey, 'multi-hop');
     return 'multi-hop' as SpecialistType;
   }
   
   // 4. Fast-path: explicit trade/execution intents
-  if (/\b(buy|sell|swap|send|transfer|withdraw|deposit)\b/.test(lower) && 
+  if (/\b(buy|sell|swap|send|transfer|withdraw|deposit|approve|allowance)\b/.test(lower) && 
       !/\b(should i|good|recommend|analysis|analyze|compare|predict)\b/.test(lower)) {
     console.log(`[Router] Fast-path: explicit trade intent detected, routing to bankr`);
-    if (!hiredAgents || hiredAgents.includes('bankr')) return 'bankr';
+    if (!hiredAgents || hiredAgents.includes('bankr')) {
+      setRouteCache(cacheKey, 'bankr');
+      return 'bankr';
+    }
   }
   
   // 5. LLM-based routing (Smart fallback)
@@ -1119,18 +1191,25 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
       
       if (hiredAgents && !hiredAgents.includes(plan.specialist)) {
         console.log(`[LLM Planner] Specialist ${plan.specialist} not in swarm, falling back to regexp routing`);
-        return routeWithRegExp(prompt, hiredAgents);
+        const fallback = routeWithRegExp(prompt, hiredAgents);
+        setRouteCache(cacheKey, fallback);
+        return fallback;
       }
       
+      setRouteCache(cacheKey, plan.specialist);
       return plan.specialist;
     } catch (error: any) {
       console.error(`[LLM Planner] Error:`, error.message, '- falling back to regexp');
-      return routeWithRegExp(prompt, hiredAgents);
+      const fallback = routeWithRegExp(prompt, hiredAgents);
+      setRouteCache(cacheKey, fallback);
+      return fallback;
     }
   }
   
   // 6. Default: RegExp routing (LAST FALLBACK)
-  return routeWithRegExp(prompt, hiredAgents);
+  const fallback = routeWithRegExp(prompt, hiredAgents);
+  setRouteCache(cacheKey, fallback);
+  return fallback;
 }
 
 /**
