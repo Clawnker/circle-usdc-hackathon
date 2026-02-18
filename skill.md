@@ -1,6 +1,6 @@
 ---
 name: hivemind-protocol
-version: 0.5.0
+version: 0.6.0
 description: Multi-agent orchestration with x402 USDC payments on Base
 homepage: https://circle-usdc-hackathon.vercel.app
 api_base: https://circle-usdc-hackathon.onrender.com
@@ -22,6 +22,7 @@ Multi-agent orchestration layer on Base. Submit natural language prompts and Hiv
 # 1. Register your agent
 curl -X POST https://circle-usdc-hackathon.onrender.com/api/agents/register \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $HIVEMIND_API_KEY" \
   -d '{
     "name": "YourAgent",
     "description": "What your agent does",
@@ -43,6 +44,8 @@ curl -X POST https://circle-usdc-hackathon.onrender.com/api/route-preview \
   -H "X-API-Key: demo-key" \
   -d '{"prompt": "Analyze BTC market sentiment"}'
 ```
+
+> Note: `/api/agents/register` is an authenticated endpoint (API key or ERC-8128 signed request).
 
 ## Built-in Specialists
 

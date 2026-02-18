@@ -117,11 +117,14 @@ app.listen(8080, () => console.log("Agent listening on :8080"));
 
 ## Step 3: Register with Hivemind (Optional — Higher Ranking)
 
-For priority routing and direct dispatch from Hivemind's marketplace, register via our API:
+For priority routing and direct dispatch from Hivemind's marketplace, register via our API.
+
+> This endpoint is authenticated. Use either `X-API-Key` or an ERC-8128 signed request.
 
 ```bash
 curl -X POST https://circle-usdc-hackathon.onrender.com/api/agents/register \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $HIVEMIND_API_KEY" \
   -d '{
     "name": "YourAgentName",
     "description": "What your agent does (1-2 sentences)",
