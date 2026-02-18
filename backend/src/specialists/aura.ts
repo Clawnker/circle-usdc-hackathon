@@ -66,11 +66,14 @@ function parseIntent(prompt: string): { type: string; topic?: string; category?:
   const lower = prompt.toLowerCase();
   
   // Extract topic (token, project, or general topic)
-  const matches = prompt.match(/\b(SOL|BTC|ETH|BONK|WIF|JUP|MATIC|AVAX|DOT|LINK|UNI|AAVE|ARB|OP|BASE|Solana|Bitcoin|Ethereum|[A-Z][a-z]+(?:Fi|Swap|DAO)?)\b/g);
-  const stopWords = ['what', 'how', 'when', 'where', 'why', 'who', 'is', 'are', 'the', 'this', 'that', 'sentiment', 'vibe', 'mood', 'tokens'];
-  
+  const tickerMatch = prompt.match(/\b(SOL|BTC|ETH|BONK|WIF|JUP|MATIC|AVAX|DOT|LINK|UNI|AAVE|ARB|OP|BASE|Solana|Bitcoin|Ethereum)\b/i);
+  const matches = prompt.match(/\b([A-Z][a-z]+(?:Fi|Swap|DAO)?)\b/g);
+  const stopWords = ['what', 'how', 'when', 'where', 'why', 'who', 'is', 'are', 'the', 'this', 'that', 'sentiment', 'vibe', 'mood', 'tokens', 'give', 'detailed', 'concrete', 'sources', 'with', 'around'];
+
   let topic = 'crypto';
-  if (matches) {
+  if (tickerMatch?.[0]) {
+    topic = tickerMatch[0].toUpperCase();
+  } else if (matches) {
     const validTopic = matches.find(m => !stopWords.includes(m.toLowerCase()));
     if (validTopic) topic = validTopic;
   }
@@ -211,6 +214,28 @@ function fallbackAnalysis(topic: string, results: any[]): AuraSentiment {
     };
   });
 
+  const entityCounts = new Map<string, number>();
+  const entityRegex = /\b([A-Z]{2,10}|\$[A-Za-z]{2,10})\b/g;
+  for (const r of results) {
+    const text = `${r?.title || ''} ${r?.description || ''}`;
+    const matches = text.match(entityRegex) || [];
+    for (const raw of matches) {
+      const normalized = raw.replace('$', '').toUpperCase();
+      if (['USD', 'USDT', 'USDC', 'ETF', 'CEO'].includes(normalized)) continue;
+      entityCounts.set(normalized, (entityCounts.get(normalized) || 0) + 1);
+    }
+  }
+
+  const entities = Array.from(entityCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, mentionCount]) => ({ name, mentionCount, sentiment: 'neutral' }));
+
+  const topSourceTitles = sources.slice(0, 3).map((s, i) => `[${i + 1}] ${s.title}`).join(' | ');
+  const actionable = entities.length > 0
+    ? `Watch ${entities.slice(0, 2).map(e => `$${e.name}`).join(' and ')} for confirmation via volume + follow-through headlines before entering.`
+    : `Wait for stronger directional confirmation (consistent headlines across at least 3 independent sources) before acting.`;
+
   return {
     topic,
     overallSentiment: 'neutral',
@@ -222,9 +247,9 @@ function fallbackAnalysis(topic: string, results: any[]): AuraSentiment {
     trendDirection: 'stable',
     sources,
     posts: sources,
-    entities: [],
-    summary: `Found ${results.length} active discussions about ${topic}. Current signal is mixed-to-neutral based on available source coverage.`,
-    analysis: `Social chatter was collected from ${results.length} sources and normalized into a neutral baseline signal. Confidence is moderate because source quality/coverage is uneven.`,
+    entities,
+    summary: `Found ${results.length} active discussions about ${topic}. Signal is mixed/neutral with limited model certainty. Top references: ${topSourceTitles || 'N/A'}.`,
+    analysis: `Fallback mode used (LLM classification unavailable). Extracted entities from source headlines/descriptions: ${entities.map(e => `${e.name}(${e.mentionCount})`).join(', ') || 'none'}. ${actionable}`,
   };
 }
 

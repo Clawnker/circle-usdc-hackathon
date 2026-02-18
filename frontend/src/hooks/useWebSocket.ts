@@ -115,11 +115,13 @@ export function useWebSocket(): UseWebSocketReturn {
                     setResult(task.result);
                   }
 
-                  // Handle transaction approval
-                  if (task.metadata?.requiresTransactionApproval) {
+                  // Handle transaction approval (metadata-first, result fallback)
+                  const txDetails = task.metadata?.transactionDetails || task.result?.data?.details;
+                  const needsTxApproval = Boolean(task.metadata?.requiresTransactionApproval || task.result?.data?.requiresApproval);
+                  if (needsTxApproval && txDetails) {
                     setPendingTransaction({
                       taskId: task.id,
-                      ...task.metadata.transactionDetails
+                      ...txDetails,
                     });
                   } else {
                     setPendingTransaction(null);
@@ -217,11 +219,13 @@ export function useWebSocket(): UseWebSocketReturn {
         
         if (task.status) setTaskStatus(task.status);
         
-        // Handle transaction approval in polling
-        if (task.metadata?.requiresTransactionApproval) {
+        // Handle transaction approval in polling (metadata-first, result fallback)
+        const txDetails = task.metadata?.transactionDetails || task.result?.data?.details;
+        const needsTxApproval = Boolean(task.metadata?.requiresTransactionApproval || task.result?.data?.requiresApproval);
+        if (needsTxApproval && txDetails) {
           setPendingTransaction({
             taskId: task.id,
-            ...task.metadata.transactionDetails
+            ...txDetails,
           });
         } else {
           setPendingTransaction(null);

@@ -187,10 +187,12 @@ async function fetchPriceData(token: string): Promise<{
   sources: string[];
 }> {
   const sources: string[] = [];
-  
+  const normalizedToken = token.toUpperCase();
+  const requiresCoinGeckoFresh = ['BTC', 'ETH', 'SOL', 'USDC', 'USDT'].includes(normalizedToken);
+
   // Try CoinGecko tool first (has the richest data)
   try {
-    const cgData = await getPrice(token);
+    const cgData = await getPrice(token, { allowStaleFallback: false });
     if (cgData.price > 0) {
       sources.push('CoinGecko');
       return {
@@ -204,10 +206,12 @@ async function fetchPriceData(token: string): Promise<{
     }
   } catch (e: any) {
     console.log(`[Magos] CoinGecko tool failed for ${token}:`, e.message);
+    if (requiresCoinGeckoFresh) {
+      throw new Error(`Fresh CoinGecko price unavailable for ${normalizedToken}`);
+    }
   }
 
   // Jupiter fallback for Solana-native tokens/mints only
-  const normalizedToken = token.toUpperCase();
   const mint = TOKEN_MINTS[normalizedToken] || (token.length >= 32 ? token : null);
   const canUseJupiter = JUPITER_ELIGIBLE_TOKENS.has(normalizedToken) || token.length >= 32;
   if (mint && canUseJupiter) {

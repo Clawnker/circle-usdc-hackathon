@@ -107,11 +107,26 @@ const SpecialistCard = ({ type, data }: { type: string; data: any }) => {
   }
 };
 
+const normalizeMarkdown = (text: string): string => {
+  if (!text) return '';
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\*{3,}/g, '**')
+    .trim();
+};
+
+const truncateMarkdown = (text: string, max = 1800): string => {
+  if (!text || text.length <= max) return text;
+  return `${text.slice(0, max).trim()}\n\n… _truncated for readability_`;
+};
+
 // Generic card for external registry agents
 const ExternalAgentCard = ({ data, agentId }: { data: any; agentId: string }) => {
   const summary = data?.summary || data?.result || data?.response || data?.answer || data?.output || '';
   const agentName = agentId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  
+  const markdown = typeof summary === 'string' ? truncateMarkdown(normalizeMarkdown(summary)) : '';
+
   return (
     <div className="glass-panel p-4 rounded-lg gradient-border flex flex-col gap-3">
       <div className="flex items-center gap-2">
@@ -121,9 +136,9 @@ const ExternalAgentCard = ({ data, agentId }: { data: any; agentId: string }) =>
         </span>
       </div>
       {summary ? (
-        <div className="text-sm text-text-secondary leading-relaxed">
+        <div className="text-sm text-text-secondary leading-relaxed prose prose-invert max-w-none prose-p:my-2 prose-li:my-0.5 prose-headings:my-2">
           {typeof summary === 'string' ? (
-            <ReactMarkdown>{summary}</ReactMarkdown>
+            <ReactMarkdown>{markdown}</ReactMarkdown>
           ) : (
             <pre className="whitespace-pre-wrap text-xs bg-black/30 p-3 rounded-md overflow-x-auto">{JSON.stringify(summary, null, 2)}</pre>
           )}

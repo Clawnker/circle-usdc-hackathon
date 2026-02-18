@@ -513,14 +513,18 @@ export default function CommandCenter() {
                 onchainAddress, hasAddress: !!onchainAddress
               });
 
-              if (delegation?.enabled && (remaining + 1e-6) >= fee && onchainAddress && isWalletConnected) {
+              const delegatedWalletAddress = (onchainAddress || delegation?.walletAddress || '').toString();
+              const hasUsableDelegatedWallet = /^0x[a-fA-F0-9]{40}$/.test(delegatedWalletAddress);
+              const canAutoPay = Boolean(delegation?.enabled) && (remaining + 1e-6) >= fee && hasUsableDelegatedWallet;
+
+              if (canAutoPay) {
                 // Auto-pay: backend pulls USDC from user's wallet via on-chain approval
                 try {
                   const delegateRes = await fetch(`${API_URL}/api/delegate-pay`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      userAddress: onchainAddress,
+                      userAddress: delegatedWalletAddress,
                       amount: fee,
                       specialist: preview.specialist,
                     }),

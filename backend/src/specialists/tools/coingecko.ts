@@ -48,9 +48,10 @@ export interface MarketData extends PriceData {
 /**
  * Get current price for a token
  */
-export async function getPrice(token: string): Promise<PriceData> {
+export async function getPrice(token: string, options?: { allowStaleFallback?: boolean }): Promise<PriceData> {
   const tokenId = TOKEN_IDS[token.toUpperCase()] || token.toLowerCase();
-  
+  const allowStaleFallback = options?.allowStaleFallback ?? true;
+
   try {
     const response = await axios.get(`${COINGECKO_API}/simple/price`, {
       params: {
@@ -63,12 +64,15 @@ export async function getPrice(token: string): Promise<PriceData> {
       },
       timeout: 10000,
     });
-    
+
     const data = response.data[tokenId] || response.data[tokenId.toLowerCase()] || response.data[tokenId.toUpperCase()];
     if (!data || typeof data.usd !== 'number' || Number.isNaN(data.usd)) {
+      if (!allowStaleFallback) {
+        throw new Error(`CoinGecko returned no valid USD price for ${tokenId}`);
+      }
       return mockPrice(token);
     }
-    
+
     return {
       token: token.toUpperCase(),
       price: data.usd,
@@ -80,6 +84,9 @@ export async function getPrice(token: string): Promise<PriceData> {
     };
   } catch (error: any) {
     console.log('[CoinGecko] Price fetch error:', error.message);
+    if (!allowStaleFallback) {
+      throw error;
+    }
     return mockPrice(token);
   }
 }
