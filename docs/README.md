@@ -15,3 +15,8 @@
 
 ## Private / Internal
 Internal postmortems, sprint archives, QA artifacts, and workflow proposals are intentionally excluded from the public repo surface.
+
+## Policy Guard
+- Private-surface policy is documented in root `README.md`.
+- Guard script: `tests/scripts/check_private_surface.sh`
+- CI workflow: `.github/workflows/private-surface.yml`

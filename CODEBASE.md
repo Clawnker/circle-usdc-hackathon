@@ -60,6 +60,7 @@ circle-usdc-hackathon/
 Some operational docs and QA artifacts are intentionally kept out of the public repo surface.
 - Internal files live under local `.private/` (gitignored)
 - Public docs are listed in `docs/README.md`
+- Guard script: `tests/scripts/check_private_surface.sh`
 
 ## Backend quick notes
 
