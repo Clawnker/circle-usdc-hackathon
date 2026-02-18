@@ -4,13 +4,13 @@
     "state": "CLOSED",
     "consecutiveFailures": 2,
     "halfOpenAttempts": 0,
-    "lastFailureTime": 1771379219545
+    "lastFailureTime": 1770685265264
   },
   "agent-2": {
     "agentId": "agent-2",
     "state": "CLOSED",
     "consecutiveFailures": 1,
     "halfOpenAttempts": 0,
-    "lastFailureTime": 1771379219545
+    "lastFailureTime": 1770685265264
   }
 }
