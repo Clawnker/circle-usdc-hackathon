@@ -1164,7 +1164,16 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
       return 'aura';
     }
   }
-  
+
+  // 2d. Fast-path: readability/summarization requests → scribe (unless explicitly web-search intent)
+  if (/\b(summarize|summary|bullet\s*points?|explain|rewrite|clean\s+up|make\s+this\s+readable)\b/i.test(prompt) &&
+      !/\b(search|find|lookup|latest\s+on|news\s+about|research\b|google|brave|web)\b/i.test(prompt)) {
+    console.log(`[Router] Fast-path: readability/summarization query detected, routing to scribe`);
+    if (!hiredAgents || hiredAgents.includes('scribe')) {
+      setRouteCache(cacheKey, 'scribe');
+      return 'scribe';
+    }
+  }
 
   // 3. Multi-hop / Complex Query Detection
   if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
