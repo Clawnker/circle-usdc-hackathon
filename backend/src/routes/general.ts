@@ -7,21 +7,25 @@ import magos from '../specialists/magos';
 import aura from '../specialists/aura';
 import bankr from '../specialists/bankr';
 import { hasErc8128Headers, verifyErc8128Request } from '../middleware/erc8128-auth';
+import { normalizeClientNetworkMode } from '../utils/client-network';
+import { getNetworkConfig } from '../utils/network-config';
 // Note: x402 payment enforcement is handled at app level by x402-server.ts
 // The manual paymentMiddleware in middleware/payment.ts is kept as fallback
 
 const router = Router();
-const TREASURY_WALLET_EVM = '0x676fF3d546932dE6558a267887E58e39f405B135';
 
 /**
  * Health check
  */
 router.get('/health', (req: Request, res: Response) => {
+  const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
+  const network = getNetworkConfig(mode);
   res.json({
     status: 'ok',
     service: 'Hivemind Protocol',
     version: '0.6.0',
-    chain: 'Base Sepolia (EIP-155:84532)',
+    chain: network.displayName,
+    networkMode: mode,
     trustLayer: 'ERC-8004',
     auth: ['api-key', 'erc8128'],
     llmRouter: 'ClawRouter/BlockRun',
@@ -34,18 +38,21 @@ router.get('/health', (req: Request, res: Response) => {
  */
 router.get('/status', async (req: Request, res: Response) => {
   try {
-    const balances = await getTreasuryBalance();
+    const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
+    const network = getNetworkConfig(mode);
+    const balances = await getTreasuryBalance(mode);
 
     res.json({
       status: 'ok',
       treasury: {
-        address: TREASURY_WALLET_EVM,
+        address: network.treasuryAddress,
         balances: {
           eth: balances.eth,
           usdc: balances.usdc,
         },
       },
-      chain: 'Base Sepolia (EIP-155:84532)',
+      chain: network.displayName,
+      networkMode: mode,
       specialists: ['magos', 'aura', 'bankr', 'seeker', 'scribe'],
       uptime: process.uptime(),
     });
@@ -122,7 +129,7 @@ router.get('/v1/specialists', (req: Request, res: Response) => {
 router.post(['/specialist/:id', '/query/:id'], async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { prompt } = req.body;
+    const { prompt, networkMode } = req.body;
     
     // Validate specialist ID (with aliases)
     const specialistAliases: Record<string, string> = {
@@ -144,7 +151,9 @@ router.post(['/specialist/:id', '/query/:id'], async (req: Request, res: Respons
     }
 
     // Payment verified or not required by middleware - execute specialist
-    const result = await callSpecialist(resolvedId as SpecialistType, prompt);
+    const result = await callSpecialist(resolvedId as SpecialistType, prompt, {
+      metadata: { networkMode: normalizeClientNetworkMode(networkMode) },
+    });
     res.json(result);
   } catch (error: any) {
     res.status(500).json({ error: "Internal server error" });

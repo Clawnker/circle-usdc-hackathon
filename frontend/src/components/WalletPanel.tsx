@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wallet, Copy, Check, ExternalLink, RefreshCw, ChevronDown, ChevronUp, User, Zap } from 'lucide-react';
+import { Wallet, Copy, Check, ExternalLink, RefreshCw, User, Zap } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { getExplorerAddressUrl, getNetworkConfig, type NetworkMode } from '@/lib/networkMode';
+import { getDelegationState } from './DelegationPanel';
 
 interface WalletPanelProps {
   className?: string;
+  networkMode: NetworkMode;
 }
 
 interface TokenBalance {
@@ -17,25 +19,23 @@ interface TokenBalance {
   color: string;
 }
 
-const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135';
-const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
-
 const TOKEN_CONFIG: Record<string, { icon: string; color: string; decimals: number }> = {
   ETH: { icon: 'Ξ', color: 'from-[#627EEA] to-[#627EEA]', decimals: 4 },
   USDC: { icon: '$', color: 'from-[#2775CA] to-[#2775CA]', decimals: 4 },
 };
 
-export function WalletPanel({ className = '' }: WalletPanelProps) {
-  const { address, isConnected } = useAccount();
+export function WalletPanel({ className = '', networkMode }: WalletPanelProps) {
+  const network = getNetworkConfig(networkMode);
+  const { address, isConnected, chainId } = useAccount();
   const { data: ethBalance, refetch: refetchEth } = useBalance({
     address,
-    chainId: baseSepolia.id,
+    chainId: network.chainId,
     query: { enabled: isConnected },
   });
   const { data: usdcBalance, refetch: refetchUsdc } = useBalance({
     address,
-    token: USDC_ADDRESS,
-    chainId: baseSepolia.id,
+    token: network.usdcAddress,
+    chainId: network.chainId,
     query: { enabled: isConnected },
   });
 
@@ -46,8 +46,9 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const delegation = getDelegationState(networkMode);
 
-  const displayAddress = isConnected ? (address || '') : TREASURY_ADDRESS;
+  const displayAddress = isConnected ? (address || '') : network.treasuryAddress;
 
   const truncateAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
@@ -58,7 +59,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
   };
 
   const openBasescan = () => {
-    window.open(`https://sepolia.basescan.org/address/${displayAddress}`, '_blank');
+    window.open(getExplorerAddressUrl(networkMode, displayAddress), '_blank');
   };
 
   const formatBalance = (symbol: string, amount: number): string => {
@@ -92,7 +93,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
     // Fallback: fetch treasury balance from backend API
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-      const res = await fetch(`${apiUrl}/api/wallet/balances`);
+      const res = await fetch(`${apiUrl}/api/wallet/balances?network=${networkMode}`);
       if (res.ok) {
         const data = await res.json();
         const base = data.base || data.balances || {};
@@ -106,13 +107,19 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
       console.error('Failed to fetch balance:', error);
     }
     setIsRefreshing(false);
-  }, [isConnected, refetchEth, refetchUsdc]);
+  }, [isConnected, networkMode, refetchEth, refetchUsdc]);
 
   useEffect(() => {
     fetchBalance();
     const interval = setInterval(fetchBalance, 15000);
     return () => clearInterval(interval);
   }, [fetchBalance]);
+
+  const delegationRemaining = delegation ? Math.max(0, delegation.allowance - delegation.spent) : 0;
+  const delegationPercent = delegation && delegation.allowance > 0
+    ? Math.max(0, Math.min(100, (delegationRemaining / delegation.allowance) * 100))
+    : 0;
+  const hasChainMismatch = Boolean(isConnected && chainId && chainId !== network.chainId);
 
   return (
     <div className={`glass-panel overflow-hidden ${className}`}>
@@ -126,6 +133,11 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
           {isConnected && (
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/20 text-green-400 font-medium">
               Connected
+            </span>
+          )}
+          {hasChainMismatch && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+              Wrong Network
             </span>
           )}
         </div>
@@ -218,26 +230,26 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
         </div>
 
         {/* Delegation remaining display */}
-        <div className="mt-4 p-3 rounded-lg bg-white/5 border border-white/10">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Zap size={14} className="text-[var(--accent-purple)]" />
-              <span className="text-xs text-[var(--text-muted)]">Delegation Remaining</span>
-            </div>
-            {/* Hardcoded delegation amount for now */}
+          <div className="mt-4 p-3 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Zap size={14} className="text-[var(--accent-purple)]" />
+                <span className="text-xs text-[var(--text-muted)]">Delegation Remaining</span>
+              </div>
             <span className="text-xs font-semibold text-[var(--text-primary)]">
-              $25.00 USDC
-              {/* Add warning badge if delegation < $1 */}
-              {25.00 < 1.0 && (
+              ${delegationRemaining.toFixed(2)} USDC
+              {delegation && delegationRemaining < 1.0 && (
                 <span className="ml-2 px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 text-[10px] font-medium">
                   Low Delegation
                 </span>
               )}
             </span>
-          </div>
-          {/* Simple progress bar, hardcoded 80% for now */}
+            </div>
           <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-[var(--accent-purple)] rounded-full" style={{ width: '80%' }}></div>
+            <div className="h-full bg-[var(--accent-purple)] rounded-full" style={{ width: `${delegationPercent}%` }}></div>
+          </div>
+          <div className="mt-2 text-[10px] text-[var(--text-muted)]">
+            {delegation ? `${delegation.spent.toFixed(2)} spent of ${delegation.allowance.toFixed(2)} approved on ${network.chainName}` : `No delegation approved on ${network.chainName}`}
           </div>
         </div>
 
@@ -268,7 +280,7 @@ export function WalletPanel({ className = '' }: WalletPanelProps) {
           </motion.button>
           <div className="flex items-center gap-1 text-[10px] text-[var(--text-muted)]">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            <span>Base Sepolia</span>
+            <span>{network.chainName}</span>
           </div>
         </div>
 

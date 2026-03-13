@@ -6,12 +6,12 @@
  */
 
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
 import * as fs from 'fs';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { SpecialistResult, Capability, ExternalAgent, RegisterRequest } from './types';
 import { parsePaymentRequiredHeader } from './utils/payment-required';
+import { getNetworkConfig, getNetworkModeFromChain, isAgentOnNetwork } from './utils/network-config';
+import type { ClientNetworkMode } from './utils/client-network';
 
 // Lazy-load x402/erc8128 deps so Jest (CJS) doesn't choke on ESM-only packages.
 let createSignerClient: any = null;
@@ -36,34 +36,38 @@ const EXTERNAL_AGENTS_FILE = path.join(DATA_DIR, 'external-agents.json');
 
 // ── ERC-8128 Signer (for outgoing requests) ───────────────────────────
 const privateKey = process.env.DEMO_WALLET_PRIVATE_KEY;
-let signerClient: any = null;
-let signerAddress: string | null = null;
+const signerClients = new Map<ClientNetworkMode, any>();
+const x402HttpClients = new Map<ClientNetworkMode, any>();
 
-if (privateKey) {
+function getSignerClient(mode: ClientNetworkMode): any | null {
+  if (!privateKey) return null;
+  if (signerClients.has(mode)) return signerClients.get(mode);
   try {
     loadPaymentDeps();
     const account = privateKeyToAccount(privateKey as `0x${string}`);
     if (!createSignerClient) {
       throw new Error('erc8128 module not loaded');
     }
-    signerAddress = account.address;
-    signerClient = createSignerClient({
-      chainId: baseSepolia.id,
+    const network = getNetworkConfig(mode);
+    const client = createSignerClient({
+      chainId: network.chainId,
       address: account.address,
       signMessage: async (message: any) => {
         return await account.signMessage({ message: { raw: message } });
       },
     });
-    console.log(`[ExternalAgents] ERC-8128 signer ready: ${account.address}`);
+    signerClients.set(mode, client);
+    console.log(`[ExternalAgents] ERC-8128 signer ready for ${mode}: ${account.address}`);
+    return client;
   } catch (err) {
-    console.error('[ExternalAgents] Failed to init ERC-8128 signer:', err);
+    console.error(`[ExternalAgents] Failed to init ERC-8128 signer for ${mode}:`, err);
+    return null;
   }
 }
 
-// ── x402 Payment Client (for paying external agents) ──────────────────
-let x402HttpClient: any = null;
-
-if (privateKey) {
+function getX402HttpClient(mode: ClientNetworkMode): any | null {
+  if (!privateKey) return null;
+  if (x402HttpClients.has(mode)) return x402HttpClients.get(mode);
   try {
     loadPaymentDeps();
     const account = privateKeyToAccount(privateKey as `0x${string}`);
@@ -72,15 +76,26 @@ if (privateKey) {
     }
     const client = new x402Client();
     registerExactEvmScheme(client, { signer: account });
-    x402HttpClient = new x402HTTPClient(client);
-    console.log(`[ExternalAgents] x402 payment client ready: ${account.address}`);
+    const httpClient = new x402HTTPClient(client);
+    x402HttpClients.set(mode, httpClient);
+    console.log(`[ExternalAgents] x402 payment client ready for ${mode}: ${account.address}`);
+    return httpClient;
   } catch (err) {
-    console.error('[ExternalAgents] Failed to init x402 client:', err);
+    console.error(`[ExternalAgents] Failed to init x402 client for ${mode}:`, err);
+    return null;
   }
 }
 
 // In-memory store, persisted to disk
 let externalAgents: Map<string, ExternalAgent> = new Map();
+
+function normalizeAgentChain(chain?: string): string {
+  return getNetworkConfig(getNetworkModeFromChain(chain)).routeLabel;
+}
+
+function getExternalAgentStorageKey(id: string, chain: string): string {
+  return `${id}::${normalizeAgentChain(chain)}`;
+}
 
 /**
  * Load external agents from disk
@@ -107,7 +122,8 @@ function loadAgents(): void {
             latencyEstimateMs: 1000,
           }));
         }
-        externalAgents.set(agent.id, agent);
+        agent.chain = normalizeAgentChain(agent.chain);
+        externalAgents.set(getExternalAgentStorageKey(agent.id, agent.chain), agent);
       }
       console.log(`[ExternalAgents] Loaded ${externalAgents.size} external agents`);
     }
@@ -140,6 +156,8 @@ loadAgents();
 export function registerAgent(req: RegisterRequest): ExternalAgent {
   // Generate a slug-style ID from the name
   const id = req.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const normalizedChain = normalizeAgentChain(req.chain);
+  const storageKey = getExternalAgentStorageKey(id, normalizedChain);
   
   // Ensure structured capabilities exist (backward compatibility)
   const structuredCapabilities = req.structuredCapabilities || req.capabilities.map(cap => ({
@@ -155,19 +173,19 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
   }));
 
   // Check if already registered
-  if (externalAgents.has(id)) {
+  if (externalAgents.has(storageKey)) {
     // Update existing registration
-    const existing = externalAgents.get(id)!;
+    const existing = externalAgents.get(storageKey)!;
     existing.description = req.description;
     existing.endpoint = req.endpoint;
     existing.wallet = req.wallet;
     existing.capabilities = req.capabilities;
     existing.structuredCapabilities = structuredCapabilities;
     existing.pricing = req.pricing || {};
-    existing.chain = req.chain || 'base-sepolia';
+    existing.chain = normalizedChain;
     existing.active = true;
     saveAgents();
-    console.log(`[ExternalAgents] Updated registration: ${id}`);
+    console.log(`[ExternalAgents] Updated registration: ${storageKey}`);
     return existing;
   }
 
@@ -180,7 +198,7 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
     capabilities: req.capabilities,
     structuredCapabilities,
     pricing: req.pricing || {},
-    chain: req.chain || 'base-sepolia',
+    chain: normalizedChain,
     x402Support: true,
     erc8128Support: req.erc8128Support || false,
     erc8004: { registered: true },
@@ -189,7 +207,7 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
     active: true,
   };
 
-  externalAgents.set(id, agent);
+  externalAgents.set(storageKey, agent);
   saveAgents();
 
   // Trigger embedding sync (non-blocking)
@@ -202,7 +220,7 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
   // Also update the registrations.json for the /api/agents endpoint
   updateRegistrationsJson(agent);
 
-  console.log(`[ExternalAgents] Registered new agent: ${id} -> ${agent.endpoint}`);
+  console.log(`[ExternalAgents] Registered new agent: ${storageKey} -> ${agent.endpoint}`);
   return agent;
 }
 
@@ -215,7 +233,7 @@ function updateRegistrationsJson(agent: ExternalAgent): void {
     const registrations = JSON.parse(fs.readFileSync(regFile, 'utf8'));
     
     // Check if agent already exists in registrations
-    const existingIdx = registrations.findIndex((r: any) => r.name === agent.name);
+    const existingIdx = registrations.findIndex((r: any) => r.name === agent.name && normalizeAgentChain(r.chain || r.networkMode) === agent.chain);
     
     const registration = {
       type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
@@ -238,6 +256,8 @@ function updateRegistrationsJson(agent: ExternalAgent): void {
       registrations: [],
       supportedTrust: ["reputation"],
       external: true, // Mark as externally registered
+      chain: agent.chain,
+      networkMode: getNetworkModeFromChain(agent.chain),
       wallet: agent.wallet,
       capabilities: agent.capabilities,
       pricing: agent.pricing,
@@ -259,22 +279,33 @@ function updateRegistrationsJson(agent: ExternalAgent): void {
 /**
  * Get all external agents
  */
-export function getExternalAgents(): ExternalAgent[] {
-  return Array.from(externalAgents.values());
+export function getExternalAgents(mode?: ClientNetworkMode): ExternalAgent[] {
+  const agents = Array.from(externalAgents.values());
+  if (!mode) return agents;
+  return agents.filter((agent) => isAgentOnNetwork(agent.chain, mode));
 }
 
 /**
  * Get a specific external agent
  */
-export function getExternalAgent(id: string): ExternalAgent | undefined {
-  return externalAgents.get(id);
+export function getExternalAgent(id: string, mode?: ClientNetworkMode): ExternalAgent | undefined {
+  if (mode) {
+    return externalAgents.get(getExternalAgentStorageKey(id, getNetworkConfig(mode).routeLabel));
+  }
+  return Array.from(externalAgents.values()).find((agent) => agent.id === id);
 }
 
 /**
  * Remove an external agent
  */
-export function removeAgent(id: string): boolean {
-  const existed = externalAgents.delete(id);
+export function removeAgent(id: string, mode?: ClientNetworkMode): boolean {
+  if (!mode) {
+    const keys = Array.from(externalAgents.keys()).filter((key) => key.startsWith(`${id}::`));
+    for (const key of keys) externalAgents.delete(key);
+    if (keys.length > 0) saveAgents();
+    return keys.length > 0;
+  }
+  const existed = externalAgents.delete(getExternalAgentStorageKey(id, getNetworkConfig(mode).routeLabel));
   if (existed) saveAgents();
   return existed;
 }
@@ -282,8 +313,8 @@ export function removeAgent(id: string): boolean {
 /**
  * Health check an external agent
  */
-export async function healthCheckAgent(id: string): Promise<boolean> {
-  const agent = externalAgents.get(id);
+export async function healthCheckAgent(id: string, mode: ClientNetworkMode = 'testnet'): Promise<boolean> {
+  const agent = getExternalAgent(id, mode);
   if (!agent) return false;
 
   try {
@@ -313,9 +344,17 @@ export async function healthCheckAgent(id: string): Promise<boolean> {
  * Call an external agent with a prompt/task
  * Proxies the request to the agent's endpoint and returns the result
  */
-export async function callExternalAgent(id: string, prompt: string, taskType?: string): Promise<SpecialistResult> {
+export async function callExternalAgent(
+  id: string,
+  prompt: string,
+  taskType?: string,
+  mode: ClientNetworkMode = 'testnet'
+): Promise<SpecialistResult> {
   const startTime = Date.now();
-  const agent = externalAgents.get(id);
+  const agent = getExternalAgent(id, mode);
+  const network = getNetworkConfig(mode);
+  const signerClient = getSignerClient(mode);
+  const x402HttpClient = getX402HttpClient(mode);
   
   if (!agent) {
     return {
@@ -363,13 +402,13 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-    const requestBody = {
-      prompt,
-      taskType: effectiveType,
-      // For Sentinel-specific audit endpoint
-      contractAddress: extractContractAddress(prompt),
-      chain: 'base-sepolia',
-    };
+      const requestBody = {
+        prompt,
+        taskType: effectiveType,
+        // For Sentinel-specific audit endpoint
+        contractAddress: extractContractAddress(prompt),
+        chain: network.routeLabel,
+      };
 
     let lastError: any;
     let successfulResponse: any = null;
@@ -572,7 +611,7 @@ export async function callExternalAgent(id: string, prompt: string, taskType?: s
           ? String(Number(x402Payment.amount) / 1_000_000) // Convert from micro-USDC
           : String(agent.pricing[effectiveType] || agent.pricing['generic'] || 0),
         currency: 'USDC',
-        network: 'base',
+        network: x402Payment?.network || network.routeLabel,
         recipient: x402Payment?.payTo || agent.wallet,
         txHash: x402Payment?.txHash,
       },
@@ -607,7 +646,7 @@ function extractContractAddress(prompt: string): string | undefined {
  * Check if a specialist ID refers to an external agent
  */
 export function isExternalAgent(specialistId: string): boolean {
-  return externalAgents.has(specialistId);
+  return Array.from(externalAgents.values()).some((agent) => agent.id === specialistId);
 }
 
 export default {

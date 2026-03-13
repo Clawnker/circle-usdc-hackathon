@@ -2,10 +2,10 @@ import { Router, Request, Response } from 'express';
 import { getTreasuryBalance, getTransactionLog, logTransaction } from '../payments';
 import { createWalletClient, createPublicClient, http, parseUnits } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { baseSepolia } from 'viem/chains';
+import { normalizeClientNetworkMode } from '../utils/client-network';
+import { getNetworkConfig } from '../utils/network-config';
 
 const router = Router();
-const TREASURY_WALLET_EVM = '0x676fF3d546932dE6558a267887E58e39f405B135';
 
 /**
  * Delegated payment — pull USDC from user's wallet via ERC-20 approval.
@@ -14,7 +14,9 @@ const TREASURY_WALLET_EVM = '0x676fF3d546932dE6558a267887E58e39f405B135';
  */
 router.post('/delegate-pay', async (req: Request, res: Response) => {
   try {
-    const { userAddress, amount, specialist } = req.body;
+    const { userAddress, amount, specialist, networkMode } = req.body;
+    const mode = normalizeClientNetworkMode(networkMode);
+    const network = getNetworkConfig(mode);
     if (!userAddress || !amount) {
       return res.status(400).json({ error: 'userAddress and amount required' });
     }
@@ -35,18 +37,18 @@ router.post('/delegate-pay', async (req: Request, res: Response) => {
 
     // viem imports are now static at top of file
     const account = privateKeyToAccount(privateKey as `0x${string}`);
-    const TREASURY = TREASURY_WALLET_EVM as `0x${string}`;
-    const USDC = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
+    const TREASURY = network.treasuryAddress;
+    const USDC = network.usdcAddress;
     const amountWei = parseUnits(String(amount), 6);
 
     const walletClient = createWalletClient({
       account,
-      chain: baseSepolia,
-      transport: http(),
+      chain: network.chain,
+      transport: http(network.rpcUrl),
     });
     const publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http(),
+      chain: network.chain,
+      transport: http(network.rpcUrl),
     });
 
     // Pull USDC from user's wallet to treasury via their on-chain approval
@@ -66,7 +68,7 @@ router.post('/delegate-pay', async (req: Request, res: Response) => {
       }],
       functionName: 'transferFrom',
       args: [userAddress as `0x${string}`, TREASURY, amountWei],
-      chain: baseSepolia,
+      chain: network.chain,
     });
 
     await publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 });
@@ -76,7 +78,7 @@ router.post('/delegate-pay', async (req: Request, res: Response) => {
     logTransaction({
       amount: String(amount),
       currency: 'USDC',
-      network: 'base-sepolia',
+      network: network.routeLabel,
       recipient: specialist || 'unknown',
       txHash: hash,
       status: 'completed',
@@ -87,7 +89,9 @@ router.post('/delegate-pay', async (req: Request, res: Response) => {
     res.json({ 
       success: true, 
       txHash: hash,
-      explorer: `https://sepolia.basescan.org/tx/${hash}`,
+      explorer: `${network.explorerBase}/tx/${hash}`,
+      network: network.routeLabel,
+      networkMode: mode,
     });
   } catch (err: any) {
     console.error('[delegate-pay] Failed:', err.message);
@@ -101,10 +105,15 @@ router.post('/delegate-pay', async (req: Request, res: Response) => {
  */
 router.get('/wallet/balances', async (req: Request, res: Response) => {
   try {
-    const balances = await getTreasuryBalance();
+    const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
+    const network = getNetworkConfig(mode);
+    const balances = await getTreasuryBalance(mode);
     res.json({
-      address: TREASURY_WALLET_EVM,
-      chain: 'base-sepolia',
+      address: network.treasuryAddress,
+      chain: network.routeLabel,
+      networkMode: mode,
+      chainId: network.chainId,
+      usdcAddress: network.usdcAddress,
       balances,
     });
   } catch (error: any) {
@@ -117,8 +126,9 @@ router.get('/wallet/balances', async (req: Request, res: Response) => {
  * GET /wallet/transactions
  */
 router.get('/wallet/transactions', (req: Request, res: Response) => {
-  const transactions = getTransactionLog();
-  res.json({ transactions, count: transactions.length });
+  const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
+  const transactions = getTransactionLog(mode);
+  res.json({ transactions, count: transactions.length, networkMode: mode });
 });
 
 /**

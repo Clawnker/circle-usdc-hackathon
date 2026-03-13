@@ -58,6 +58,12 @@ export interface DiscoveredAgent {
   };
 }
 
+function getPricingCacheKey(agent: DiscoveredAgent): string | null {
+  const endpoint = getAgentEndpoint(agent);
+  if (!endpoint) return null;
+  return `${agent.chainId}:${endpoint}`;
+}
+
 /**
  * Discover external agents from 8004scan's ERC-8004 registry.
  * Uses the leaderboard endpoint for quality-ranked results.
@@ -95,7 +101,8 @@ export async function discoverAgents(options?: {
       const agents = (data.items || [])
         .filter((a: any) => a.x402_supported && a.name && !/^Agent #\d+$/.test(a.name))
         .map((a: any) => mapAgent(a));
-      return { agents, total: data.total || agents.length };
+      const filtered = agents.filter((agent) => network === 'all' || (network === 'mainnet' ? !agent.isTestnet : agent.isTestnet));
+      return { agents: filtered.map((agent) => enrichWithPricing(agent)), total: filtered.length };
     }
 
     // Leaderboard mode — fetch mainnet and/or testnet
@@ -237,10 +244,9 @@ function mapAgent(a: any): DiscoveredAgent {
  * Enrich an agent with cached pricing data.
  */
 function enrichWithPricing(agent: DiscoveredAgent): DiscoveredAgent {
-  const endpoint = getAgentEndpoint(agent);
-  if (!endpoint) return agent;
-
-  const cached = pricingCache.get(endpoint);
+  const cacheKey = getPricingCacheKey(agent);
+  if (!cacheKey) return agent;
+  const cached = pricingCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < PRICING_CACHE_TTL) {
     return { ...agent, pricing: { amount: cached.amount, network: cached.network, payTo: cached.payTo } };
   }
@@ -264,9 +270,9 @@ function getAgentEndpoint(agent: DiscoveredAgent): string | null {
  */
 async function backgroundProbeAll(agents: DiscoveredAgent[]): Promise<void> {
   const toProbe = agents.filter(a => {
-    const ep = getAgentEndpoint(a);
-    if (!ep) return false;
-    const cached = pricingCache.get(ep);
+    const cacheKey = getPricingCacheKey(a);
+    if (!cacheKey) return false;
+    const cached = pricingCache.get(cacheKey);
     return !cached || Date.now() - cached.timestamp >= PRICING_CACHE_TTL;
   });
 
@@ -280,10 +286,11 @@ async function backgroundProbeAll(agents: DiscoveredAgent[]): Promise<void> {
     await Promise.allSettled(
       batch.map(async (agent) => {
         const ep = getAgentEndpoint(agent);
+        const cacheKey = getPricingCacheKey(agent);
         if (!ep) return;
         const pricing = await probeAgentPricing(ep);
-        if (pricing) {
-          pricingCache.set(ep, { ...pricing, timestamp: Date.now() });
+        if (pricing && cacheKey) {
+          pricingCache.set(cacheKey, { ...pricing, timestamp: Date.now() });
           console.log(`[Discovery] Pricing: ${agent.name} = $${pricing.amount} USDC`);
         }
       })

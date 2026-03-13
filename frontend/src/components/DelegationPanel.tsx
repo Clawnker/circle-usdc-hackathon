@@ -2,14 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { Shield, ShieldCheck, Zap, Loader2, X } from 'lucide-react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useWriteContract } from 'wagmi';
 import { parseUnits } from 'viem';
-import { baseSepolia } from 'wagmi/chains';
+import { getExplorerTxUrl, getModeScopedStorageKey, getNetworkConfig, type NetworkMode } from '@/lib/networkMode';
 
-// The address that the backend uses to call transferFrom on behalf of the user.
-// This is the demo wallet — user approves THIS address to spend their USDC.
-const DELEGATE_ADDRESS = '0x4a9948159B7e6c19301ebc388E72B1EdFf87187B' as `0x${string}`;
-const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
+const DELEGATION_STORAGE_KEY = 'hivemind-delegation';
 
 const USDC_APPROVE_ABI = [{
   name: 'approve',
@@ -23,6 +20,10 @@ const USDC_APPROVE_ABI = [{
 }] as const;
 
 interface DelegationState {
+  networkMode: NetworkMode;
+  chainId: number;
+  delegateAddress: string;
+  usdcAddress: string;
   enabled: boolean;
   allowance: number;
   spent: number;
@@ -31,22 +32,27 @@ interface DelegationState {
   payments: { amount: number; specialist: string; txHash: string; timestamp: string }[];
 }
 
-export function getDelegationState(): DelegationState | null {
+function getDelegationStorageKey(mode: NetworkMode): string {
+  return getModeScopedStorageKey(DELEGATION_STORAGE_KEY, mode);
+}
+
+export function getDelegationState(mode: NetworkMode): DelegationState | null {
   if (typeof window === 'undefined') return null;
   try {
-    const saved = localStorage.getItem('hivemind-delegation');
+    const saved = localStorage.getItem(getDelegationStorageKey(mode));
     if (saved) {
       const parsed = JSON.parse(saved);
       if (!parsed.payments) parsed.payments = [];
       if (!parsed.approveTxHash) parsed.approveTxHash = '';
+      if (!parsed.networkMode) parsed.networkMode = mode;
       return parsed;
     }
   } catch {}
   return null;
 }
 
-export function recordDelegationSpend(amount: number, specialist?: string, txHash?: string) {
-  const state = getDelegationState();
+export function recordDelegationSpend(mode: NetworkMode, amount: number, specialist?: string, txHash?: string) {
+  const state = getDelegationState(mode);
   if (!state) return;
   
   state.payments.push({
@@ -62,19 +68,24 @@ export function recordDelegationSpend(amount: number, specialist?: string, txHas
   if (state.spent >= state.allowance) {
     state.enabled = false;
   }
-  localStorage.setItem('hivemind-delegation', JSON.stringify(state));
+  localStorage.setItem(getDelegationStorageKey(mode), JSON.stringify(state));
   window.dispatchEvent(new Event('delegation-updated'));
 }
 
-export function getDelegationTotalSpent(): number {
-  const state = getDelegationState();
+export function getDelegationTotalSpent(mode: NetworkMode): number {
+  const state = getDelegationState(mode);
   if (!state) return 0;
   return state.spent;
 }
 
-export function DelegationPanel() {
+interface DelegationPanelProps {
+  networkMode: NetworkMode;
+}
+
+export function DelegationPanel({ networkMode }: DelegationPanelProps) {
   const { address, isConnected } = useAccount();
-  const { writeContractAsync, isPending: isWritePending } = useWriteContract();
+  const { writeContractAsync } = useWriteContract();
+  const network = getNetworkConfig(networkMode);
   const [delegation, setDelegation] = useState<DelegationState | null>(null);
   const [approveAmount, setApproveAmount] = useState(5);
   const [isApproving, setIsApproving] = useState(false);
@@ -82,14 +93,14 @@ export function DelegationPanel() {
   const [txError, setTxError] = useState<string | null>(null);
 
   useEffect(() => {
-    setDelegation(getDelegationState());
-  }, []);
+    setDelegation(getDelegationState(networkMode));
+  }, [networkMode]);
 
   useEffect(() => {
-    const handler = () => setDelegation(getDelegationState());
+    const handler = () => setDelegation(getDelegationState(networkMode));
     window.addEventListener('delegation-updated', handler);
     return () => window.removeEventListener('delegation-updated', handler);
-  }, []);
+  }, [networkMode]);
 
   if (!isConnected) return null;
 
@@ -105,15 +116,19 @@ export function DelegationPanel() {
       // On-chain: approve the delegate address to spend user's USDC
       const amountWei = parseUnits(String(approveAmount), 6);
       const txHash = await writeContractAsync({
-        address: USDC_ADDRESS,
+        address: network.usdcAddress,
         abi: USDC_APPROVE_ABI,
         functionName: 'approve',
-        args: [DELEGATE_ADDRESS, amountWei],
-        chainId: baseSepolia.id,
+        args: [network.delegateAddress, amountWei],
+        chainId: network.chainId,
       });
 
       // Persist delegation state
       const newState: DelegationState = {
+        networkMode,
+        chainId: network.chainId,
+        delegateAddress: network.delegateAddress,
+        usdcAddress: network.usdcAddress,
         enabled: true,
         allowance: approveAmount,
         spent: 0,
@@ -121,7 +136,7 @@ export function DelegationPanel() {
         approveTxHash: txHash,
         payments: [],
       };
-      localStorage.setItem('hivemind-delegation', JSON.stringify(newState));
+      localStorage.setItem(getDelegationStorageKey(networkMode), JSON.stringify(newState));
       setDelegation(newState);
       window.dispatchEvent(new Event('delegation-updated'));
     } catch (err: any) {
@@ -140,15 +155,15 @@ export function DelegationPanel() {
     try {
       // On-chain: set approval to 0
       await writeContractAsync({
-        address: USDC_ADDRESS,
+        address: network.usdcAddress,
         abi: USDC_APPROVE_ABI,
         functionName: 'approve',
-        args: [DELEGATE_ADDRESS, BigInt(0)],
-        chainId: baseSepolia.id,
+        args: [network.delegateAddress, BigInt(0)],
+        chainId: network.chainId,
       });
 
       // Clear local state
-      localStorage.removeItem('hivemind-delegation');
+      localStorage.removeItem(getDelegationStorageKey(networkMode));
       setDelegation(null);
       window.dispatchEvent(new Event('delegation-updated'));
     } catch (err: any) {
@@ -199,7 +214,7 @@ export function DelegationPanel() {
           {/* Approval tx link */}
           {delegation.approveTxHash && (
             <a
-              href={`https://sepolia.basescan.org/tx/${delegation.approveTxHash}`}
+              href={getExplorerTxUrl(networkMode, delegation.approveTxHash)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[10px] text-cyan-400/60 hover:text-cyan-400 transition-colors font-mono truncate block"
@@ -235,7 +250,7 @@ export function DelegationPanel() {
       ) : (
         <div className="space-y-2">
           <p className="text-[10px] text-[var(--text-muted)]">
-            Approve a USDC spending limit on-chain. Agent fees auto-deduct — no popup each time.
+            Approve a USDC spending limit on {network.chainName}. Agent fees auto-deduct and stay isolated to this environment.
           </p>
           <div className="flex items-center gap-2">
             <input

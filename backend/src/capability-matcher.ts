@@ -11,6 +11,7 @@ import { getReputationScore, getReputationStats } from './reputation';
 import { priceRouter } from './price-router';
 import { config } from './config';
 import { chatJSON, MODELS } from './llm-client';
+import type { ClientNetworkMode } from './utils/client-network';
 
 const DATA_DIR = path.join(__dirname, '../data');
 const EMBEDDINGS_FILE = path.join(DATA_DIR, 'embeddings.json');
@@ -230,7 +231,7 @@ Example: "Audit this contract 0x123... on Base"
   /**
    * Match agents against user intent
    */
-  async matchAgents(intent: UserIntent): Promise<RankedAgent[]> {
+  async matchAgents(intent: UserIntent, networkMode: ClientNetworkMode = 'testnet'): Promise<RankedAgent[]> {
     const queryText = intent.requiredCapabilities.join(' ') + ' ' + intent.category;
     const queryVector = await this.embeddingService.generateEmbedding(queryText);
 
@@ -238,7 +239,7 @@ Example: "Audit this contract 0x123... on Base"
 
     // 1. Get all agents (built-in + external)
     const builtInAgents = Array.from(this.specialistManifests.keys());
-    const externalAgents = getExternalAgents();
+    const externalAgents = getExternalAgents(networkMode);
 
     const allAgents = [
       ...builtInAgents.map(id => ({ id, capabilities: this.specialistManifests.get(id) || [] })),

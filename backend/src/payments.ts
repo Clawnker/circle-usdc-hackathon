@@ -8,9 +8,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import config from './config';
 import { PaymentRecord } from './types';
 import axios from 'axios';
+import { getNetworkConfig } from './utils/network-config';
+import type { ClientNetworkMode } from './utils/client-network';
 
 // Persistence
 const DATA_DIR = path.join(__dirname, '../data');
@@ -110,27 +111,30 @@ export function logTransaction(record: PaymentRecord): void {
 }
 
 /**
- * Get all transaction records
+ * Get transaction records, optionally filtered to a specific network.
  */
-export function getTransactionLog(): PaymentRecord[] {
-  return [...transactionLog];
+export function getTransactionLog(mode?: ClientNetworkMode): PaymentRecord[] {
+  if (!mode) return [...transactionLog];
+  const network = getNetworkConfig(mode);
+  return transactionLog.filter((record) => record.network === network.routeLabel || record.network === network.eip155);
 }
 
 /**
- * Get treasury balance on Base Sepolia (USDC + ETH)
+ * Get treasury balance on the selected Base network (USDC + ETH)
  */
-export async function getTreasuryBalance(): Promise<{ eth: number; usdc: number }> {
-  const treasuryAddress = process.env.TREASURY_WALLET_EVM || '0x676fF3d546932dE6558a267887E58e39f405B135';
-  const usdcAddress = config.base.usdcAddress;
+export async function getTreasuryBalance(mode: ClientNetworkMode = 'testnet'): Promise<{ eth: number; usdc: number }> {
+  const network = getNetworkConfig(mode);
+  const treasuryAddress = network.treasuryAddress;
+  const usdcAddress = network.usdcAddress;
   const paddedAddr = treasuryAddress.replace('0x', '').toLowerCase().padStart(64, '0');
 
   try {
     const [ethRes, usdcRes] = await Promise.all([
-      axios.post(config.base.rpcUrl, {
+      axios.post(network.rpcUrl, {
         jsonrpc: '2.0', method: 'eth_getBalance',
         params: [treasuryAddress, 'latest'], id: 1
       }),
-      axios.post(config.base.rpcUrl, {
+      axios.post(network.rpcUrl, {
         jsonrpc: '2.0', method: 'eth_call',
         params: [{ to: usdcAddress, data: `0x70a08231${paddedAddr}` }, 'latest'], id: 2
       })

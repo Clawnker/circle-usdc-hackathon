@@ -22,14 +22,22 @@ import {
   PaymentFlow,
   NetworkModeToggle,
 } from '@/components';
-import { DelegationPanel, getDelegationState, recordDelegationSpend, getDelegationTotalSpent } from '@/components/DelegationPanel';
+import { DelegationPanel, getDelegationState, recordDelegationSpend } from '@/components/DelegationPanel';
 import { useAccount } from 'wagmi';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
 import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { SpecialistType, QueryHistoryItem } from '@/types';
 import { LayoutGrid, Zap, Shield, ArrowRight, DollarSign, Globe, Terminal } from 'lucide-react';
-import { NETWORK_MODE_STORAGE_KEY, NETWORK_MODE_LABELS, getExplorerTxUrl, resolveNetworkMode, supportsDirectPayments } from '@/lib/networkMode';
+import {
+  getExplorerTxUrl,
+  getModeScopedStorageKey,
+  NETWORK_MODE_EVENT,
+  NETWORK_MODE_LABELS,
+  NETWORK_MODE_STORAGE_KEY,
+  resolveNetworkMode,
+  supportsDirectPayments,
+} from '@/lib/networkMode';
 import type { NetworkMode } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -70,15 +78,26 @@ export default function CommandCenter() {
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
+  const [networkMode, setNetworkMode] = useState<NetworkMode>(() => {
+    if (typeof window === 'undefined') return 'testnet';
+    return resolveNetworkMode(localStorage.getItem(NETWORK_MODE_STORAGE_KEY));
+  });
   const [hiredAgents, setHiredAgents] = useState<string[]>(() => {
     if (typeof window === 'undefined') return ['bankr', 'scribe', 'seeker'];
     try {
-      const saved = localStorage.getItem('hivemind-swarm');
+      const saved = localStorage.getItem(getModeScopedStorageKey('hivemind-swarm', resolveNetworkMode(localStorage.getItem(NETWORK_MODE_STORAGE_KEY))));
       if (saved) return JSON.parse(saved);
     } catch {}
     return ['bankr', 'scribe', 'seeker'];
   });
-  const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
+  const [customInstructions, setCustomInstructions] = useState<Record<string, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem(getModeScopedStorageKey('hivemind-custom-instructions', resolveNetworkMode(localStorage.getItem(NETWORK_MODE_STORAGE_KEY))));
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
   // Store metadata for external registry agents (description, capabilities, color, price)
   const [registryMeta, setRegistryMeta] = useState<Record<string, {
     name: string;
@@ -89,7 +108,7 @@ export default function CommandCenter() {
   }>>(() => {
     if (typeof window === 'undefined') return {};
     try {
-      const saved = localStorage.getItem('hivemind-registry-meta');
+      const saved = localStorage.getItem(getModeScopedStorageKey('hivemind-registry-meta', resolveNetworkMode(localStorage.getItem(NETWORK_MODE_STORAGE_KEY))));
       if (saved) return JSON.parse(saved);
     } catch {}
     return {};
@@ -138,11 +157,6 @@ export default function CommandCenter() {
     prompt: string;
     transferTo?: string;
   } | null>(null);
-  const [networkMode, setNetworkMode] = useState<NetworkMode>(() => {
-    if (typeof window === 'undefined') return 'testnet';
-    const stored = localStorage.getItem(NETWORK_MODE_STORAGE_KEY);
-    return stored === 'mainnet' ? 'mainnet' : 'testnet';
-  });
 
   const {
     isConnected,
@@ -157,20 +171,62 @@ export default function CommandCenter() {
   } = useWebSocket();
 
   const [showMobileGraph, setShowMobileGraph] = useState(false);
+  const swarmStorageKey = getModeScopedStorageKey('hivemind-swarm', networkMode);
+  const registryMetaStorageKey = getModeScopedStorageKey('hivemind-registry-meta', networkMode);
+  const customInstructionsStorageKey = getModeScopedStorageKey('hivemind-custom-instructions', networkMode);
 
   // Persist swarm agents
   useEffect(() => {
-    localStorage.setItem('hivemind-swarm', JSON.stringify(hiredAgents));
-  }, [hiredAgents]);
+    localStorage.setItem(swarmStorageKey, JSON.stringify(hiredAgents));
+  }, [hiredAgents, swarmStorageKey]);
 
   // Persist registry metadata
   useEffect(() => {
-    localStorage.setItem('hivemind-registry-meta', JSON.stringify(registryMeta));
-  }, [registryMeta]);
+    localStorage.setItem(registryMetaStorageKey, JSON.stringify(registryMeta));
+  }, [registryMeta, registryMetaStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(customInstructionsStorageKey, JSON.stringify(customInstructions));
+  }, [customInstructions, customInstructionsStorageKey]);
 
   useEffect(() => {
     localStorage.setItem(NETWORK_MODE_STORAGE_KEY, networkMode);
+    window.dispatchEvent(new CustomEvent(NETWORK_MODE_EVENT, { detail: networkMode }));
   }, [networkMode]);
+
+  useEffect(() => {
+    try {
+      const savedSwarm = localStorage.getItem(swarmStorageKey);
+      setHiredAgents(savedSwarm ? JSON.parse(savedSwarm) : ['bankr', 'scribe', 'seeker']);
+    } catch {
+      setHiredAgents(['bankr', 'scribe', 'seeker']);
+    }
+
+    try {
+      const savedMeta = localStorage.getItem(registryMetaStorageKey);
+      setRegistryMeta(savedMeta ? JSON.parse(savedMeta) : {});
+    } catch {
+      setRegistryMeta({});
+    }
+
+    try {
+      const savedInstructions = localStorage.getItem(customInstructionsStorageKey);
+      setCustomInstructions(savedInstructions ? JSON.parse(savedInstructions) : {});
+    } catch {
+      setCustomInstructions({});
+    }
+
+    setCurrentTaskId(null);
+    setPreSelectedAgent(null);
+    setShowAddToSwarm(null);
+    setPaymentRequired(null);
+    setPendingApproval(null);
+    setLastResult(null);
+    setActivityItems([]);
+    setError(null);
+    setIsLoading(false);
+    reset();
+  }, [customInstructionsStorageKey, networkMode, registryMetaStorageKey, reset, swarmStorageKey]);
 
   // Persistence for query history
   useEffect(() => {
@@ -533,7 +589,7 @@ export default function CommandCenter() {
             }
             if (fee > 0) {
               // Check for delegation (auto-pay)
-              const delegation = getDelegationState();
+              const delegation = getDelegationState(networkMode);
               const remaining = delegation ? Math.max(0, Number(delegation.allowance || 0) - Number(delegation.spent || 0)) : 0;
 
               console.log('[pre-pay] Delegation check:', {
@@ -560,7 +616,7 @@ export default function CommandCenter() {
                   if (delegateRes.ok) {
                     const delegateData = await delegateRes.json();
                     headers['X-Payment-Proof'] = delegateData.txHash;
-                    recordDelegationSpend(fee, preview.specialist, delegateData.txHash);
+                    recordDelegationSpend(networkMode, fee, preview.specialist, delegateData.txHash);
 
                     // Record in Agent Payments
                     const feePayment = {
@@ -1091,8 +1147,8 @@ export default function CommandCenter() {
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.3 }}
                   >
-                    <WalletPanel />
-                    <DelegationPanel />
+                    <WalletPanel networkMode={networkMode} />
+                    <DelegationPanel networkMode={networkMode} />
                   </motion.div>
 
                   {/* Payment Feed */}
@@ -1147,6 +1203,7 @@ export default function CommandCenter() {
               <BazaarRegistry
                 onAddToSwarm={handleBazaarAdd}
                 hiredAgents={hiredAgents}
+                networkMode={networkMode}
               />
             </motion.div>
           ) : (
@@ -1334,6 +1391,7 @@ export default function CommandCenter() {
         <TransactionApproval
           isOpen={true}
           details={pendingTransaction}
+          networkMode={networkMode}
           onApprove={handleApproveTransaction}
           onReject={handleRejectTransaction}
         />

@@ -6,7 +6,7 @@ import { CreditCard, ExternalLink, ArrowRight, Coins, RefreshCw } from 'lucide-r
 import type { Payment } from '@/types';
 import { getDelegationTotalSpent } from '@/components/DelegationPanel';
 import type { NetworkMode } from '@/types';
-import { NETWORK_MODE_LABELS, getExplorerTxUrl } from '@/lib/networkMode';
+import { getModeScopedStorageKey, NETWORK_MODE_LABELS, getExplorerTxUrl } from '@/lib/networkMode';
 
 interface PaymentFeedProps {
   payments: Payment[];
@@ -156,24 +156,26 @@ export function PaymentFeed({ payments: realtimePayments, className = '', networ
   const [userPayments, setUserPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [delegationSpent, setDelegationSpent] = useState(0);
+  const userPaymentsStorageKey = getModeScopedStorageKey('hivemind-user-payments', networkMode);
 
   // Re-read delegation total when it updates
   useEffect(() => {
-    setDelegationSpent(getDelegationTotalSpent());
-    const handler = () => setDelegationSpent(getDelegationTotalSpent());
+    setDelegationSpent(getDelegationTotalSpent(networkMode));
+    const handler = () => setDelegationSpent(getDelegationTotalSpent(networkMode));
     window.addEventListener('delegation-updated', handler);
     return () => window.removeEventListener('delegation-updated', handler);
-  }, []);
+  }, [networkMode]);
 
   // Listen for user wallet payments (real on-chain txs)
   useEffect(() => {
     const handler = (e: Event) => {
       const payment = (e as CustomEvent).detail as Payment;
+      if ((payment.networkMode || networkMode) !== networkMode) return;
       setUserPayments(prev => {
         const updated = [payment, ...prev];
         // Persist to localStorage
         try {
-          localStorage.setItem('hivemind-user-payments', JSON.stringify(updated.map(p => ({
+          localStorage.setItem(userPaymentsStorageKey, JSON.stringify(updated.map(p => ({
             ...p,
             timestamp: typeof p.timestamp === 'string' ? p.timestamp : String(p.timestamp),
           }))));
@@ -183,28 +185,30 @@ export function PaymentFeed({ payments: realtimePayments, className = '', networ
     };
     window.addEventListener('hivemind-payment', handler);
     return () => window.removeEventListener('hivemind-payment', handler);
-  }, []);
+  }, [networkMode, userPaymentsStorageKey]);
 
   // Load persisted user payments on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('hivemind-user-payments');
+      const saved = localStorage.getItem(userPaymentsStorageKey);
       if (saved) {
         const parsed = JSON.parse(saved).map((p: any) => ({
           ...p,
           timestamp: new Date(p.timestamp),
         }));
         setUserPayments(parsed);
+      } else {
+        setUserPayments([]);
       }
     } catch {}
-  }, []);
+  }, [userPaymentsStorageKey]);
 
   // Fetch persisted payment history from backend
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-        const res = await fetch(`${apiUrl}/wallet/transactions`);
+        const res = await fetch(`${apiUrl}/wallet/transactions?network=${networkMode}`);
         if (res.ok) {
           const data = await res.json();
           if (data.transactions?.length > 0) {
@@ -228,6 +232,8 @@ export function PaymentFeed({ payments: realtimePayments, className = '', networ
               method: tx.method || (tx.txHash && !tx.txHash.startsWith('0x') ? 'x402' : 'on-chain'),
             }));
             setHistoricPayments(mapped);
+          } else {
+            setHistoricPayments([]);
           }
         }
       } catch (err) {
@@ -236,7 +242,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '', networ
       setIsLoading(false);
     };
     fetchHistory();
-  }, []);
+  }, [networkMode]);
 
   // Merge user payments + historic, dedup by txSignature
   // User payments (real on-chain) take priority over dispatcher fake payments
@@ -255,6 +261,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '', networ
     }
     // Realtime from dispatcher (skip fake tracking IDs)
     for (const p of realtimePayments) {
+      if ((p.networkMode || networkMode) !== networkMode) continue;
       if (p.txSignature?.startsWith('user-pay-')) continue; // Skip fake payments
       const key = p.txSignature || p.id || `rt-${merged.length}`;
       if (!seen.has(key)) {
@@ -321,7 +328,7 @@ export function PaymentFeed({ payments: realtimePayments, className = '', networ
               onClick={() => {
                 setUserPayments([]);
                 setHistoricPayments([]);
-                localStorage.removeItem('hivemind-user-payments');
+                localStorage.removeItem(userPaymentsStorageKey);
               }}
               className="text-[10px] text-[var(--text-muted)] hover:text-red-400 transition-colors"
               title="Clear payment history"

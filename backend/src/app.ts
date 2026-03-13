@@ -12,6 +12,8 @@ import reputationRoutes from './routes/reputation';
 import generalRoutes from './routes/general';
 import bazaarRoutes from './routes/bazaar';
 import { createX402Middleware } from './x402-server';
+import { normalizeClientNetworkMode } from './utils/client-network';
+import { getNetworkConfig } from './utils/network-config';
 
 dotenv.config();
 
@@ -116,14 +118,17 @@ app.get('/status/:taskId', (req, res, next) => {
 });
 
 // Status (authenticated, includes treasury balance)
-app.get('/status', async (_req: Request, res: Response) => {
+app.get('/status', async (req: Request, res: Response) => {
   try {
+    const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
+    const network = getNetworkConfig(mode);
     const { getTreasuryBalance } = require('./payments');
-    const balances = await getTreasuryBalance();
+    const balances = await getTreasuryBalance(mode);
     res.json({
       status: 'ok',
-      treasury: { address: '0x676fF3d546932dE6558a267887E58e39f405B135', balances },
-      chain: 'Base Sepolia (EIP-155:84532)',
+      treasury: { address: network.treasuryAddress, balances },
+      chain: network.displayName,
+      networkMode: mode,
       specialists: ['magos', 'aura', 'bankr', 'seeker', 'scribe'],
       uptime: process.uptime(),
     });

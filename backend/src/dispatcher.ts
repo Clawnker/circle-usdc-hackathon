@@ -40,6 +40,8 @@ import { processingIdempotencyStore } from './reliability/idempotency-store';
 import { withRetry, isTransientError } from './reliability/retry';
 import { getReliabilityConfig } from './reliability/config';
 import { enqueueDlq } from './reliability/dlq';
+import { getNetworkConfig } from './utils/network-config';
+import type { ClientNetworkMode } from './utils/client-network';
 
 // Persistence settings
 const DATA_DIR = path.join(__dirname, '../data');
@@ -122,14 +124,18 @@ const SPECIALIST_DESCRIPTIONS: Record<SpecialistType, string> = {
  * Resolve fee for a specialist (internal or external)
  * Internal specialists use config.fees, external agents use their registered pricing
  */
-function resolveAgentFee(specialistId: string, taskType?: string): number {
+function resolveAgentFee(
+  specialistId: string,
+  taskType?: string,
+  networkMode: ClientNetworkMode = 'testnet'
+): number {
   // Check internal fees first
   const internalFee = (config.fees as any)[specialistId];
   if (internalFee !== undefined) return internalFee;
   
   // Check external agent pricing
   if (isExternalAgent(specialistId)) {
-    const agent = getExternalAgent(specialistId);
+    const agent = getExternalAgent(specialistId, networkMode);
     if (agent?.pricing) {
       // Try task-specific price, then generic, then first available
       return agent.pricing[taskType || ''] || agent.pricing['security-audit'] || agent.pricing['generic'] || Object.values(agent.pricing)[0] || 0;
@@ -268,6 +274,8 @@ function addMessage(task: Task, from: string, to: string, content: string): void
  */
 export async function dispatch(request: DispatchRequest): Promise<DispatchResponse> {
   const taskId = uuidv4();
+  const networkMode = resolveTaskNetworkMode(request.networkMode);
+  const network = getNetworkConfig(networkMode);
   
   // Pre-check: Security audit fast-path BEFORE complexity detection
   // "audit contract" often triggers false positive complexity (security + wallet domains)
@@ -297,7 +305,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   
   // Determine the best specialist for this prompt
   // If >1 step, it's multi-hop. If 1 step, use existing routing logic (Capability/RegExp/etc)
-  let bestSpecialist = request.preferredSpecialist || (isMultiStep ? 'multi-hop' as SpecialistType : await routePrompt(request.prompt, request.hiredAgents));
+  let bestSpecialist = request.preferredSpecialist || (isMultiStep ? 'multi-hop' as SpecialistType : await routePrompt(request.prompt, request.hiredAgents, networkMode));
   
   // Legacy multi-hop detection — check before building fallback chains
   // Skip for sentinel queries (audit prompts trigger false positives in multi-domain detection)
@@ -320,7 +328,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       taskFallbackChain = [bestSpecialist, 'scribe']; // Simple fallback to scribe
     } else {
       try {
-        const chain = await fallbackChain.buildFallbackChain(request.prompt, []);
+        const chain = await fallbackChain.buildFallbackChain(request.prompt, [], networkMode);
         taskFallbackChain = chain.map(c => c.agentId);
         if (taskFallbackChain.length > 0 && taskFallbackChain[0] !== bestSpecialist && taskFallbackChain.includes(bestSpecialist)) {
           taskFallbackChain = [bestSpecialist, ...taskFallbackChain.filter(id => id !== bestSpecialist)];
@@ -338,7 +346,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   if (request.maxBudget !== undefined) {
     const budgetCheck = priceRouter.checkBudget(dagPlan, request.maxBudget);
     // For single-step, ensure we also check the bestSpecialist fee if it's different from the plan
-    const singleStepFee = !isMultiStep ? resolveAgentFee(bestSpecialist) : 0;
+    const singleStepFee = !isMultiStep ? resolveAgentFee(bestSpecialist, undefined, networkMode) : 0;
     const finalEstimatedCost = Math.max(budgetCheck.totalCost, singleStepFee);
     
     if (finalEstimatedCost > request.maxBudget) {
@@ -380,7 +388,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     
     // For external agents, get pricing from their registration
     if (!pricing && isExternalAgent(bestSpecialist)) {
-      const extAgent = getExternalAgent(bestSpecialist);
+      const extAgent = getExternalAgent(bestSpecialist, networkMode);
       const extFee = extAgent?.pricing?.['security-audit'] || extAgent?.pricing?.['generic'] || Object.values(extAgent?.pricing || {})[0] || 0;
       pricing = { fee: String(extFee), description: extAgent?.description || 'External agent' };
     }
@@ -430,7 +438,9 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       hops: finalHops || undefined,
       hiredAgents: request.hiredAgents,
       wasApproved: isApproved,
-      intent: (bestSpecialist as any).intent || undefined
+      intent: (bestSpecialist as any).intent || undefined,
+      networkMode,
+      routeNetwork: network.routeLabel,
     },
     dagPlan, // Store the DAG plan for execution
     fallbackChain: taskFallbackChain, // Added for Phase 2e
@@ -478,6 +488,8 @@ function getSpecialistDisplayName(specialist: SpecialistType): string {
 export async function executeTask(task: Task, dryRun: boolean, paymentProof?: string): Promise<void> {
   const processingKey = `task:${task.id}:execute`;
   const processingFingerprint = `${task.id}:${task.updatedAt.toISOString()}`;
+  const networkMode = resolveTaskNetworkMode(task.metadata?.networkMode);
+  const network = getNetworkConfig(networkMode);
   const processingReservation = processingIdempotencyStore.reserve(processingKey, processingFingerprint, task.id);
   if (processingReservation.duplicate && processingReservation.record.status === 'in_progress') {
     console.log(`[Dispatcher] Skipping duplicate executeTask for ${task.id} (already in progress)`);
@@ -503,7 +515,7 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       addMessage(task, 'dispatcher', step.specialist, `[Step ${step.id}] Routing to ${step.specialist}...`);
       
       // 3. Call the specialist (gated)
-      const result = await callSpecialistGated(step.specialist, resolvedPrompt);
+      const result = await callSpecialistGated(step.specialist, resolvedPrompt, task);
       
       // 4. Specialist response message
       const responseContent = extractResponseContent(result);
@@ -513,7 +525,7 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       const fee = step.estimatedCost || (config.fees as any)[step.specialist] || 0;
       if (fee > 0 && !dryRun && !paymentProof) {
         // Log the fee for this step — actual payment handled by delegation or x402 protocol
-        const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base-sepolia', step.specialist, undefined, 'pending');
+        const feeRecord = createPaymentRecord(String(fee), 'USDC', network.routeLabel, step.specialist, undefined, 'pending');
         task.payments.push(feeRecord);
         logTransaction(feeRecord);
         addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${fee} USDC → ${step.specialist}`);
@@ -565,7 +577,7 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
         cost: {
           amount: String(dagResult.totalCost || task.dagPlan?.totalEstimatedCost || 0),
           currency: 'USDC',
-          network: 'base',
+          network: network.routeLabel,
           recipient: 'multi-agent-workflow',
         },
       };
@@ -603,7 +615,7 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       addMessage(task, 'dispatcher', specialist, `[Step ${step}/${hops.length}] Routing to ${specialist}...`);
       
       // Call the specialist via x402-gated endpoint
-      const result = await callSpecialistGated(specialist, currentContext);
+      const result = await callSpecialistGated(specialist, currentContext, task);
       multiResults.push({ specialist, result });
       
       // Add specialist response message
@@ -613,7 +625,7 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       // Execute x402 payment for this hop (primary), on-chain fallback
       const specialistFee = (config.fees as any)[specialist] || 0;
       if (specialistFee > 0 && !dryRun && !paymentProof) {
-        const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', 'base-sepolia', specialist, undefined, 'pending');
+        const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', network.routeLabel, specialist, undefined, 'pending');
         task.payments.push(feeRecord);
         logTransaction(feeRecord);
         addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${specialistFee} USDC → ${specialist}`);
@@ -680,11 +692,11 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
     addMessage(task, 'dispatcher', task.specialist, 'Checking x402 payment...');
     
     // Check balance
-    const balances = await getTreasuryBalance();
+    const balances = await getTreasuryBalance(networkMode);
     console.log(`[Dispatcher] Treasury balance:`, balances);
     
     // Enforce payment if config flag is set
-    const fee = resolveAgentFee(task.specialist);
+    const fee = resolveAgentFee(task.specialist, undefined, networkMode);
     const usdcBalance = balances.usdc;
 
     if (config.enforcePayments && usdcBalance < fee) {
@@ -697,7 +709,7 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
   updateTaskStatus(task, 'processing');
   
   // Get specialist fee (internal or external)
-  const fee = resolveAgentFee(task.specialist);
+  const fee = resolveAgentFee(task.specialist, undefined, networkMode);
   addMessage(task, 'dispatcher', task.specialist, `Processing with ${task.specialist}... (fee: ${fee} USDC)`);
   
   // Call the specialist via x402-gated endpoint
@@ -761,7 +773,7 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
   if (fee > 0 && !dryRun && !paymentProof) {
     addMessage(task, 'x402', 'dispatcher', `⏳ Processing ${fee} USDC payment via x402...`);
     
-    const feeRecord = createPaymentRecord(String(fee), 'USDC', 'base-sepolia', task.specialist, undefined, 'pending');
+    const feeRecord = createPaymentRecord(String(fee), 'USDC', network.routeLabel, task.specialist, undefined, 'pending');
     task.payments.push(feeRecord);
     logTransaction(feeRecord);
     addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${fee} USDC → ${task.specialist}`);
@@ -1017,10 +1029,14 @@ export function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<
  * Supports Capability-based (modern), LLM-based (smart) and RegExp-based (fast) routing
  * Only routes to specialists in the hiredAgents list if provided
  */
-function buildRouteCacheKey(prompt: string, hiredAgents?: SpecialistType[]): string {
+function resolveTaskNetworkMode(input?: unknown): ClientNetworkMode {
+  return input === 'mainnet' ? 'mainnet' : 'testnet';
+}
+
+function buildRouteCacheKey(prompt: string, hiredAgents?: SpecialistType[], networkMode: ClientNetworkMode = 'testnet'): string {
   const normalizedPrompt = prompt.trim().toLowerCase();
   const swarm = (hiredAgents || []).slice().sort().join(',');
-  return `${normalizedPrompt}::${swarm}`;
+  return `${networkMode}::${normalizedPrompt}::${swarm}`;
 }
 
 function setRouteCache(key: string, specialist: SpecialistType): void {
@@ -1031,10 +1047,14 @@ function setRouteCache(key: string, specialist: SpecialistType): void {
   routeCache.set(key, { specialist, expiresAt: Date.now() + ROUTE_CACHE_TTL_MS });
 }
 
-export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]): Promise<SpecialistType> {
+export async function routePrompt(
+  prompt: string,
+  hiredAgents?: SpecialistType[],
+  networkMode: ClientNetworkMode = 'testnet'
+): Promise<SpecialistType> {
   const lower = prompt.toLowerCase();
   const planningMode = process.env.PLANNING_MODE || 'capability';
-  const cacheKey = buildRouteCacheKey(prompt, hiredAgents);
+  const cacheKey = buildRouteCacheKey(prompt, hiredAgents, networkMode);
   const cached = routeCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.specialist;
@@ -1137,7 +1157,7 @@ export async function routePrompt(prompt: string, hiredAgents?: SpecialistType[]
     console.log(`[Router] Fast-path: contract audit query detected, looking for security specialist`);
     
     // Find external agent with security capability
-    const agents = getExternalAgents();
+    const agents = getExternalAgents(networkMode);
     const securityAgent = agents.find(a => 
       a.capabilities?.some((c: string) => {
         const normalized = c.toLowerCase().replace(/\s+/g, '-');
@@ -1418,11 +1438,13 @@ export async function callSpecialistGated(specialistId: string, prompt: string, 
  */
 export async function callSpecialist(specialist: SpecialistType, prompt: string, context?: any): Promise<SpecialistResult> {
   const startTime = Date.now();
+  const networkMode = resolveTaskNetworkMode(context?.metadata?.networkMode);
+  const network = getNetworkConfig(networkMode);
   
   // Check if this is an external agent (registered via marketplace)
-  if (isExternalAgent(specialist as string)) {
+  if (getExternalAgent(specialist as string, networkMode)) {
     console.log(`[Dispatcher] Routing to external agent: ${specialist}`);
-    const externalResult = await callExternalAgent(specialist as string, prompt);
+    const externalResult = await callExternalAgent(specialist as string, prompt, undefined, networkMode);
     
     // Fallback to best internal specialist if external agent fails (timeout, unhealthy, etc.)
     if (!externalResult.success && !externalResult.cost) {
@@ -1491,7 +1513,7 @@ export async function callSpecialist(specialist: SpecialistType, prompt: string,
       result.cost = {
         amount: String(fee),
         currency: 'USDC',
-        network: 'base',
+        network: network.routeLabel,
         recipient: config.specialistWallets[specialist] || 'treasury',
       };
     }
@@ -1559,7 +1581,7 @@ export function getSpecialists(): any[] {
   });
   
   // External agents from the registry
-  const external = getExternalAgents()
+  const external = getExternalAgents('testnet')
     .filter(a => a.active && a.healthy)
     .map(a => ({
       name: a.id,

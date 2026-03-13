@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle, AlertCircle, ArrowRightLeft, Send, Wallet, Info } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
+import { getNetworkConfig, type NetworkMode } from '@/lib/networkMode';
 
 export interface TransactionDetails {
   type: 'swap' | 'transfer';
@@ -17,13 +17,12 @@ export interface TransactionDetails {
   currentBalance?: string;
 }
 
-const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`;
-
 interface TransactionApprovalProps {
   isOpen: boolean;
   details: TransactionDetails | null;
   onApprove: () => void;
   onReject: () => void;
+  networkMode: NetworkMode;
 }
 
 export function TransactionApproval({
@@ -31,18 +30,20 @@ export function TransactionApproval({
   details,
   onApprove,
   onReject,
+  networkMode,
 }: TransactionApprovalProps) {
+  const network = getNetworkConfig(networkMode);
   // Get connected wallet balance
   const { address: onchainAddress, isConnected: isOnchainConnected } = useAccount();
   const { data: usdcBalance } = useBalance({
     address: onchainAddress,
-    token: USDC_ADDRESS,
-    chainId: baseSepolia.id,
+    token: network.usdcAddress,
+    chainId: network.chainId,
     query: { enabled: isOnchainConnected },
   });
   const { data: ethBalance } = useBalance({
     address: onchainAddress,
-    chainId: baseSepolia.id,
+    chainId: network.chainId,
     query: { enabled: isOnchainConnected },
   });
 
@@ -161,7 +162,7 @@ export function TransactionApproval({
                       <span className="text-gray-400 text-xs flex items-center gap-1">
                         <Info className="w-3 h-3" /> Network
                       </span>
-                      <span className="text-gray-300 text-xs">Base Sepolia</span>
+                      <span className="text-gray-300 text-xs">{network.chainName}</span>
                     </div>
                   </div>
                 </div>

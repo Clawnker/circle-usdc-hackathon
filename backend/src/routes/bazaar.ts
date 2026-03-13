@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { discoverAgents, getAgentDetails, probeAgentPricing } from '../bazaar';
+import { normalizeClientNetworkMode } from '../utils/client-network';
+import { getNetworkConfig } from '../utils/network-config';
 
 const router = Router();
 
@@ -15,12 +17,17 @@ router.get('/discovery', async (req: Request, res: Response) => {
     const offset = parseInt(req.query.offset as string) || 0;
     const search = (req.query.search as string) || '';
     const network = (req.query.network as 'mainnet' | 'testnet' | 'all') || 'testnet';
+    const mode = network === 'all' ? 'testnet' : normalizeClientNetworkMode(network);
+    const activeNetwork = getNetworkConfig(mode);
 
     const { agents, total } = await discoverAgents({ limit, offset, search, network });
     res.json({
       agents,
       count: agents.length,
       total,
+      networkMode: network,
+      chainId: activeNetwork.chainId,
+      usdcAddress: activeNetwork.usdcAddress,
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {
