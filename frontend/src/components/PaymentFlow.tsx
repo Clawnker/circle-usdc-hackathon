@@ -2,15 +2,10 @@
 import { useState } from 'react';
 import { Transaction, TransactionButton, TransactionStatus } from '@coinbase/onchainkit/transaction';
 import { useAccount } from 'wagmi';
-import { baseSepolia } from 'wagmi/chains';
 import type { NetworkMode } from '@/types';
-import { NETWORK_MODE_LABELS, supportsDirectPayments } from '@/lib/networkMode';
+import { getNetworkConfig, NETWORK_MODE_LABELS, supportsDirectPayments } from '@/lib/networkMode';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, HelpCircle } from 'lucide-react';
-
-// USDC contract on Base Sepolia
-const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
-const TREASURY_ADDRESS = '0x676fF3d546932dE6558a267887E58e39f405B135';
 
 interface PaymentFlowProps {
   specialistId: string;
@@ -23,8 +18,9 @@ interface PaymentFlowProps {
 
 export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, recipientAddress, networkMode = 'testnet' }: PaymentFlowProps) {
   const { address, isConnected } = useAccount();
+  const network = getNetworkConfig(networkMode);
   
-  const recipient = recipientAddress || TREASURY_ADDRESS;
+  const recipient = recipientAddress || network.treasuryAddress;
   const [showExplainer, setShowExplainer] = useState(false);
   
   if (!isConnected) {
@@ -46,7 +42,7 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, re
 
   // ERC-20 transfer call
   const calls = [{
-    to: USDC_ADDRESS as `0x${string}`,
+    to: network.usdcAddress,
     data: encodeTransferCall(recipient, fee),
   }];
 
@@ -122,7 +118,7 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, re
               className="overflow-hidden mb-4"
             >
               <div className="p-3 rounded-lg bg-white/5 text-xs text-[var(--text-secondary)] space-y-2">
-                <p>🔐 <strong>x402 Protocol:</strong> Your payment is sent as USDC on Base Sepolia directly to the specialist agent.</p>
+                <p>🔐 <strong>x402 Protocol:</strong> Your payment is sent as USDC on {network.chainName} directly to the specialist agent.</p>
                 <p>⚡ <strong>Instant Settlement:</strong> The agent verifies payment on-chain before responding — no middleman.</p>
                 <p>🧾 <strong>Transparent Pricing:</strong> Each specialist sets their own price based on compute cost and data quality.</p>
               </div>
@@ -132,7 +128,7 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, re
         
         <div className="space-y-4">
           <Transaction
-            chainId={baseSepolia.id}
+            chainId={network.chainId}
             calls={calls}
             onSuccess={(response) => {
               if (response.transactionReceipts[0]) {

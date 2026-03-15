@@ -15,6 +15,7 @@ import {
   Shield,
   ExternalLink
 } from 'lucide-react';
+import { getNetworkConfig, resolveNetworkMode, type NetworkMode } from '@/lib/networkMode';
 
 interface DiscoveredAgent {
   id: string;
@@ -70,9 +71,11 @@ const CHAIN_COLORS: Record<number, string> = {
 interface BazaarRegistryProps {
   onAddToSwarm: (agent: any) => Promise<void>;
   hiredAgents: string[];
+  networkMode: NetworkMode;
 }
 
-export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProps) {
+export function BazaarRegistry({ onAddToSwarm, hiredAgents, networkMode }: BazaarRegistryProps) {
+  const network = getNetworkConfig(networkMode);
   const [agents, setAgents] = useState<DiscoveredAgent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,13 +88,13 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
     setIsLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ limit: '50' });
+      const params = new URLSearchParams({ limit: '50', network: networkMode });
       if (search) params.set('search', search);
       
       // Fetch from both 8004scan discovery AND locally registered external agents
       const [discoveryRes, externalRes] = await Promise.all([
         fetch(`${API_URL}/api/bazaar/discovery?${params}`),
-        fetch(`${API_URL}/api/agents/external`).catch(() => null),
+        fetch(`${API_URL}/api/agents/external?network=${networkMode}`).catch(() => null),
       ]);
 
       let allAgents: DiscoveredAgent[] = [];
@@ -119,7 +122,7 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
             id: ext.id,
             agentId: `agent:base:${ext.wallet?.slice(0, 6)}...${ext.wallet?.slice(-3)}`,
             tokenId: '',
-            chainId: 84532,
+            chainId: resolveNetworkMode(ext.chain) === 'mainnet' ? 8453 : 84532,
             name: ext.name,
             description: ext.description || '',
             wallet: ext.wallet || '',
@@ -137,7 +140,7 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
             createdAt: ext.registeredAt || '',
             pricing: ext.pricing ? { 
               amount: ext.pricing['security-audit'] || ext.pricing['generic'] || Object.values(ext.pricing)[0] || 0, 
-              network: `eip155:84532`, 
+              network: resolveNetworkMode(ext.chain) === 'mainnet' ? 'eip155:8453' : 'eip155:84532',
               payTo: ext.wallet 
             } : undefined,
           });
@@ -156,7 +159,7 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
 
   useEffect(() => {
     fetchAgents();
-  }, []);
+  }, [networkMode]);
 
   const handleSearch = () => {
     setSearchQuery(searchInput);
@@ -243,6 +246,7 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
         pricing,
         chain: `eip155:${agent.chainId}`,
         erc8004Id: agent.agentId,
+        networkMode,
       };
 
       await onAddToSwarm(agentPayload);
@@ -277,7 +281,7 @@ export function BazaarRegistry({ onAddToSwarm, hiredAgents }: BazaarRegistryProp
             Agent Registry
           </h2>
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            Discover ERC-8004 agents with x402 payments — {total.toLocaleString()} registered
+            Discover ERC-8004 agents with x402 payments on {network.chainName} — {total.toLocaleString()} registered
           </p>
         </div>
 

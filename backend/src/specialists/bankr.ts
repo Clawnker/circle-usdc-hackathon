@@ -11,6 +11,7 @@ import * as path from 'path';
 import { BankrAction, SpecialistResult } from '../types';
 import config from '../config';
 import { getPrice } from './tools/coingecko';
+import { getNetworkConfig } from '../utils/network-config';
 // Solana integration removed — Base-only in V2
 
 const AGENTWALLET_API = config.agentWallet.apiUrl;
@@ -704,10 +705,15 @@ export const bankr = {
         const isApproved = context?.metadata?.transactionApproved === true;
         if (!isApproved) {
           console.log(`[bankr] Transaction requires approval: ${intent.type} ${amount} ${fromToken}`);
+          const networkMode = context?.metadata?.networkMode === 'mainnet' ? 'mainnet' : 'testnet';
+          const network = getNetworkConfig(networkMode);
           
           let estimatedOutput = '0';
           let route = 'Direct';
           let feeEstimate = '0.000005 SOL';
+          const transferSummary = intent.type === 'transfer' && intent.address?.startsWith('0x')
+            ? `Ready to sign ${intent.amount} ${fromToken.toUpperCase()} on ${network.chainName}.`
+            : undefined;
 
           if (intent.type === 'swap') {
             const inputMint = TOKEN_MINTS[intent.from!.toUpperCase()] || intent.from!;
@@ -730,6 +736,7 @@ export const bankr = {
             data: {
               type: intent.type,
               requiresApproval: true,
+              summary: transferSummary,
               details: {
                 type: intent.type,
                 amount: intent.amount,
@@ -740,6 +747,11 @@ export const bankr = {
                 route: intent.type === 'swap' ? route : undefined,
                 feeEstimate,
                 currentBalance: currentBalance.toFixed(4),
+                chain: intent.type === 'transfer' && intent.address?.startsWith('0x') ? network.chainName : undefined,
+                network: intent.type === 'transfer' && intent.address?.startsWith('0x') ? network.routeLabel : undefined,
+                chainId: intent.type === 'transfer' && intent.address?.startsWith('0x') ? network.chainId : undefined,
+                usdcContract: intent.type === 'transfer' && intent.address?.startsWith('0x') ? network.usdcAddress : undefined,
+                explorer: intent.type === 'transfer' && intent.address?.startsWith('0x') ? `${network.explorerBase}/address/${intent.address}` : undefined,
               }
             },
             timestamp: new Date(),
@@ -798,6 +810,8 @@ export const bankr = {
             // Check if it's an EVM address (0x...)
             if (intent.address.startsWith('0x')) {
               const transferAmount = intent.amount || '5';
+              const networkMode = context?.metadata?.networkMode === 'mainnet' ? 'mainnet' : 'testnet';
+              const network = getNetworkConfig(networkMode);
               data = {
                 type: 'transfer',
                 status: 'pending',
@@ -806,14 +820,15 @@ export const bankr = {
                   to: intent.address,
                   amount: transferAmount,
                   asset: transferAsset,
-                  chain: 'Base Sepolia',
-                  network: 'base-sepolia',
-                  usdcContract: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-                  explorer: `https://sepolia.basescan.org/address/${intent.address}`,
-                  note: `Sign with your connected wallet to send ${transferAmount} ${transferAsset} on Base Sepolia.`,
+                  chain: network.chainName,
+                  network: network.routeLabel,
+                  chainId: network.chainId,
+                  usdcContract: network.usdcAddress,
+                  explorer: `${network.explorerBase}/address/${intent.address}`,
+                  note: `Sign with your connected wallet to send ${transferAmount} ${transferAsset} on ${network.chainName}.`,
                 },
               };
-              data.summary = `💸 **Base Sepolia Transfer Ready**\n• Amount: ${transferAmount} ${transferAsset}\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: Base Sepolia\n• Status: Awaiting wallet signature\n\n_Sign the transaction in your connected wallet to complete._`;
+              data.summary = `💸 **${network.chainName} Transfer Ready**\n• Amount: ${transferAmount} ${transferAsset}\n• To: ${intent.address.slice(0, 6)}...${intent.address.slice(-4)}\n• Chain: ${network.chainName}\n• Status: Awaiting wallet signature\n\n_Sign the transaction in your connected wallet to complete._`;
               break;
             }
             // Solana address — check if asset is USDC (SPL token transfer) or SOL

@@ -2,7 +2,22 @@ export type ClientNetworkMode = 'testnet' | 'mainnet';
 
 export function normalizeClientNetworkMode(input: unknown): ClientNetworkMode {
   const value = String(input || '').toLowerCase();
-  if (value === 'mainnet' || value.includes('8453')) return 'mainnet';
+  if (
+    value === 'testnet' ||
+    value.includes('84532') ||
+    value.includes('base-sepolia') ||
+    value.includes('eip155:84532')
+  ) {
+    return 'testnet';
+  }
+  if (
+    value === 'mainnet' ||
+    value.includes('eip155:8453') ||
+    value.includes('base-mainnet') ||
+    /(^|[^0-9])8453([^0-9]|$)/.test(value)
+  ) {
+    return 'mainnet';
+  }
   return 'testnet';
 }
 

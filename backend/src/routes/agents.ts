@@ -1,18 +1,25 @@
 import { Router, Request, Response } from 'express';
-import config from '../config';
 import { authMiddleware } from '../middleware/auth';
 import { registerAgent, getExternalAgents, getExternalAgent, healthCheckAgent, removeAgent } from '../external-agents';
 import { RegisterRequest } from '../types';
 import { validateExternalEndpointUrl, revalidateEndpointResolution } from '../utils/ssrf';
 import { getRegistrations } from '../utils/registrations-cache';
+import { normalizeClientNetworkMode } from '../utils/client-network';
+import { getNetworkConfig, getNetworkModeFromChain } from '../utils/network-config';
 
 const router = Router();
 
-router.get('/agents', async (_req: Request, res: Response) => {
+router.get('/agents', async (req: Request, res: Response) => {
   try {
+    const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
+    const network = getNetworkConfig(mode);
     const registrations = await getRegistrations();
+    const filtered = registrations.filter((registration: any) => {
+      if (!registration?.chain && !registration?.networkMode) return true;
+      return getNetworkModeFromChain(registration.chain || registration.networkMode) === mode;
+    });
     res.json({
-      agents: registrations.map((r: any, i: number) => ({
+      agents: filtered.map((r: any, i: number) => ({
         agentId: i + 1,
         name: r.name,
         description: r.description,
@@ -20,9 +27,11 @@ router.get('/agents', async (_req: Request, res: Response) => {
         x402Support: r.x402Support,
         supportedTrust: r.supportedTrust,
       })),
-      identityRegistry: config.erc8004.identityRegistry || 'pending-deployment',
-      reputationRegistry: config.erc8004.reputationRegistry || 'pending-deployment',
-      chain: 'Base Sepolia (EIP-155:84532)',
+      identityRegistry: network.identityRegistry || 'pending-deployment',
+      reputationRegistry: network.reputationRegistry || 'pending-deployment',
+      chain: network.displayName,
+      chainId: network.chainId,
+      networkMode: mode,
     });
   } catch (_error: any) {
     res.status(500).json({ error: 'Internal server error' });
@@ -31,12 +40,17 @@ router.get('/agents', async (_req: Request, res: Response) => {
 
 router.get('/agents/:id/registration', async (req: Request, res: Response) => {
   try {
+    const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
     const id = parseInt(req.params.id) - 1;
     const registrations = await getRegistrations();
-    if (id < 0 || id >= registrations.length) {
+    const filtered = registrations.filter((registration: any) => {
+      if (!registration?.chain && !registration?.networkMode) return true;
+      return getNetworkModeFromChain(registration.chain || registration.networkMode) === mode;
+    });
+    if (id < 0 || id >= filtered.length) {
       return res.status(404).json({ error: 'Agent not found' });
     }
-    res.json(registrations[id]);
+    res.json(filtered[id]);
   } catch (_error: any) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -113,13 +127,15 @@ router.post('/agents/register', authMiddleware, async (req: Request, res: Respon
   }
 });
 
-router.get('/agents/external', (_req: Request, res: Response) => {
-  const agents = getExternalAgents();
-  res.json({ agents, count: agents.length });
+router.get('/agents/external', (req: Request, res: Response) => {
+  const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
+  const agents = getExternalAgents(mode);
+  res.json({ agents, count: agents.length, networkMode: mode });
 });
 
 router.get('/agents/external/:id', (req: Request, res: Response) => {
-  const agent = getExternalAgent(req.params.id);
+  const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode);
+  const agent = getExternalAgent(req.params.id, mode);
   if (!agent) {
     return res.status(404).json({ error: 'External agent not found' });
   }
@@ -127,8 +143,9 @@ router.get('/agents/external/:id', (req: Request, res: Response) => {
 });
 
 router.post('/agents/external/:id/health', authMiddleware, async (req: Request, res: Response) => {
-  const healthy = await healthCheckAgent(req.params.id);
-  const agent = getExternalAgent(req.params.id);
+  const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode || req.body?.networkMode);
+  const healthy = await healthCheckAgent(req.params.id, mode);
+  const agent = getExternalAgent(req.params.id, mode);
   res.json({
     id: req.params.id,
     healthy,
@@ -137,7 +154,8 @@ router.post('/agents/external/:id/health', authMiddleware, async (req: Request, 
 });
 
 router.delete('/agents/external/:id', authMiddleware, (req: Request, res: Response) => {
-  const removed = removeAgent(req.params.id);
+  const mode = normalizeClientNetworkMode(req.query.network || req.query.networkMode || req.body?.networkMode);
+  const removed = removeAgent(req.params.id, mode);
   if (!removed) {
     return res.status(404).json({ error: 'External agent not found' });
   }

@@ -6,6 +6,7 @@
 import { RankedAgent, SpecialistResult, SpecialistType } from './types';
 import { capabilityMatcher } from './capability-matcher';
 import { circuitBreaker } from './circuit-breaker';
+import type { ClientNetworkMode } from './utils/client-network';
 
 export interface FallbackOptions {
   maxRetries?: number;
@@ -16,13 +17,17 @@ export class FallbackChainService {
   /**
    * Build an ordered list of candidate agents for a specific capability/intent
    */
-  async buildFallbackChain(prompt: string, excludeAgents: string[] = []): Promise<RankedAgent[]> {
+  async buildFallbackChain(
+    prompt: string,
+    excludeAgents: string[] = [],
+    networkMode: ClientNetworkMode = 'testnet'
+  ): Promise<RankedAgent[]> {
     try {
       // 1. Extract intent from prompt (or use capability string directly as requiredCapabilities)
       const intent = await capabilityMatcher.extractIntent(prompt);
       
       // 2. Match agents
-      let candidates = await capabilityMatcher.matchAgents(intent);
+      let candidates = await capabilityMatcher.matchAgents(intent, networkMode);
       
       // 3. Filter out excluded agents and those with OPEN circuit breakers
       candidates = candidates.filter(agent => 

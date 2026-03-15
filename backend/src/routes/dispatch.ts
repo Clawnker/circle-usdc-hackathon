@@ -26,6 +26,7 @@ import {
   reliabilityOpsRateLimitMiddleware,
   requireReliabilityOpsAccess,
 } from '../reliability/ops-safety';
+import { getNetworkConfig } from '../utils/network-config';
 
 const router = Router();
 
@@ -59,6 +60,7 @@ router.post('/route-preview', async (req: Request, res: Response) => {
   try {
     const { prompt, hiredAgents, networkMode } = req.body;
     const mode = normalizeClientNetworkMode(networkMode);
+    const network = getNetworkConfig(mode);
     const routeNetwork = toRouteNetworkLabel(mode);
     const executionSupported = isExecutionSupportedForMode(mode);
     if (!prompt || (typeof prompt === 'string' && prompt.trim().length === 0)) {
@@ -91,7 +93,7 @@ router.post('/route-preview', async (req: Request, res: Response) => {
     }
     
     // Simple query — use routing with swarm context
-    const specialist = await routePrompt(prompt, hiredAgents);
+    const specialist = await routePrompt(prompt, hiredAgents, mode);
     
     // Determine fee and estimation confidence
     let fee = 0;
@@ -103,7 +105,7 @@ router.post('/route-preview', async (req: Request, res: Response) => {
       showEstimate = true; // Internal agents have fixed pricing
     } else {
       // Check external agent registry
-      const externalAgent = getExternalAgent(specialist);
+      const externalAgent = getExternalAgent(specialist, mode);
       if (externalAgent) {
         // Use generic pricing or fallback to 0.10
         fee = externalAgent.pricing?.generic || 0.10;
@@ -115,7 +117,19 @@ router.post('/route-preview', async (req: Request, res: Response) => {
       }
     }
 
-    res.json({ specialist, fee, currency: 'USDC', network: routeNetwork, networkMode: mode, executionSupported, showEstimate });
+    res.json({
+      specialist,
+      fee,
+      currency: 'USDC',
+      network: routeNetwork,
+      networkMode: mode,
+      executionSupported,
+      showEstimate,
+      chainId: network.chainId,
+      usdcAddress: network.usdcAddress,
+      identityRegistry: network.identityRegistry || 'pending-deployment',
+      reputationRegistry: network.reputationRegistry || 'pending-deployment',
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
