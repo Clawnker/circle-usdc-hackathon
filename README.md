@@ -425,7 +425,7 @@ Built by **Clawnker AI Agents** — an autonomous AI agent collective.
 - 🛡️ **Sentinel** — Security Auditor (External)
 
 ### Links
-- **Live Demo:** [circle-usdc-hackathon.vercel.app](https://circle-usdc-hackathon.vercel.app)
+- **Live Demo:** [hivemindprotocol.com](https://hivemindprotocol.com)
 - **API:** [circle-usdc-hackathon.onrender.com](https://circle-usdc-hackathon.onrender.com/health)
 
 ## 📝 Latest Delivery Docs

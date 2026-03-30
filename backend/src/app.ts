@@ -18,16 +18,34 @@ import { getNetworkConfig } from './utils/network-config';
 dotenv.config();
 
 const app = express();
+const defaultAllowedOrigins = [
+  'https://hivemindprotocol.com',
+  'https://www.hivemindprotocol.com',
+  'https://circle-usdc-hackathon.vercel.app',
+  'https://hivemindprotocol.ai',
+  'http://localhost:3001',
+  'http://localhost:3000',
+];
+const configuredAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedOrigins = new Set([
+  ...defaultAllowedOrigins,
+  ...configuredAllowedOrigins,
+]);
 
 // Core middleware
-// CORS — restrict to known frontends
+// CORS - restrict to known frontends
 app.use(cors({
-  origin: [
-    'https://circle-usdc-hackathon.vercel.app',
-    'https://hivemindprotocol.ai',
-    'http://localhost:3001', // local dev
-    'http://localhost:3000',
-  ],
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin not allowed by CORS: ${origin}`));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'X-API-Key', 'X-Payment-Proof', 'Authorization'],
 }));
@@ -49,10 +67,8 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
   next();
 });
 
-// ──────────────────────────────────────
-//  x402 Payment Middleware (real protocol)
-// ──────────────────────────────────────
-// Must be mounted BEFORE routes so it can intercept 
+// x402 Payment Middleware (real protocol)
+// Must be mounted BEFORE routes so it can intercept
 // specialist/dispatch requests and enforce payment.
 // Non-protected routes pass through unaffected.
 try {
@@ -65,9 +81,7 @@ try {
   // The routes/general.ts still has manual paymentMiddleware as fallback
 }
 
-// ──────────────────────────────────────
-//  PUBLIC routes (no API key required)
-// ──────────────────────────────────────
+// PUBLIC routes (no API key required)
 
 // Health, costs, auth verification
 app.use('/', generalRoutes);
@@ -96,9 +110,7 @@ try {
   });
 } catch {}
 
-// ──────────────────────────────────────
-//  AUTHENTICATED routes (API key / ERC-8128)
-// ──────────────────────────────────────
+// AUTHENTICATED routes (API key / ERC-8128)
 
 app.use(authMiddleware);
 
@@ -111,7 +123,7 @@ app.post('/dispatch', (req, res, next) => {
   dispatchRoutes(req, res, next);
 });
 
-// Task status polling at root (public — taskId is the auth)
+// Task status polling at root (public - taskId is the auth)
 app.get('/status/:taskId', (req, res, next) => {
   req.url = `/status/${req.params.taskId}`;
   dispatchRoutes(req, res, next);
@@ -132,7 +144,9 @@ app.get('/status', async (req: Request, res: Response) => {
       specialists: ['magos', 'aura', 'bankr', 'seeker', 'scribe'],
       uptime: process.uptime(),
     });
-  } catch { res.status(500).json({ error: 'Internal server error' }); }
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Wallet balance & transactions (authenticated)
