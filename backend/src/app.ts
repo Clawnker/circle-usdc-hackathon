@@ -123,6 +123,12 @@ app.post('/dispatch', (req, res, next) => {
   dispatchRoutes(req, res, next);
 });
 
+// Backwards compat: /pricing at root
+app.get('/pricing', (req, res, next) => {
+  req.url = '/pricing';
+  dispatchRoutes(req, res, next);
+});
+
 // Task status polling at root (public - taskId is the auth)
 app.get('/status/:taskId', (req, res, next) => {
   req.url = `/status/${req.params.taskId}`;

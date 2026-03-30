@@ -63,7 +63,7 @@ export function TaskInput({
 
   // Fetch pricing on mount
   useEffect(() => {
-    fetch(`${API_URL}/pricing`)
+    fetch(`${API_URL}/api/pricing`)
       .then(res => res.json())
       .then(data => setPricing(data.pricing))
       .catch(err => console.error('Failed to fetch pricing:', err));
