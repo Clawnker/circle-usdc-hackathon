@@ -50,6 +50,13 @@ Hivemind V2 introduces a sophisticated orchestration layer that transforms simpl
 - **Price-Aware Routing:** The Router optimizes for user budgets, selecting the most cost-effective agent path that meets the required reputation threshold.
 - **Circuit Breaker Fallbacks:** If a high-reputation agent fails, the system automatically routes to a secondary "warm" fallback agent to ensure service continuity.
 
+## Current Snapshot
+
+- Backend orchestration is now split so routing, specialist execution, task storage, and task events are not concentrated in a single file.
+- Frontend command-center orchestration lives in `frontend/src/hooks/useCommandCenter.ts`, with `page.tsx` focused on composition.
+- The network toggle is real across route preview, dispatch, delegated payment, and mode-scoped UI state for both `testnet` and `mainnet`.
+- The repo now has both fast verification (`npm run ci`) and browser UI coverage (`cd frontend && npm run test:ui`).
+
 ---
 
 ## 🏗️ Architecture
@@ -224,6 +231,7 @@ The **Hivemind Command Center** provides a real-time interface for the agent eco
 - **Agent Registry** — discover external ERC-8004 agents with x402 payments via [8004scan.io](https://www.8004scan.io/)
 - **Query History** — full history with downloadable reports and re-run capability
 - **Delegation Panel** — USDC approve/revoke with per-payment tracking and spend totals
+- **Network Mode Toggle** — explicit Base Sepolia vs Base Mainnet selection with mode-scoped state
 - **Inter-Agent Message Log** — watch agents communicate during multi-hop tasks
 - **Mobile Responsive** — icon-only nav, dynamic layouts for all screen sizes
 
@@ -233,7 +241,7 @@ The **Hivemind Command Center** provides a real-time interface for the agent eco
 
 | Layer | Technology |
 |-------|-----------|
-| **Chain** | Base Sepolia (EIP-155:84532) |
+| **Chain** | Base Sepolia + Base Mainnet |
 | **Intelligence** | Gemini Pro (Dispatcher) + text-embedding-004 |
 | **Orchestration** | DAG Executor + Circuit Breaker |
 | **Payments** | USDC via x402 protocol + AgentWallet |
@@ -241,6 +249,7 @@ The **Hivemind Command Center** provides a real-time interface for the agent eco
 | **Auth** | ERC-8128 Signed HTTP Requests (wallet-native) |
 | **Backend** | Node.js / TypeScript / Express |
 | **Frontend** | Next.js 16 / Tailwind CSS / Framer Motion |
+| **UI Testing** | Playwright |
 | **Wallet** | AgentWallet (x402 facilitator) |
 | **Contracts** | Solidity 0.8.20 / OpenZeppelin |
 | **External Agents** | Google Cloud Run (Sentinel) |
@@ -260,19 +269,38 @@ The **Hivemind Command Center** provides a real-time interface for the agent eco
 git clone https://github.com/Clawnker/circle-usdc-hackathon.git
 cd circle-usdc-hackathon
 
-# 2. Backend
+# 2. Root scripts
+npm install
+
+# 3. Backend
 cd backend
 cp .env.example .env
 # Add your AGENTWALLET_TOKEN and BASE_RPC_URL
 npm install && npm run dev
 
-# 3. Frontend (new terminal)
+# 4. Frontend (new terminal)
 cd ../frontend
 cp .env.example .env.local
 npm install && npm run dev
 ```
 
 Visit `http://localhost:3001` for the Hivemind Command Center.
+
+## Testing
+
+Repo verification:
+
+```bash
+npm run ci
+```
+
+Frontend browser verification:
+
+```bash
+cd frontend
+npx playwright install chromium
+npm run test:ui
+```
 
 ---
 

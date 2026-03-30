@@ -1,106 +1,101 @@
-# Hivemind Protocol — Codebase Guide
+# Hivemind Protocol - Codebase Guide
 
 Reference map for contributors working in this repo.
 
 ## Repo layout
 
-```
+```text
 circle-usdc-hackathon/
-├── backend/
-│   ├── src/
-│   │   ├── app.ts
-│   │   ├── index.ts
-│   │   ├── dispatcher.ts
-│   │   ├── capability-matcher.ts
-│   │   ├── llm-planner.ts
-│   │   ├── dag-executor.ts
-│   │   ├── external-agents.ts
-│   │   ├── payments.ts
-│   │   ├── reputation.ts
-│   │   ├── websocket.ts
-│   │   ├── routes/
-│   │   ├── middleware/
-│   │   ├── specialists/
-│   │   └── __tests__/
-│   ├── .env.example
-│   └── README.md
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   └── providers/
-│   └── README.md
-├── contracts/
-├── agents/
-│   └── registrations.json
-├── docs/
-│   ├── README.md
-│   ├── RELEASE_NOTES_2026-02-17.md
-│   ├── ADDING_SPECIALISTS.md
-│   ├── CAPABILITY_MATCHING.md
-│   ├── DAG_PLANNER.md
-│   ├── ROUTING_RESILIENCE.md
-│   ├── SYSTEM_MAP.md
-│   ├── REPUTATION_SYSTEM.md
-│   ├── ROADMAP.md
-│   └── specs/
-├── tests/
-│   └── scripts/
-│       ├── run_qa.sh
-│       ├── test-e2e.sh
-│       └── test_routing.js
-├── README.md
-├── REGISTER_AGENT.md
-└── skill.md
+|-- AGENTS.md
+|-- backend/
+|   |-- src/
+|   |   |-- app.ts
+|   |   |-- index.ts
+|   |   |-- dispatcher.ts
+|   |   |-- routing.ts
+|   |   |-- specialist-gateway.ts
+|   |   |-- task-store.ts
+|   |   |-- task-events.ts
+|   |   |-- external-agents.ts
+|   |   |-- payments.ts
+|   |   |-- reputation.ts
+|   |   |-- websocket.ts
+|   |   |-- routes/
+|   |   |-- middleware/
+|   |   |-- reliability/
+|   |   |-- specialists/
+|   |   `-- __tests__/
+|   |-- data/
+|   |-- .env.example
+|   `-- README.md
+|-- frontend/
+|   |-- src/
+|   |   |-- app/
+|   |   |-- components/
+|   |   |-- hooks/
+|   |   |   |-- useCommandCenter.ts
+|   |   |   `-- useWebSocket.ts
+|   |   |-- lib/
+|   |   |   |-- command-center.ts
+|   |   |   |-- command-center-api.ts
+|   |   |   |-- command-center-storage.ts
+|   |   |   `-- networkMode.ts
+|   |   `-- providers/
+|   |-- tests/
+|   |   `-- ui/
+|   |-- playwright.config.ts
+|   `-- README.md
+|-- contracts/
+|-- docs/
+|-- tests/
+|   `-- scripts/
+|-- README.md
+|-- REGISTER_AGENT.md
+|-- package.json
+`-- skill.md
 ```
-
-## Private/Internal material
-
-Some operational docs and QA artifacts are intentionally kept out of the public repo surface.
-- Internal files live under local `.private/` (gitignored)
-- Public docs are listed in `docs/README.md`
-- Guard script: `tests/scripts/check_private_surface.sh`
 
 ## Backend quick notes
 
-- Auth: API keys and ERC-8128
-- Payments: delegation + x402
-- Routing: capability matching + DAG planning + fallback chain
-- Reliability: idempotency, retry/DLQ, SLO + alert hooks
-
-Main files to start with:
-- `backend/src/dispatcher.ts`
-- `backend/src/routes/dispatch.ts`
-- `backend/src/specialists/`
-- `backend/src/hooks/useWebSocket.ts` (frontend consumer side is `frontend/src/hooks/useWebSocket.ts`)
+- `backend/src/app.ts` wires middleware and routes.
+- `backend/src/routes/dispatch.ts` owns `/api/route-preview`, `/dispatch`, and query submission.
+- `backend/src/dispatcher.ts` is the public facade used by routes.
+- `backend/src/routing.ts` contains specialist selection and routing heuristics.
+- `backend/src/specialist-gateway.ts` encapsulates specialist execution.
+- `backend/src/task-store.ts` and `backend/src/task-events.ts` hold task persistence and fan-out concerns.
+- `backend/src/reliability/` contains idempotency, DLQ, SLO, and replay controls.
 
 ## Frontend quick notes
 
-Main UI and payment/routing behavior:
-- `frontend/src/app/page.tsx`
-- `frontend/src/hooks/useWebSocket.ts`
-- `frontend/src/components/ResultCard.tsx`
-- `frontend/src/components/cards/`
+- `frontend/src/app/page.tsx` is mostly page composition.
+- `frontend/src/hooks/useCommandCenter.ts` owns dispatch, payment, history, and network-mode orchestration.
+- `frontend/src/lib/networkMode.ts` is the frontend source of truth for `testnet` and `mainnet`.
+- `frontend/src/components/NetworkModeToggle.tsx` and `frontend/src/components/TaskInput.tsx` are the main network-aware interaction points.
+- `frontend/src/hooks/useWebSocket.ts` handles live task updates plus HTTP polling fallback.
+
+## Network mode
+
+- The app supports `testnet` and `mainnet`.
+- Network mode is persisted in local storage and scoped into swarm metadata storage.
+- Route preview, delegated payment, direct payment flow, registry additions, and dispatch all carry `networkMode`.
 
 ## Testing
 
-Backend:
+Repo-level verification:
+
 ```bash
-cd backend
-npm test
-npm run build
+npm run ci
 ```
 
-Frontend:
+Frontend browser verification:
+
 ```bash
 cd frontend
-npm run build
+npx playwright install chromium
+npm run test:ui
 ```
 
-Repo scripts:
-```bash
-bash tests/scripts/run_qa.sh
-bash tests/scripts/test-e2e.sh
-node tests/scripts/test_routing.js
-```
+## Generated data
+
+- `backend/data/` is persistence used during local runs and tests.
+- Do not commit generated task, DLQ, SLO, or reputation churn unless the change is intentional.

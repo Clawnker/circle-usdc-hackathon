@@ -100,7 +100,9 @@ export function resolveNetworkMode(input?: string | null): NetworkMode {
 
 export function supportsDirectPayments(mode: NetworkMode): boolean {
   if (mode === 'testnet') return true;
-  return process.env.NEXT_PUBLIC_ENABLE_MAINNET_PAYMENTS === 'true';
+  if (process.env.NEXT_PUBLIC_DISABLE_MAINNET_PAYMENTS === 'true') return false;
+  if (process.env.NEXT_PUBLIC_ENABLE_MAINNET_PAYMENTS === 'false') return false;
+  return true;
 }
 
 export function getModeScopedStorageKey(baseKey: string, mode: NetworkMode): string {

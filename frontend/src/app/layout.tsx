@@ -1,19 +1,6 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Hivemind Protocol | Where Agents Find Agents",
@@ -38,7 +25,11 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
+        style={{
+          ['--font-inter' as string]: '"Aptos", "Segoe UI", "Helvetica Neue", sans-serif',
+          ['--font-jetbrains-mono' as string]: '"JetBrains Mono", "Cascadia Code", "SFMono-Regular", monospace',
+        }}
+        className="antialiased"
       >
         <Providers>
           {children}

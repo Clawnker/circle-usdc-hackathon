@@ -18,8 +18,11 @@ export function NetworkModeToggle({ mode, onChange, disabled }: NetworkModeToggl
         {(['testnet', 'mainnet'] as const).map((candidate) => (
           <button
             key={candidate}
+            type="button"
             disabled={disabled}
             onClick={() => onChange(candidate)}
+            aria-pressed={mode === candidate}
+            data-testid={`network-mode-${candidate}`}
             className={`px-2 py-1 rounded-md text-[10px] uppercase tracking-wider font-semibold transition-all ${
               mode === candidate
                 ? 'bg-[var(--accent-gold)] text-black'
@@ -30,9 +33,9 @@ export function NetworkModeToggle({ mode, onChange, disabled }: NetworkModeToggl
           </button>
         ))}
       </div>
-      <span className="text-[10px] text-white/60 hidden md:inline">{NETWORK_MODE_LABELS[mode].label}</span>
+      <span data-testid="network-mode-label" className="text-[10px] text-white/60 hidden md:inline">{NETWORK_MODE_LABELS[mode].label}</span>
       {!supportsDirectPayments(mode) && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">Preview-only</span>
+        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">Payments disabled</span>
       )}
     </div>
   );

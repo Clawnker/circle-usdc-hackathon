@@ -4,12 +4,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import * as fs from 'fs';
-import * as path from 'path';
 import * as dns from 'dns';
 import { promisify } from 'util';
-
-const lookup = promisify(dns.lookup);
 import {
   Task,
   TaskStatus,
@@ -22,251 +18,56 @@ import {
 } from './types';
 import config from './config';
 import { logTransaction, createPaymentRecord, getTreasuryBalance } from './payments';
-import { recordSuccess, recordFailure, getSuccessRate, recordLatency, getReputationScore } from './reputation';
-import { planWithLLM, planDAG } from './llm-planner';
+import { recordSuccess, recordFailure, recordLatency, getReputationScore } from './reputation';
+import { planDAG } from './llm-planner';
 import { executeDAG, resolveVariables } from './dag-executor';
-import { capabilityMatcher } from './capability-matcher';
-import { circuitBreaker } from './circuit-breaker';
 import { fallbackChain } from './fallback-chain';
-import { isExternalAgent, callExternalAgent, getExternalAgents, getExternalAgent } from './external-agents';
-import { classifyIntent } from './intent-classifier';
+import { circuitBreaker } from './circuit-breaker';
 import { priceRouter } from './price-router';
-import magos from './specialists/magos';
-import aura from './specialists/aura';
-import bankr from './specialists/bankr';
-import scribe from './specialists/scribe';
-import seeker from './specialists/seeker';
 import { processingIdempotencyStore } from './reliability/idempotency-store';
-import { withRetry, isTransientError } from './reliability/retry';
-import { getReliabilityConfig } from './reliability/config';
-import { enqueueDlq } from './reliability/dlq';
 import { getNetworkConfig } from './utils/network-config';
-import type { ClientNetworkMode } from './utils/client-network';
+import { normalizeClientNetworkMode, type ClientNetworkMode } from './utils/client-network';
+import { upsertTask, getTask, getTasksByUser, getRecentTasks } from './task-store';
+import { addMessage, emitTaskUpdate, subscribeToTask } from './task-events';
+import {
+  isComplexQuery,
+  detectMultiHop,
+  resolveAgentFee,
+  routePrompt,
+  getSpecialistDisplayName,
+  getSpecialistPreviewInfo,
+  getSpecialistPricing,
+  getSpecialists,
+} from './routing';
+import {
+  callSpecialist,
+  callSpecialistGated,
+  extractResponseContent,
+} from './specialist-gateway';
 
-// Persistence settings
-const DATA_DIR = path.join(__dirname, '../data');
-const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
+const lookup = promisify(dns.lookup);
 
-// In-memory task store
-const tasks: Map<string, Task> = new Map();
-
-/**
- * Load tasks from disk
- */
-function loadTasks(): void {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    
-    if (fs.existsSync(TASKS_FILE)) {
-      const data = fs.readFileSync(TASKS_FILE, 'utf8');
-      const parsed = JSON.parse(data);
-      
-      // Convert dates back to Date objects
-      Object.values(parsed).forEach((task: any) => {
-        task.createdAt = new Date(task.createdAt);
-        task.updatedAt = new Date(task.updatedAt);
-        if (task.result?.timestamp) {
-          task.result.timestamp = new Date(task.result.timestamp);
-        }
-        task.payments?.forEach((p: any) => {
-          p.timestamp = new Date(p.timestamp);
-        });
-        tasks.set(task.id, task);
-      });
-      
-      console.log(`[Dispatcher] Loaded ${tasks.size} tasks from persistence`);
-    }
-  } catch (error: any) {
-    console.error(`[Dispatcher] Failed to load tasks:`, error.message);
-  }
-}
-
-/**
- * Save tasks to disk (debounced async write, capped at 100 recent tasks)
- */
-let saveTimer: NodeJS.Timeout | null = null;
-function saveTasks(): void {
-  // Debounce: only write once per 2 seconds (avoids hammering disk)
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try {
-      // Keep only the 100 most recent tasks to prevent unbounded growth
-      const allTasks = Array.from(tasks.entries())
-        .sort(([, a], [, b]) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, 100);
-      const data = JSON.stringify(Object.fromEntries(allTasks), null, 2);
-      fs.writeFile(TASKS_FILE, data, 'utf8', (err) => {
-        if (err) console.error(`[Dispatcher] Failed to save tasks:`, err.message);
-      });
-    } catch (error: any) {
-      console.error(`[Dispatcher] Failed to save tasks:`, error.message);
-    }
-  }, 2000);
-}
-
-// Initial load
-loadTasks();
-
-// Specialist descriptions
-const SPECIALIST_DESCRIPTIONS: Record<SpecialistType, string> = {
-  magos: 'Market analysis & predictions',
-  aura: 'Social sentiment analysis',
-  bankr: 'Wallet operations',
-  scribe: 'General assistant & fallback',
-  seeker: 'Web research & search',
-  general: 'General queries',
-  'multi-hop': 'Orchestrated multi-agent workflow',
+export {
+  callSpecialist,
+  callSpecialistGated,
+  extractResponseContent,
+  getTask,
+  getTasksByUser,
+  getRecentTasks,
+  getSpecialistPricing,
+  getSpecialists,
+  isComplexQuery,
+  routePrompt,
+  subscribeToTask,
 };
 
-/**
- * Resolve fee for a specialist (internal or external)
- * Internal specialists use config.fees, external agents use their registered pricing
- */
-function resolveAgentFee(
-  specialistId: string,
-  taskType?: string,
-  networkMode: ClientNetworkMode = 'testnet'
-): number {
-  // Check internal fees first
-  const internalFee = (config.fees as any)[specialistId];
-  if (internalFee !== undefined) return internalFee;
-  
-  // Check external agent pricing
-  if (isExternalAgent(specialistId)) {
-    const agent = getExternalAgent(specialistId, networkMode);
-    if (agent?.pricing) {
-      // Try task-specific price, then generic, then first available
-      return agent.pricing[taskType || ''] || agent.pricing['security-audit'] || agent.pricing['generic'] || Object.values(agent.pricing)[0] || 0;
-    }
-  }
-  
-  return 0;
-}
-
-// Specialist pricing information (synced with config.fees)
-const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: string }> = {
-  magos: { fee: '0.10', description: 'Market analysis & predictions' },
-  aura: { fee: '0.10', description: 'Social sentiment analysis' },
-  bankr: { fee: '0.10', description: 'Wallet operations' },
-  scribe: { fee: '0.10', description: 'General assistant & fallback' },
-  seeker: { fee: '0.10', description: 'Web research & search' },
-  general: { fee: '0', description: 'General queries' },
-  'multi-hop': { fee: '0', description: 'Orchestrated multi-agent workflow' },
-};
-
-/**
- * Complexity heuristic: detects if a query covers multiple domains
- * Flags queries that mention 2+ distinct domains as multi-hop
- */
-export function isComplexQuery(prompt: string): boolean {
-  const lower = prompt.toLowerCase();
-  const domains = [
-    { name: 'social', patterns: [/sentiment/, /vibe/, /mood/, /social/, /trending/, /popular/, /alpha/, /gem/, /influencer/, /kol/, /whale/, /twitter/, /fomo/, /fud/, /hype/, /buzz/] },
-    { name: 'price', patterns: [/price/, /value/, /worth/, /cost/, /predict/, /forecast/, /chart/, /trend/, /market/, /valuation/, /support/, /resistance/, /technical/] },
-    { name: 'security', patterns: [/audit/, /security/, /vulnerabilit/, /exploit/, /hack/, /safe/, /secure/, /risk/, /danger/, /smart\s*contract/] },
-    { name: 'wallet', patterns: [/\bswap\b/, /\btrade\b/, /\bbuy\b/, /\bsell\b/, /\bexchange\b/, /\btransfer\b/, /\bsend\b/, /\bwithdraw\b/, /\bdeposit\b/, /\bbalance\b/, /\bportfolio\b/, /\bdca\b/] },
-    { name: 'research', patterns: [/search/, /research/, /find/, /news/, /latest/, /happened/, /google/, /brave/, /internet/, /web/] }
-  ];
-  
-  let detectedDomains = 0;
-  for (const domain of domains) {
-    if (domain.patterns.some(p => p.test(lower))) {
-      detectedDomains++;
-    }
-  }
-  
-  return detectedDomains >= 2;
-}
-
-/**
- * Detect multi-hop patterns
- */
-function detectMultiHop(prompt: string): SpecialistType[] | null {
-  const lower = prompt.toLowerCase();
-  
-  // Pattern: "buy" + "trending/popular/talked about/most hyped" = aura → bankr
-  if (lower.includes('buy') && (lower.includes('trending') || lower.includes('popular') || lower.includes('hot') || lower.includes('sentiment') || lower.includes('talked about') || lower.includes('most hyped') || lower.includes('most popular'))) {
-    return ['aura', 'bankr'];
-  }
-
-  // Pattern: "find" + "buy" = seeker/aura → bankr (research then execute)
-  if ((lower.includes('find') || lower.includes('discover') || lower.includes('what')) && lower.includes('buy')) {
-    return ['seeker', 'bankr'];
-  }
-  
-  // Pattern: "analyze" + "buy" = magos → bankr  
-  if ((lower.includes('analyze') || lower.includes('research')) && lower.includes('buy')) {
-    return ['magos', 'bankr'];
-  }
-
-  // Pattern: "research" + "summary" = seeker → scribe
-  if ((lower.includes('research') || lower.includes('search') || lower.includes('news')) && (lower.includes('summary') || lower.includes('summarize'))) {
-    return ['seeker', 'scribe'];
-  }
-
-  // Complexity heuristic fallback - if 2+ domains are detected, route to seeker -> scribe for research and synthesis
-  if (isComplexQuery(prompt)) {
-    return ['seeker', 'scribe'];
-  }
-  
-  return null; // Single-hop
-}
-
-/**
- * Helper to extract tokens from Aura's result
- */
 function extractTokensFromResult(result: string): string[] {
-  // Parse Aura's trending response
-  // Look for token symbols like SOL, BONK, WIF
   const tokens = result.match(/\b(SOL|BONK|WIF|PEPE|DOGE|SHIB|FOMO)\b/gi) || [];
-  return [...new Set(tokens.map(t => t.toUpperCase()))];
+  return [...new Set(tokens.map((token) => token.toUpperCase()))];
 }
 
-// Event emitter for real-time updates
-type TaskUpdateCallback = (task: Task) => void;
-const subscribers: Map<string, TaskUpdateCallback[]> = new Map();
-
-const routeCache: Map<string, { specialist: SpecialistType; expiresAt: number }> = new Map();
-const ROUTE_CACHE_TTL_MS = 2 * 60 * 1000;
-const MAX_ROUTE_CACHE_SIZE = 300;
-
-/**
- * Subscribe to task updates
- */
-export function subscribeToTask(taskId: string, callback: TaskUpdateCallback): () => void {
-  const existing = subscribers.get(taskId) || [];
-  existing.push(callback);
-  subscribers.set(taskId, existing);
-  
-  return () => {
-    const callbacks = subscribers.get(taskId) || [];
-    subscribers.set(taskId, callbacks.filter(cb => cb !== callback));
-  };
-}
-
-/**
- * Emit task update to subscribers
- */
-function emitTaskUpdate(task: Task): void {
-  const callbacks = subscribers.get(task.id) || [];
-  callbacks.forEach(cb => cb(task));
-}
-
-/**
- * Add a message to the task
- */
-function addMessage(task: Task, from: string, to: string, content: string): void {
-  console.log(`[Dispatcher] Adding message from ${from} to ${to}: ${content}`);
-  task.messages.push({
-    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    from,
-    to,
-    content,
-    timestamp: new Date().toISOString(),
-  });
-  emitTaskUpdate(task);
+function resolveTaskNetworkMode(input?: unknown): ClientNetworkMode {
+  return normalizeClientNetworkMode(input);
 }
 
 /**
@@ -276,16 +77,12 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
   const taskId = uuidv4();
   const networkMode = resolveTaskNetworkMode(request.networkMode);
   const network = getNetworkConfig(networkMode);
-  
-  // Pre-check: Security audit fast-path BEFORE complexity detection
-  // "audit contract" often triggers false positive complexity (security + wallet domains)
-  const isSecurityAuditQuery = /\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(request.prompt) && 
+
+  const isSecurityAuditQuery = /\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(request.prompt) &&
     (/0x[a-fA-F0-9]{40}/.test(request.prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(request.prompt));
-  
-  // Phase 2b: Multi-step DAG Planning
-  // First, check if it's a simple query to use the fast path
-  const isComplex = isSecurityAuditQuery ? false : await isComplexQuery(request.prompt);
-  
+
+  const isComplex = isSecurityAuditQuery ? false : isComplexQuery(request.prompt);
+
   let dagPlan: DAGPlan;
   let isMultiStep = false;
 
@@ -293,62 +90,53 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     dagPlan = await planDAG(request.prompt);
     isMultiStep = dagPlan.steps.length > 1;
   } else {
-    // Single-step fast path: Create a dummy plan for consistency
     dagPlan = {
       planId: `simple-${Date.now()}`,
       query: request.prompt,
       steps: [],
       totalEstimatedCost: 0,
-      reasoning: isSecurityAuditQuery ? 'Security audit query — fast-path to audit specialist.' : 'Simple query detected, skipping LLM planning.'
+      reasoning: isSecurityAuditQuery
+        ? 'Security audit query - fast-path to audit specialist.'
+        : 'Simple query detected, skipping LLM planning.',
     };
   }
-  
-  // Determine the best specialist for this prompt
-  // If >1 step, it's multi-hop. If 1 step, use existing routing logic (Capability/RegExp/etc)
+
   let bestSpecialist = request.preferredSpecialist || (isMultiStep ? 'multi-hop' as SpecialistType : await routePrompt(request.prompt, request.hiredAgents, networkMode));
-  
-  // Legacy multi-hop detection — check before building fallback chains
-  // Skip for sentinel queries (audit prompts trigger false positives in multi-domain detection)
+
   const legacyHops = (isMultiStep || isSecurityAuditQuery) ? null : detectMultiHop(request.prompt);
   if (legacyHops && !request.preferredSpecialist) {
-    bestSpecialist = 'multi-hop' as SpecialistType;
+    bestSpecialist = 'multi-hop';
   }
-  
-  // Phase 2e: Build fallback chain for single-hop tasks
-  // Skip for fast-path routes (high confidence, no need for fallbacks)
+
   let taskFallbackChain: string[] | undefined;
   if (!isMultiStep && bestSpecialist !== 'multi-hop') {
-    // Only build expensive fallback chain if we didn't hit a fast-path
-    // Fast-path routes (audit, magos price, aura sentiment) are high-confidence
-    const isFastPath = isSecurityAuditQuery || 
+    const isFastPath = isSecurityAuditQuery ||
       /\b(price|value|worth|cost|how much)\b/i.test(request.prompt) ||
       /\b(sentiment|vibe|mood|social\s+analysis)\b/i.test(request.prompt);
-    
+
     if (isFastPath) {
-      taskFallbackChain = [bestSpecialist, 'scribe']; // Simple fallback to scribe
+      taskFallbackChain = [bestSpecialist, 'scribe'];
     } else {
       try {
         const chain = await fallbackChain.buildFallbackChain(request.prompt, [], networkMode);
-        taskFallbackChain = chain.map(c => c.agentId);
+        taskFallbackChain = chain.map((candidate) => candidate.agentId);
         if (taskFallbackChain.length > 0 && taskFallbackChain[0] !== bestSpecialist && taskFallbackChain.includes(bestSpecialist)) {
-          taskFallbackChain = [bestSpecialist, ...taskFallbackChain.filter(id => id !== bestSpecialist)];
+          taskFallbackChain = [bestSpecialist, ...taskFallbackChain.filter((id) => id !== bestSpecialist)];
         } else if (!taskFallbackChain.includes(bestSpecialist)) {
           taskFallbackChain = [bestSpecialist, ...taskFallbackChain];
         }
-      } catch (err) {
-        console.error('[Dispatcher] Error building fallback chain:', err);
+      } catch (error) {
+        console.error('[Dispatcher] Error building fallback chain:', error);
         taskFallbackChain = [bestSpecialist];
       }
     }
   }
 
-  // Phase 2d: Budget Enforcement
   if (request.maxBudget !== undefined) {
     const budgetCheck = priceRouter.checkBudget(dagPlan, request.maxBudget);
-    // For single-step, ensure we also check the bestSpecialist fee if it's different from the plan
     const singleStepFee = !isMultiStep ? resolveAgentFee(bestSpecialist, undefined, networkMode) : 0;
     const finalEstimatedCost = Math.max(budgetCheck.totalCost, singleStepFee);
-    
+
     if (finalEstimatedCost > request.maxBudget) {
       console.log(`[Dispatcher] Rejecting request: Estimated cost (${finalEstimatedCost} USDC) exceeds budget (${request.maxBudget} USDC)`);
       return {
@@ -359,59 +147,42 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       };
     }
   }
-  
-  // Compute final hops and multi-step status
-  const finalHops = isMultiStep ? dagPlan.steps.map(s => s.specialist) : legacyHops;
+
+  const finalHops = isMultiStep ? dagPlan.steps.map((step) => step.specialist) : legacyHops;
   const isActuallyMultiStep = isMultiStep || !!legacyHops;
-  
-  // Check if user approved this specific agent
   const isApproved = request.approvedAgent === bestSpecialist;
-  
-  // Check if specialist is in user's swarm (hired agents)
   const isInSwarm = !request.hiredAgents || request.hiredAgents.includes(bestSpecialist);
-  
-  // If not in swarm and not approved, check if we need approval
-  // Multi-hop workflows don't need approval — individual hops are checked separately
   const requiresApproval = !isInSwarm && !isApproved && bestSpecialist !== 'general' && bestSpecialist !== 'scribe' && bestSpecialist !== 'multi-hop';
-  
-  console.log(`[Dispatcher] Routing decision (DAG):`, {
+
+  console.log('[Dispatcher] Routing decision (DAG):', {
     bestSpecialist,
     isMultiStep,
     isActuallyMultiStep,
     stepCount: dagPlan.steps.length,
     requiresApproval,
   });
-  
-  // If preview only or requires approval, return info without executing
+
   if (request.previewOnly || requiresApproval) {
-    let pricing = SPECIALIST_PRICING[bestSpecialist];
-    
-    // For external agents, get pricing from their registration
-    if (!pricing && isExternalAgent(bestSpecialist)) {
-      const extAgent = getExternalAgent(bestSpecialist, networkMode);
-      const extFee = extAgent?.pricing?.['security-audit'] || extAgent?.pricing?.['generic'] || Object.values(extAgent?.pricing || {})[0] || 0;
-      pricing = { fee: String(extFee), description: extAgent?.description || 'External agent' };
-    }
-    if (!pricing) pricing = { fee: '0', description: 'Unknown' };
+    const pricing = getSpecialistPreviewInfo(bestSpecialist, networkMode);
     const reputationScore = getReputationScore(bestSpecialist);
-    
-    // For multi-hop, show the actual agents involved
+
     const displayName = isActuallyMultiStep && finalHops
-      ? finalHops.map(h => getSpecialistDisplayName(h as SpecialistType)).join(' → ')
+      ? finalHops.map((hop) => getSpecialistDisplayName(hop as SpecialistType)).join(' -> ')
       : getSpecialistDisplayName(bestSpecialist);
-    
-    // For multi-hop approval, the specialist should be the first hop agent, not 'multi-hop'
-    const approvalSpecialist = isActuallyMultiStep && finalHops ? finalHops[0] as SpecialistType : bestSpecialist;
-    
+
+    const approvalSpecialist = isActuallyMultiStep && finalHops
+      ? finalHops[0] as SpecialistType
+      : bestSpecialist;
+
     return {
-      taskId: '', // No task created yet
+      taskId: '',
       status: 'pending',
       specialist: approvalSpecialist,
       requiresApproval,
       specialistInfo: {
         name: displayName,
-        description: isActuallyMultiStep 
-          ? `Multi-agent workflow: ${finalHops?.join(' → ')}` 
+        description: isActuallyMultiStep
+          ? `Multi-agent workflow: ${finalHops?.join(' -> ')}`
           : pricing.description,
         fee: isMultiStep ? String(dagPlan.totalEstimatedCost) : pricing.fee,
         feeCurrency: 'USDC',
@@ -419,10 +190,8 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       },
     };
   }
-  
+
   const specialist = bestSpecialist;
-  
-  // Create task
   const task: Task = {
     id: taskId,
     prompt: request.prompt,
@@ -433,7 +202,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     updatedAt: new Date(),
     payments: [],
     messages: [],
-    metadata: { 
+    metadata: {
       dryRun: request.dryRun,
       hops: finalHops || undefined,
       hiredAgents: request.hiredAgents,
@@ -442,44 +211,26 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       networkMode,
       routeNetwork: network.routeLabel,
     },
-    dagPlan, // Store the DAG plan for execution
-    fallbackChain: taskFallbackChain, // Added for Phase 2e
+    dagPlan,
+    fallbackChain: taskFallbackChain,
     callbackUrl: request.callbackUrl,
   };
-  
-  tasks.set(taskId, task);
-  saveTasks();
+
+  upsertTask(task);
   console.log(`[Dispatcher] Created task ${taskId} for specialist: ${specialist} (${isMultiStep ? 'DAG' : 'Single'})`);
-  
-  // Small delay to allow WebSocket subscription before execution
+
   setTimeout(() => {
-    executeTask(task, request.dryRun || false, request.paymentProof).catch(err => {
-      console.error(`[Dispatcher] Task ${taskId} failed:`, err);
-      updateTaskStatus(task, 'failed', { error: err.message });
+    executeTask(task, request.dryRun || false, request.paymentProof).catch((error) => {
+      console.error(`[Dispatcher] Task ${taskId} failed:`, error);
+      updateTaskStatus(task, 'failed', { error: error.message });
     });
   }, 100);
-  
+
   return {
     taskId,
     status: task.status,
     specialist,
   };
-}
-
-/**
- * Get display name for a specialist
- */
-function getSpecialistDisplayName(specialist: SpecialistType): string {
-  const names: Record<string, string> = {
-    magos: 'Market Oracle',
-    aura: 'Social Analyst',
-    bankr: 'DeFi Executor',
-    scribe: 'General Assistant',
-    seeker: 'Web Researcher',
-    general: 'General',
-    'multi-hop': 'Multi-Agent Workflow',
-  };
-  return names[specialist] || specialist;
 }
 
 /**
@@ -502,75 +253,62 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
     return;
   }
 
-  // Phase 2b: Multi-step DAG Execution
   if (task.dagPlan && task.dagPlan.steps.length > 1) {
     updateTaskStatus(task, 'processing');
     addMessage(task, 'dispatcher', 'multi-hop', `Executing dynamic DAG plan: ${task.dagPlan.planId}`);
-    
+
     const stepExecutor: StepExecutor = async (step, context) => {
-      // 1. Resolve variables in prompt template
       const resolvedPrompt = resolveVariables(step.promptTemplate, context);
-      
-      // 2. Routing message
+
       addMessage(task, 'dispatcher', step.specialist, `[Step ${step.id}] Routing to ${step.specialist}...`);
-      
-      // 3. Call the specialist (gated)
+
       const result = await callSpecialistGated(step.specialist, resolvedPrompt, task);
-      
-      // 4. Specialist response message
       const responseContent = extractResponseContent(result);
       addMessage(task, step.specialist, 'dispatcher', responseContent);
-      
-      // 5. Handle x402 payment for this step
+
       const fee = step.estimatedCost || (config.fees as any)[step.specialist] || 0;
       if (fee > 0 && !dryRun && !paymentProof) {
-        // Log the fee for this step — actual payment handled by delegation or x402 protocol
         const feeRecord = createPaymentRecord(String(fee), 'USDC', network.routeLabel, step.specialist, undefined, 'pending');
         task.payments.push(feeRecord);
         logTransaction(feeRecord);
-        addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${fee} USDC → ${step.specialist}`);
+        addMessage(task, 'x402', 'dispatcher', `Fee: ${fee} USDC -> ${step.specialist}`);
       }
-      
+
       return {
         stepId: step.id,
         specialist: step.specialist,
         output: result.data,
         summary: responseContent,
-        success: result.success
+        success: result.success,
       };
     };
 
     try {
       const dagResult = await executeDAG(task.dagPlan, stepExecutor);
-      
-      // Collect successful step summaries for a synthesized result
-      const successfulSteps = Object.values(dagResult.results).filter(r => r.success);
-      const failedSteps = Object.values(dagResult.results).filter(r => !r.success);
-      
-      // Bubble up the last successful step's summary as the top-level summary
-      // (typically the final synthesis step like scribe)
-      const lastSuccessful = successfulSteps.length > 0 
-        ? successfulSteps[successfulSteps.length - 1] 
+      const successfulSteps = Object.values(dagResult.results).filter((result) => result.success);
+      const failedSteps = Object.values(dagResult.results).filter((result) => !result.success);
+      const lastSuccessful = successfulSteps.length > 0
+        ? successfulSteps[successfulSteps.length - 1]
         : null;
-      const topLevelSummary = lastSuccessful?.summary || 
-        successfulSteps.map(s => s.summary).filter(Boolean).join('\n\n') || 
+      const topLevelSummary = lastSuccessful?.summary ||
+        successfulSteps.map((step) => step.summary).filter(Boolean).join('\n\n') ||
         'No results available.';
 
       task.result = {
-        success: successfulSteps.length > 0, // Partial success if at least one step worked
+        success: successfulSteps.length > 0,
         data: {
           isDAG: true,
           summary: topLevelSummary,
           planId: dagResult.planId,
-          steps: Object.values(dagResult.results).map(r => ({
-            specialist: r.specialist,
-            summary: r.summary,
-            success: r.success
+          steps: Object.values(dagResult.results).map((result) => ({
+            specialist: result.specialist,
+            summary: result.summary,
+            success: result.success,
           })),
           details: dagResult.results,
-          ...(failedSteps.length > 0 && { 
-            partialFailure: `${failedSteps.length}/${Object.keys(dagResult.results).length} steps failed` 
-          })
+          ...(failedSteps.length > 0 ? {
+            partialFailure: `${failedSteps.length}/${Object.keys(dagResult.results).length} steps failed`,
+          } : {}),
         },
         timestamp: new Date(),
         executionTimeMs: dagResult.executionTimeMs,
@@ -581,61 +319,55 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
           recipient: 'multi-agent-workflow',
         },
       };
-      
+
       const status = dagResult.success ? 'completed' : (successfulSteps.length > 0 ? 'completed' : 'failed');
       updateTaskStatus(task, status);
       console.log(`[Dispatcher] DAG task ${task.id} ${status} (${successfulSteps.length}/${Object.keys(dagResult.results).length} steps OK)`);
       return;
     } catch (error: any) {
-      console.error(`[Dispatcher] DAG execution error:`, error.message);
+      console.error('[Dispatcher] DAG execution error:', error.message);
       updateTaskStatus(task, 'failed', { error: error.message });
       return;
     }
   }
 
-  // Legacy fallback (rarely hit now)
   const hops = task.metadata?.hops as SpecialistType[] | undefined;
-  
+
   if (hops && hops.length > 1) {
     updateTaskStatus(task, 'processing');
-    addMessage(task, 'dispatcher', 'multi-hop', `Executing multi-hop workflow: ${hops.join(' → ')}`);
-    
+    addMessage(task, 'dispatcher', 'multi-hop', `Executing multi-hop workflow: ${hops.join(' -> ')}`);
+
     let currentContext = task.prompt;
-    const multiResults: any[] = [];
-    
-    for (let i = 0; i < hops.length; i++) {
-      const specialist = hops[i];
-      const step = i + 1;
-      
-      updateTaskStatus(task, 'processing', { 
-        currentStep: step, 
+    const multiResults: Array<{ specialist: SpecialistType; result: SpecialistResult }> = [];
+
+    for (let index = 0; index < hops.length; index++) {
+      const specialist = hops[index];
+      const step = index + 1;
+
+      updateTaskStatus(task, 'processing', {
+        currentStep: step,
         totalSteps: hops.length,
-        activeSpecialist: specialist
+        activeSpecialist: specialist,
       });
       addMessage(task, 'dispatcher', specialist, `[Step ${step}/${hops.length}] Routing to ${specialist}...`);
-      
-      // Call the specialist via x402-gated endpoint
+
       const result = await callSpecialistGated(specialist, currentContext, task);
       multiResults.push({ specialist, result });
-      
-      // Add specialist response message
+
       const responseContent = extractResponseContent(result);
       addMessage(task, specialist, 'dispatcher', responseContent);
-      
-      // Execute x402 payment for this hop (primary), on-chain fallback
+
       const specialistFee = (config.fees as any)[specialist] || 0;
       if (specialistFee > 0 && !dryRun && !paymentProof) {
         const feeRecord = createPaymentRecord(String(specialistFee), 'USDC', network.routeLabel, specialist, undefined, 'pending');
         task.payments.push(feeRecord);
         logTransaction(feeRecord);
-        addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${specialistFee} USDC → ${specialist}`);
+        addMessage(task, 'x402', 'dispatcher', `Fee: ${specialistFee} USDC -> ${specialist}`);
       }
-      
-      // Update context for next hop
-      if (i < hops.length - 1) {
-        const nextHop = hops[i + 1];
+
+      if (index < hops.length - 1) {
+        const nextHop = hops[index + 1];
         if (nextHop === 'scribe') {
-          // Pass full research output to scribe for synthesis
           currentContext = `Synthesize the following research results into a clear, concise summary for the user's original query: "${task.prompt}"\n\n${responseContent}`;
         } else if (specialist === 'aura' && result.success) {
           const tokens = extractTokensFromResult(responseContent);
@@ -649,33 +381,30 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
             currentContext = `Buy 0.1 SOL of ${tokens[0]}`;
             addMessage(task, 'dispatcher', 'system', `Next step: ${currentContext}`);
           } else {
-            // Pass full output to the next specialist
             currentContext = responseContent;
           }
         }
       }
-      
-      // Brief pause between hops for WebSocket UI updates
-      if (i < hops.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+
+      if (index < hops.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
     }
-    
-    // Final result aggregation
+
     const lastResult = multiResults[multiResults.length - 1].result;
     task.result = {
       ...lastResult,
       data: {
         ...lastResult.data,
         isMultiHop: true,
-        hops: hops,
-        steps: multiResults.map(r => ({
-          specialist: r.specialist,
-          summary: extractResponseContent(r.result)
-        }))
-      }
+        hops,
+        steps: multiResults.map((entry) => ({
+          specialist: entry.specialist,
+          summary: extractResponseContent(entry.result),
+        })),
+      },
     };
-    
+
     updateTaskStatus(task, 'completed');
     console.log(`[Dispatcher] Multi-hop task ${task.id} completed`);
     return;
@@ -683,40 +412,35 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
 
   updateTaskStatus(task, 'routing');
   addMessage(task, 'dispatcher', task.specialist, `Routing task: "${task.prompt.slice(0, 80)}..."`);
-  
-  // Check if payment is required for this specialist
+
   const requiresPayment = await checkPaymentRequired(task.specialist);
-  
+
   if (requiresPayment && !dryRun && !paymentProof) {
     updateTaskStatus(task, 'awaiting_payment');
     addMessage(task, 'dispatcher', task.specialist, 'Checking x402 payment...');
-    
-    // Check balance
+
     const balances = await getTreasuryBalance(networkMode);
-    console.log(`[Dispatcher] Treasury balance:`, balances);
-    
-    // Enforce payment if config flag is set
+    console.log('[Dispatcher] Treasury balance:', balances);
+
     const fee = resolveAgentFee(task.specialist, undefined, networkMode);
     const usdcBalance = balances.usdc;
 
     if (config.enforcePayments && usdcBalance < fee) {
       const errorMsg = `Insufficient balance: ${usdcBalance} USDC < ${fee} USDC required for ${task.specialist}`;
-      addMessage(task, 'x402', 'dispatcher', `❌ ${errorMsg}`);
+      addMessage(task, 'x402', 'dispatcher', `ERROR: ${errorMsg}`);
       throw new Error(errorMsg);
     }
   }
-  
+
   updateTaskStatus(task, 'processing');
-  
-  // Get specialist fee (internal or external)
+
   const fee = resolveAgentFee(task.specialist, undefined, networkMode);
   addMessage(task, 'dispatcher', task.specialist, `Processing with ${task.specialist}... (fee: ${fee} USDC)`);
-  
-  // Call the specialist via x402-gated endpoint
+
   let result: SpecialistResult;
-  
+
   if (task.fallbackChain && task.fallbackChain.length > 1) {
-    const chain = task.fallbackChain.map(id => ({ agentId: id, score: 1, confidence: 1, reasoning: 'Fallback' }));
+    const chain = task.fallbackChain.map((id) => ({ agentId: id, score: 1, confidence: 1, reasoning: 'Fallback' }));
     result = await fallbackChain.executeWithFallback(
       chain,
       task.prompt,
@@ -729,30 +453,27 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       },
       { maxRetries: task.fallbackChain.length - 1, timeoutMs: 30000 }
     );
-    
-    // Update the task's specialist to the one that actually succeeded (if any)
+
     if (result.success && (result.data as any).agentId) {
       task.specialist = (result.data as any).agentId as SpecialistType;
     }
   } else {
-    // Check circuit breaker before calling
     if (!circuitBreaker.canCall(task.specialist)) {
       result = {
         success: false,
         data: { error: `Circuit breaker is OPEN for ${task.specialist}` },
         timestamp: new Date(),
-        executionTimeMs: 0
+        executionTimeMs: 0,
       };
     } else {
       circuitBreaker.recordCall(task.specialist);
       result = await callSpecialistGated(task.specialist, task.prompt, task);
-      
-      // Handle transaction approval flow
+
       if (result.data?.requiresApproval) {
         console.log(`[Dispatcher] Task ${task.id} requires transaction approval`);
-        updateTaskStatus(task, 'pending', { 
-          requiresTransactionApproval: true, 
-          transactionDetails: result.data.details 
+        updateTaskStatus(task, 'pending', {
+          requiresTransactionApproval: true,
+          transactionDetails: result.data.details,
         });
         return;
       }
@@ -764,23 +485,19 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
       }
     }
   }
-  
-  // Add specialist response message
+
   const responseContent = extractResponseContent(result);
   addMessage(task, task.specialist, 'dispatcher', responseContent);
-  
-  // Execute x402 payment via AgentWallet (primary), fallback to on-chain
+
   if (fee > 0 && !dryRun && !paymentProof) {
-    addMessage(task, 'x402', 'dispatcher', `⏳ Processing ${fee} USDC payment via x402...`);
-    
+    addMessage(task, 'x402', 'dispatcher', `Processing ${fee} USDC payment via x402...`);
+
     const feeRecord = createPaymentRecord(String(fee), 'USDC', network.routeLabel, task.specialist, undefined, 'pending');
     task.payments.push(feeRecord);
     logTransaction(feeRecord);
-    addMessage(task, 'x402', 'dispatcher', `💰 Fee: ${fee} USDC → ${task.specialist}`);
+    addMessage(task, 'x402', 'dispatcher', `Fee: ${fee} USDC -> ${task.specialist}`);
   }
-  
-  // Log any additional payments from the specialist result
-  // Skip if dispatcher already paid the fee (avoids double-counting for external agents)
+
   if (result.cost && fee === 0) {
     const record = createPaymentRecord(
       result.cost.amount,
@@ -792,12 +509,10 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
     logTransaction(record);
     addMessage(task, 'x402', 'dispatcher', `Payment: ${result.cost.amount} ${result.cost.currency}`);
   }
-  
-  // Update task with result
+
   task.result = result;
   updateTaskStatus(task, result.success ? 'completed' : 'failed');
-  
-  // Record reputation and latency
+
   const capabilityId = task.metadata?.intent?.category || 'generic';
   recordLatency(task.specialist, capabilityId, result.executionTimeMs);
 
@@ -806,21 +521,17 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
   } else {
     recordFailure(task.specialist, capabilityId);
   }
-  
-  // Call webhook if provided
+
   if (task.callbackUrl) {
     const isValid = await validateCallbackUrl(task.callbackUrl);
     if (!isValid) {
       console.error(`[Dispatcher] Blocked potentially malicious callbackUrl: ${task.callbackUrl}`);
-      addMessage(task, 'system', 'dispatcher', `Security: Blocked invalid callbackUrl (SSRF protection)`);
+      addMessage(task, 'system', 'dispatcher', 'Security: Blocked invalid callbackUrl (SSRF protection)');
     } else {
       try {
         const axios = require('axios');
-        // SECURITY: We already validated the URL, but to be 100% safe against DNS rebinding
-        // we should ideally use the resolved IP. However, many services use SNI/Host headers.
-        // For this hackathon, we'll re-validate just before the call.
-        const isValid = await validateCallbackUrl(task.callbackUrl);
-        if (isValid) {
+        const callbackStillValid = await validateCallbackUrl(task.callbackUrl);
+        if (callbackStillValid) {
           await axios.post(task.callbackUrl, {
             taskId: task.id,
             status: task.status,
@@ -830,12 +541,12 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
           }, { timeout: 5000 });
           console.log(`[Dispatcher] Callback sent to ${task.callbackUrl}`);
         }
-      } catch (err: any) {
-        console.error(`[Dispatcher] Callback failed:`, err.message);
+      } catch (error: any) {
+        console.error('[Dispatcher] Callback failed:', error.message);
       }
     }
   }
-  
+
   console.log(`[Dispatcher] Task ${task.id} ${task.status} in ${result.executionTimeMs}ms`);
 }
 
@@ -847,161 +558,55 @@ export async function executeTask(task: Task, dryRun: boolean, paymentProof?: st
 async function validateCallbackUrl(urlStr: string): Promise<boolean> {
   try {
     const url = new URL(urlStr);
-    
-    // Only allow http:// and https:// schemes
+
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return false;
     }
 
-    let hostname = url.hostname.toLowerCase();
-    
-    // Resolve hostname to IP
+    const hostname = url.hostname.toLowerCase();
     let ip = hostname;
     if (!/^\d+\.\d+\.\d+\.\d+$/.test(hostname) && !hostname.includes(':')) {
       try {
         const result = await lookup(hostname);
         ip = result.address;
-      } catch (e) {
-        return false; // Could not resolve
+      } catch {
+        return false;
       }
     }
 
-    // Block localhost, 127.0.0.1, ::1, 0.0.0.0
     if (ip === 'localhost' || ip === '127.0.0.1' || ip === '::1' || ip === '0.0.0.0') {
       return false;
     }
 
-    // Block private IP ranges
-    // 10.x.x.x
     if (/^10\./.test(ip)) return false;
-    // 172.16.x.x to 172.31.x.x
     if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)) return false;
-    // 192.168.x.x
     if (/^192\.168\./.test(ip)) return false;
-    // 169.254.x.x (Cloud metadata)
     if (/^169\.254\./.test(ip)) return false;
 
     return true;
-  } catch (e) {
+  } catch {
     return false;
   }
 }
 
-/**
- * Extract human-readable content from specialist result
- */
-function formatObjectReadable(value: any): string {
-  if (!value || typeof value !== 'object') return String(value || '');
-  const entries = Object.entries(value)
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .slice(0, 8)
-    .map(([k, v]) => {
-      if (Array.isArray(v)) {
-        return `• ${k}: ${v.slice(0, 4).map((item) => typeof item === 'object' ? JSON.stringify(item) : String(item)).join(', ')}`;
-      }
-      if (typeof v === 'object') {
-        const nested = Object.entries(v as Record<string, any>)
-          .slice(0, 4)
-          .map(([nk, nv]) => `${nk}=${typeof nv === 'object' ? JSON.stringify(nv) : String(nv)}`)
-          .join(', ');
-        return `• ${k}: ${nested}`;
-      }
-      return `• ${k}: ${String(v)}`;
-    });
-
-  return entries.length > 0 ? entries.join('\n') : 'No details provided.';
-}
-
-export function extractResponseContent(result: SpecialistResult): string {
-  const data = result.data;
-  if (data?.combined) return data.combined;
-  if (data?.summary) return data.summary;
-  if (data?.insight) return data.insight;
-  if (data?.reasoning) return data.reasoning;
-  
-  // External agent results (e.g., Sentinel audit)
-  if (data?.externalAgent) {
-    // External agent responses are nested: data.data contains the agent's actual response
-    const agentData = data?.data || data;
-    const analysis = agentData?.analysis;
-    if (analysis) {
-      let content = `**${data.externalAgent} Security Audit**\n\n`;
-      if (analysis.summary) content += `${analysis.summary}\n\n`;
-      if (analysis.score !== undefined) content += `**Score:** ${analysis.score}/100\n\n`;
-      if (analysis.findings && analysis.findings.length > 0) {
-        content += `**Findings:**\n`;
-        analysis.findings.forEach((f: any) => {
-          content += `• **[${f.severity || 'Unknown'}]** ${f.title || f.description || JSON.stringify(f)}\n`;
-          if (f.recommendation) content += `  → ${f.recommendation}\n`;
-        });
-        content += '\n';
-      }
-      if (analysis.gasOptimizations && analysis.gasOptimizations.length > 0) {
-        content += `**Gas Optimizations:**\n`;
-        analysis.gasOptimizations.forEach((g: string) => content += `• ${g}\n`);
-        content += '\n';
-      }
-      if (analysis.bestPractices) {
-        const bp = analysis.bestPractices;
-        content += `**Best Practices:**\n`;
-        Object.entries(bp).forEach(([key, val]) => {
-          content += `• ${key}: ${val}\n`;
-        });
-      }
-      return content.trim();
-    }
-    // Generic external agent fallback
-    if (typeof agentData === 'string') return agentData;
-    if (agentData?.output) return agentData.output;
-    if (agentData?.response) return typeof agentData.response === 'string' ? agentData.response : formatObjectReadable(agentData.response);
-    return formatObjectReadable(agentData);
-  }
-  
-  if (data?.details?.summary) return data.details.summary;
-  if (data?.details?.response) {
-    return typeof data.details.response === 'string' 
-      ? data.details.response 
-      : formatObjectReadable(data.details.response);
-  }
-  
-  // Specialist specific fallbacks
-  if (data?.trending && Array.isArray(data.trending)) {
-    return `🔥 **Trending Topics**:\n${data.trending.slice(0, 3).map((t: any) => `• ${t.topic || t.name}`).join('\n')}`;
-  }
-  
-  if (data?.type) {
-    return `${data.type} ${data.status || 'completed'}${data.txSignature ? ` (tx: ${data.txSignature.slice(0, 16)}...)` : ''}`;
-  }
-  if (data && typeof data === 'object') {
-    const readable = formatObjectReadable(data);
-    if (readable && readable !== '[object Object]') return readable;
-  }
-  return result.success 
-    ? "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment." 
-    : 'Task failed';
-}
-
-/**
- * Format result for callback webhook (human-readable)
- */
 function formatResultForCallback(result: SpecialistResult): { summary: string; data: any } {
   const data = result.data;
   let summary = '';
-  
+
   if (data?.type === 'balance' && data?.details?.summary) {
-    summary = `💰 **Balance**\n${data.details.summary}`;
+    summary = `**Balance**\n${data.details.summary}`;
   } else if (data?.type === 'transfer' && data?.status === 'confirmed') {
-    summary = `✅ **Transfer Confirmed**\nSent ${data.details?.amount} to ${data.details?.to?.slice(0, 8)}...`;
+    summary = `**Transfer Confirmed**\nSent ${data.details?.amount} to ${data.details?.to?.slice(0, 8)}...`;
   } else if (data?.type === 'swap') {
-    summary = `🔄 **Swap ${data.status}**\n${data.details?.amount} ${data.details?.from} → ${data.details?.to}`;
+    summary = `**Swap ${data.status}**\n${data.details?.amount} ${data.details?.from} -> ${data.details?.to}`;
   } else if (data?.insight) {
-    summary = `📊 **Analysis**\n${data.insight}`;
+    summary = `**Analysis**\n${data.insight}`;
   } else if (data?.tokens && Array.isArray(data.tokens)) {
-    summary = `🔥 **Trending Tokens**\n${data.tokens.slice(0, 3).map((t: any) => `• ${t.symbol || t.name}`).join('\n')}`;
+    summary = `**Trending Tokens**\n${data.tokens.slice(0, 3).map((token: any) => `- ${token.symbol || token.name}`).join('\n')}`;
   } else {
     summary = extractResponseContent(result);
   }
-  
+
   return { summary, data };
 }
 
@@ -1014,8 +619,8 @@ export function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<
   if (extra) {
     task.metadata = { ...task.metadata, ...extra };
   }
-  tasks.set(task.id, task);
-  saveTasks();
+
+  upsertTask(task);
 
   if (status === 'completed' || status === 'failed') {
     processingIdempotencyStore.complete(`task:${task.id}:execute`, { status, updatedAt: task.updatedAt.toISOString() }, task.id);
@@ -1024,584 +629,15 @@ export function updateTaskStatus(task: Task, status: TaskStatus, extra?: Record<
   emitTaskUpdate(task);
 }
 
-/**
- * Route prompt to appropriate specialist
- * Supports Capability-based (modern), LLM-based (smart) and RegExp-based (fast) routing
- * Only routes to specialists in the hiredAgents list if provided
- */
-function resolveTaskNetworkMode(input?: unknown): ClientNetworkMode {
-  return input === 'mainnet' ? 'mainnet' : 'testnet';
-}
-
-function buildRouteCacheKey(prompt: string, hiredAgents?: SpecialistType[], networkMode: ClientNetworkMode = 'testnet'): string {
-  const normalizedPrompt = prompt.trim().toLowerCase();
-  const swarm = (hiredAgents || []).slice().sort().join(',');
-  return `${networkMode}::${normalizedPrompt}::${swarm}`;
-}
-
-function setRouteCache(key: string, specialist: SpecialistType): void {
-  if (routeCache.size >= MAX_ROUTE_CACHE_SIZE) {
-    const oldestKey = routeCache.keys().next().value;
-    routeCache.delete(oldestKey);
-  }
-  routeCache.set(key, { specialist, expiresAt: Date.now() + ROUTE_CACHE_TTL_MS });
-}
-
-export async function routePrompt(
-  prompt: string,
-  hiredAgents?: SpecialistType[],
-  networkMode: ClientNetworkMode = 'testnet'
-): Promise<SpecialistType> {
-  const lower = prompt.toLowerCase();
-  const planningMode = process.env.PLANNING_MODE || 'capability';
-  const cacheKey = buildRouteCacheKey(prompt, hiredAgents, networkMode);
-  const cached = routeCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.specialist;
-  }
-  
-  // 0. Fast-path: DeFi liquidity queries → silverback (or other external DeFi agent)
-  // Check this BEFORE intent classifier because LLM might misclassify "liquidity" as "research"
-  if (/\b(liquidity|pool|deepest|best)\b/i.test(prompt) && /\b(clawnch|token|base)\b/i.test(prompt)) {
-    console.log(`[Router] DeFi liquidity query detected, routing to silverback`);
-    if (!hiredAgents || hiredAgents.includes('silverback')) {
-      setRouteCache(cacheKey, 'silverback');
-      return 'silverback';
-    }
-  }
-  
-  // 0a. Fast-path: Minara AI (Market/Liquidity Analysis)
-  // Force route to Minara if hired and query matches capability keywords (bypass embedding/LLM uncertainty)
-  if (/\b(market|analysis|liquidity|price|trend)\b/i.test(prompt)) {
-    if (hiredAgents) {
-      const minaraId = hiredAgents.find(id => id.includes('minara'));
-      if (minaraId) {
-        console.log(`[Router] Minara query detected, routing to ${minaraId}`);
-        setRouteCache(cacheKey, minaraId as SpecialistType);
-        return minaraId as SpecialistType;
-      }
-    }
-  }
-
-  // 0b. Fast-path: social/trending meme queries should route to Aura (before capability/intent fallbacks)
-  if (/\b(trending|popular|hot|buzz|hype|sentiment|mood|vibe|fomo|fud|talking\s+about)\b/i.test(prompt) &&
-      /\b(meme|coin|token|crypto|base|ecosystem)\b/i.test(prompt) &&
-      !/\b(buy|sell|swap|trade|send|transfer)\b/i.test(prompt)) {
-    console.log(`[Router] Fast-path: social/trending query detected, routing to aura`);
-    if (!hiredAgents || hiredAgents.includes('aura')) {
-      setRouteCache(cacheKey, 'aura');
-      return 'aura';
-    }
-  }
-
-  // 0c. Fast-path: readability/summarization requests should route to scribe early.
-  // Keep this before capability matcher to avoid embedding/intent over-routing to seeker
-  // on prompts that are fundamentally formatting/summarization asks.
-  if (/\b(summarize|summary|bullet\s*points?|explain|rewrite|clean\s+up|make\s+this\s+readable)\b/i.test(prompt) &&
-      !/\b(search|find|lookup|latest\s+on|news\s+about|research\b|google|brave|web)\b/i.test(prompt)) {
-    console.log(`[Router] Fast-path: readability/summarization query detected (early), routing to scribe`);
-    if (!hiredAgents || hiredAgents.includes('scribe')) {
-      setRouteCache(cacheKey, 'scribe');
-      return 'scribe';
-    }
-  }
-
-  // 1. Capability-Based Matching (FIRST — external agents get priority)
-  // This runs before Intent Classifier so that external agents with real capabilities
-  // (e.g. Minara for "market analysis") beat internal legacy defaults (e.g. Magos/Seeker)
-  if (planningMode === 'capability') {
-    try {
-      const intent = await capabilityMatcher.extractIntent(prompt);
-      const matches = await capabilityMatcher.matchAgents(intent);
-      
-      if (matches.length > 0) {
-        // Filter to only agents in the swarm
-        const swarmMatches = hiredAgents 
-          ? matches.filter(m => hiredAgents.includes(m.agentId as SpecialistType))
-          : matches;
-        
-        if (swarmMatches.length > 0) {
-          const best = swarmMatches[0];
-          console.log(`[Capability Matcher] Top match: ${best.agentId} (score: ${best.score.toFixed(2)})`);
-          
-          if (best.score >= 0.6) {
-            setRouteCache(cacheKey, best.agentId as SpecialistType);
-            return best.agentId as SpecialistType;
-          }
-        }
-      }
-      console.log(`[Capability Matcher] No high-confidence match (top score < 0.6), falling back to fast-paths`);
-    } catch (error: any) {
-      console.error(`[Capability Matcher] Error:`, error.message, '- falling back to fast-paths');
-    }
-  }
-
-  // 0b. Intent Classifier (LLM-powered with cache)
-  try {
-    const intent = await classifyIntent(prompt);
-    if (intent && intent.confidence >= 0.7) {
-      const specialist = intent.specialist;
-      if (!hiredAgents || hiredAgents.includes(specialist)) {
-        console.log(`[Intent Classifier] ${intent.category} → ${specialist} (${(intent.confidence * 100).toFixed(0)}%)`);
-        setRouteCache(cacheKey, specialist);
-        return specialist;
-      }
-    }
-  } catch (e: any) {
-    console.log(`[Intent Classifier] Error: ${e.message}, falling through`);
-  }
-  
-  // 2. Fast-path: contract audit/security queries → dynamic security agent
-  if (/\b(audit|security|vulnerabilit|exploit|scan|review)\b/i.test(prompt) && 
-      (/0x[a-fA-F0-9]{40}/.test(prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(prompt))) {
-    console.log(`[Router] Fast-path: contract audit query detected, looking for security specialist`);
-    
-    // Find external agent with security capability
-    const agents = getExternalAgents(networkMode);
-    const securityAgent = agents.find(a => 
-      a.capabilities?.some((c: string) => {
-        const normalized = c.toLowerCase().replace(/\s+/g, '-');
-        return ['security-audit', 'smart-contract-audit', 'audit', 'vulnerability-scanning', 'security'].some(
-          keyword => normalized.includes(keyword) || keyword.includes(normalized)
-        );
-      })
-    );
-    
-    if (securityAgent) {
-       console.log(`[Router] Found security agent: ${securityAgent.id}`);
-       if (!hiredAgents || hiredAgents.includes(securityAgent.id as SpecialistType)) {
-         setRouteCache(cacheKey, securityAgent.id as SpecialistType);
-         return securityAgent.id as SpecialistType;
-       }
-    }
-  }
-  
-  // 2b. Fast-path: price/market queries → magos
-  if (/\b(price|value|worth|cost|how much)\b/i.test(prompt) && 
-      /\b(bitcoin|btc|ethereum|eth|solana|sol|bonk|wif|pepe|doge|avax|matic|bnb|jup|crypto|token|coin)\b/i.test(prompt) &&
-      !/\b(buy|sell|swap|trade|send|transfer)\b/i.test(prompt)) {
-    console.log(`[Router] Fast-path: price query detected, routing to magos`);
-    if (!hiredAgents || hiredAgents.includes('magos')) {
-      setRouteCache(cacheKey, 'magos');
-      return 'magos';
-    }
-  }
-  
-  // 2c. Fast-path: sentiment/social queries → aura
-  if (/\b(sentiment|vibe|mood|social\s+analysis|what.+saying|what.+think|buzz|hype|fud|fomo|talking\s+about|mentions?|discussing)\b/i.test(prompt) &&
-      !/\b(buy|sell|swap|trade|send|transfer)\b/i.test(prompt)) {
-    console.log(`[Router] Fast-path: sentiment/social query detected, routing to aura`);
-    if (!hiredAgents || hiredAgents.includes('aura')) {
-      setRouteCache(cacheKey, 'aura');
-      return 'aura';
-    }
-  }
-
-  // 2d. Fast-path: readability/summarization requests → scribe (unless explicitly web-search intent)
-  if (/\b(summarize|summary|bullet\s*points?|explain|rewrite|clean\s+up|make\s+this\s+readable)\b/i.test(prompt) &&
-      !/\b(search|find|lookup|latest\s+on|news\s+about|research\b|google|brave|web)\b/i.test(prompt)) {
-    console.log(`[Router] Fast-path: readability/summarization query detected, routing to scribe`);
-    if (!hiredAgents || hiredAgents.includes('scribe')) {
-      setRouteCache(cacheKey, 'scribe');
-      return 'scribe';
-    }
-  }
-
-  // 3. Multi-hop / Complex Query Detection
-  if (isComplexQuery(prompt) || detectMultiHop(prompt)) {
-    console.log(`[Router] Complex query or multi-hop pattern detected, routing to multi-hop`);
-    setRouteCache(cacheKey, 'multi-hop');
-    return 'multi-hop' as SpecialistType;
-  }
-  
-  // 4. Fast-path: explicit trade/execution intents
-  if (/\b(buy|sell|swap|send|transfer|withdraw|deposit|approve|allowance)\b/.test(lower) && 
-      !/\b(should i|good|recommend|analysis|analyze|compare|predict)\b/.test(lower)) {
-    console.log(`[Router] Fast-path: explicit trade intent detected, routing to bankr`);
-    if (!hiredAgents || hiredAgents.includes('bankr')) {
-      setRouteCache(cacheKey, 'bankr');
-      return 'bankr';
-    }
-  }
-  
-  // 5. LLM-based routing (Smart fallback)
-  if (planningMode === 'llm') {
-    try {
-      const plan = await planWithLLM(prompt);
-      console.log(`[LLM Planner] ${plan.specialist} (confidence: ${plan.confidence.toFixed(2)}) - ${plan.reasoning}`);
-      
-      if (hiredAgents && !hiredAgents.includes(plan.specialist)) {
-        console.log(`[LLM Planner] Specialist ${plan.specialist} not in swarm, falling back to regexp routing`);
-        const fallback = routeWithRegExp(prompt, hiredAgents);
-        setRouteCache(cacheKey, fallback);
-        return fallback;
-      }
-      
-      setRouteCache(cacheKey, plan.specialist);
-      return plan.specialist;
-    } catch (error: any) {
-      console.error(`[LLM Planner] Error:`, error.message, '- falling back to regexp');
-      const fallback = routeWithRegExp(prompt, hiredAgents);
-      setRouteCache(cacheKey, fallback);
-      return fallback;
-    }
-  }
-  
-  // 6. Default: RegExp routing (LAST FALLBACK)
-  const fallback = routeWithRegExp(prompt, hiredAgents);
-  setRouteCache(cacheKey, fallback);
-  return fallback;
-}
-
-/**
- * Route prompt using RegExp pattern matching (fast, deterministic)
- * Only routes to specialists in the hiredAgents list if provided
- */
-function routeWithRegExp(prompt: string, hiredAgents?: SpecialistType[]): SpecialistType {
-  const lower = prompt.toLowerCase();
-  
-  // Specific intent detection for common mis-routings
-  if (lower.includes('good buy') || lower.includes('should i') || lower.includes('recommend') || /is \w+ a good/.test(lower)) {
-    if (!hiredAgents || hiredAgents.includes('magos')) return 'magos';
-  }
-  
-  if (lower.includes('talking about') || lower.includes('mentions') || lower.includes('discussing')) {
-    if (!hiredAgents || hiredAgents.includes('aura')) return 'aura';
-  }
-  
-  // Price queries should go to magos (market analysis), not seeker
-  // BUG FIX: Group regex patterns correctly to prevent greedy matching on single keywords
-  if (/(?:price|value|worth|cost).*\b(sol|eth|btc|bonk|wif|pepe|usdc|usdt|solana|bitcoin|ethereum)\b/i.test(prompt) || 
-      /\b(sol|eth|btc|bonk|wif|pepe|solana|bitcoin|ethereum)\b.*price/i.test(prompt)) {
-    if (!hiredAgents || hiredAgents.includes('magos')) return 'magos';
-  }
-
-  // Define routing rules with weights
-  const rules: Array<{ specialist: SpecialistType; patterns: RegExp[]; weight: number }> = [
-    {
-      specialist: 'magos',
-      patterns: [
-        /predict|forecast|price\s+target|will\s+\w+\s+(go|reach|hit)/,
-        /risk|danger|safe|analysis|analyze|technical/,
-        /support|resistance|trend|pattern|chart/,
-      ],
-      weight: 1,
-    },
-    {
-      specialist: 'aura',
-      patterns: [
-        /sentiment|vibe|mood|feeling|social/,
-        /trending|hot|popular|alpha|gem/,
-        /influencer|kol|whale\s+watch|twitter|x\s+/,
-        /fomo|fud|hype|buzz/,
-      ],
-      weight: 1,
-    },
-    {
-      specialist: 'bankr',
-      patterns: [
-        /\b(?:swap|trade|buy|sell|exchange)\b.*\b(?:token|coin|sol|eth|btc|usdc|for)\b/,
-        /\b(?:transfer|send|withdraw|deposit)\b/,
-        /\bbalance\b|my wallet|my holdings|my portfolio/,
-        /\b(?:dca|dollar\s+cost|recurring|auto-buy)\b/,
-      ],
-      weight: 1,
-    },
-    {
-      specialist: 'seeker',
-      patterns: [
-        /search|find|lookup|what is|who is|where is|news about|latest on/,
-        /research|google|brave|internet|web|look up/,
-        /news|happened|today|recent|current events/,
-        /what happened|tell me about/,
-      ],
-      weight: 1.2,
-    },
-    {
-      specialist: 'scribe',
-      patterns: [
-        /summarize|explain|write|draft|document/,
-        /help|question|how to|what can you/,
-      ],
-      weight: 0.5,
-    },
-  ];
-  
-  // Score each specialist (only those in hiredAgents if provided)
-  const scores: Record<SpecialistType, number> = {
-    magos: 0,
-    aura: 0,
-    bankr: 0,
-    scribe: 0,
-    seeker: 0,
-    general: 0,
-    'multi-hop': 0,
-  };
-  
-  for (const rule of rules) {
-    // Skip specialists not in hiredAgents (if list is provided)
-    if (hiredAgents && !hiredAgents.includes(rule.specialist)) {
-      continue;
-    }
-    
-    for (const pattern of rule.patterns) {
-      if (pattern.test(lower)) {
-        scores[rule.specialist] += rule.weight;
-      }
-    }
-  }
-  
-  // Find highest scoring specialist
-  let bestSpecialist: SpecialistType = 'general';
-  let bestScore = 0;
-  
-  for (const [specialist, score] of Object.entries(scores)) {
-    // Skip specialists not in hiredAgents (if list is provided)
-    if (hiredAgents && !hiredAgents.includes(specialist as SpecialistType) && specialist !== 'general') {
-      continue;
-    }
-    
-    if (score > bestScore) {
-      bestScore = score;
-      bestSpecialist = specialist as SpecialistType;
-    }
-  }
-  
-  console.log(`[Router] Scores:`, scores, `-> ${bestSpecialist}`, hiredAgents ? `(filtered by swarm: ${hiredAgents.join(', ')})` : '');
-  return bestSpecialist;
-}
-
-/**
- * Check if specialist requires x402 payment
- */
 async function checkPaymentRequired(specialist: SpecialistType): Promise<boolean> {
-  // Specialists with non-zero fees require payment
   const fee = (config.fees as any)[specialist] || 0;
   return fee > 0;
 }
 
-/**
- * Call a specialist through the x402-gated endpoint
- * Handles 402 responses and provides payment instructions
- */
-export async function callSpecialistGated(specialistId: string, prompt: string, context?: any): Promise<SpecialistResult> {
-  const startTime = Date.now();
-  const retryEnabled = getReliabilityConfig().featureFlags.enableRetry;
-
-  try {
-    console.log(`[x402-Client] Requesting gated access to ${specialistId}...`);
-
-    const invoke = async () => {
-      const result = await callSpecialist(specialistId as SpecialistType, prompt, context);
-      if (!result.success && isTransientError(result?.data?.error || result?.data?.details?.error || '')) {
-        throw new Error(String(result?.data?.error || result?.data?.details?.error || 'Transient specialist failure'));
-      }
-      return result;
-    };
-
-    const result = retryEnabled
-      ? await withRetry(invoke, {
-          onRetry: ({ attempt, error, delayMs }) => {
-            console.warn(`[Retry] ${specialistId} attempt ${attempt} failed: ${error?.message || error}. Retrying in ${delayMs}ms`);
-          },
-        })
-      : await invoke();
-
-    return {
-      ...result,
-      executionTimeMs: Date.now() - startTime
-    };
-  } catch (error: any) {
-    const transient = isTransientError(error);
-    if (transient) {
-      enqueueDlq({
-        taskId: context?.id,
-        specialist: specialistId,
-        reason: error?.message || 'Transient specialist failure',
-        transient,
-        payload: { prompt: String(prompt).slice(0, 500) },
-      });
-    }
-
-    return {
-      success: false,
-      data: { error: error.message, transient },
-      timestamp: new Date(),
-      executionTimeMs: Date.now() - startTime
-    };
-  }
-}
-
-/**
- * Call the appropriate specialist
- * Checks external agents first, then falls back to built-in specialists
- */
-export async function callSpecialist(specialist: SpecialistType, prompt: string, context?: any): Promise<SpecialistResult> {
-  const startTime = Date.now();
-  const networkMode = resolveTaskNetworkMode(context?.metadata?.networkMode);
-  const network = getNetworkConfig(networkMode);
-  
-  // Check if this is an external agent (registered via marketplace)
-  if (getExternalAgent(specialist as string, networkMode)) {
-    console.log(`[Dispatcher] Routing to external agent: ${specialist}`);
-    const externalResult = await callExternalAgent(specialist as string, prompt, undefined, networkMode);
-    
-    // Fallback to best internal specialist if external agent fails (timeout, unhealthy, etc.)
-    if (!externalResult.success && !externalResult.cost) {
-      console.log(`[Dispatcher] External agent ${specialist} failed, falling back to internal routing`);
-      const fallbackSpecialist = await routeWithRegExp(prompt);
-      console.log(`[Dispatcher] Fallback to internal specialist: ${fallbackSpecialist}`);
-      return callSpecialist(fallbackSpecialist, prompt, context);
-    }
-    
-    return externalResult;
-  }
-  
-  let result: SpecialistResult;
-  
-  switch (specialist) {
-    case 'magos':
-      result = await magos.handle(prompt);
-      break;
-    
-    case 'aura':
-      result = await aura.handle(prompt);
-      break;
-    
-    case 'bankr':
-      result = await bankr.handle(prompt, context);
-      break;
-    
-    case 'scribe':
-      result = await scribe.handle(prompt);
-      break;
-    
-    case 'seeker':
-      result = await seeker.handle(prompt);
-      break;
-    
-    case 'general':
-    default:
-      // General fallback - combine insights from multiple specialists
-      const [magosResult, auraResult] = await Promise.all([
-        magos.handle(prompt),
-        aura.handle(prompt),
-      ]);
-      
-      result = {
-        success: true,
-        data: {
-          magos: magosResult.data,
-          aura: auraResult.data,
-          combined: "I'm not sure how to help with that. Try asking about wallet balances, market analysis, or social sentiment.",
-        },
-        confidence: ((magosResult.confidence || 0) + (auraResult.confidence || 0)) / 2,
-        timestamp: new Date(),
-        executionTimeMs: Date.now() - startTime,
-      };
-  }
-
-  // Ensure agentId is present in result data for routing/reputation tracking
-  if (result.data && typeof result.data === 'object') {
-    result.data.agentId = specialist;
-  }
-
-  // Add cost for built-in if not present
-  if (result && !result.cost) {
-    const fee = (config.fees as any)[specialist];
-    if (fee !== undefined) {
-      result.cost = {
-        amount: String(fee),
-        currency: 'USDC',
-        network: network.routeLabel,
-        recipient: config.specialistWallets[specialist] || 'treasury',
-      };
-    }
-  }
-
-  return result;
-}
-
-/**
- * Get task by ID
- */
-export function getTask(taskId: string): Task | undefined {
-  return tasks.get(taskId);
-}
-
-/**
- * Get all tasks for a user
- */
-export function getTasksByUser(userId: string): Task[] {
-  return Array.from(tasks.values()).filter(t => t.userId === userId);
-}
-
-/**
- * Get recent tasks
- */
-export function getRecentTasks(limit: number = 10): Task[] {
-  return Array.from(tasks.values())
-    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    .slice(0, limit);
-}
-
-/**
- * Get specialist pricing with reputation
- */
-export function getSpecialistPricing(): Record<SpecialistType, { fee: string; description: string; success_rate: number }> {
-  const pricingWithRep: any = {};
-  for (const [key, description] of Object.entries(SPECIALIST_DESCRIPTIONS)) {
-    const fee = (config.fees as any)[key] || 0;
-    pricingWithRep[key] = {
-      fee: String(fee),
-      description,
-      success_rate: Math.round(getReputationScore(key as SpecialistType) * 100)
-    };
-  }
-  return pricingWithRep;
-}
-
-/**
- * Get full specialist list with reputation data (including external agents)
- */
-export function getSpecialists(): any[] {
-  // Built-in specialists
-  const builtIn = Object.entries(SPECIALIST_DESCRIPTIONS).map(([name, description]) => {
-    // Get structured capabilities from matcher if available
-    const structuredCapabilities = capabilityMatcher.specialistManifests.get(name) || [];
-    
-    return {
-      name,
-      description,
-      fee: String((config.fees as any)[name] || 0),
-      success_rate: Math.round(getReputationScore(name as SpecialistType) * 100),
-      external: false,
-      structuredCapabilities,
-    };
-  });
-  
-  // External agents from the registry
-  const external = getExternalAgents('testnet')
-    .filter(a => a.active && a.healthy)
-    .map(a => ({
-      name: a.id,
-      displayName: a.name,
-      description: a.description,
-      fee: String(Object.values(a.pricing)[0] || 0),
-      success_rate: 0,
-      external: true,
-      endpoint: a.endpoint,
-      wallet: a.wallet,
-      capabilities: a.capabilities,
-      structuredCapabilities: a.structuredCapabilities,
-      pricing: a.pricing,
-    }));
-  
-  return [...builtIn, ...external];
-}
-
 export default {
   dispatch,
+  executeTask,
+  updateTaskStatus,
   getTask,
   getTasksByUser,
   getRecentTasks,
@@ -1609,4 +645,8 @@ export default {
   getSpecialists,
   subscribeToTask,
   routePrompt,
+  isComplexQuery,
+  callSpecialist,
+  callSpecialistGated,
+  extractResponseContent,
 };

@@ -147,9 +147,9 @@ const dispatchHandler = async (req: Request, res: Response) => {
 
     if (!isExecutionSupportedForMode(mode)) {
       return res.status(409).json({
-        error: 'Mainnet execution is disabled by release guard',
+        error: 'Mainnet execution is disabled by runtime kill switch',
         networkMode: mode,
-        hint: 'Use testnet mode or set ENABLE_MAINNET_DISPATCH=true after rollout verification.',
+        hint: 'Use testnet mode or unset DISABLE_MAINNET_DISPATCH to re-enable mainnet dispatch.',
       });
     }
 

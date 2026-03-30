@@ -1,10 +1,12 @@
 import { isExecutionSupportedForMode, normalizeClientNetworkMode, toRouteNetworkLabel } from '../utils/client-network';
 
 describe('client network mode helpers', () => {
-  const original = process.env.ENABLE_MAINNET_DISPATCH;
+  const originalEnable = process.env.ENABLE_MAINNET_DISPATCH;
+  const originalDisable = process.env.DISABLE_MAINNET_DISPATCH;
 
   afterEach(() => {
-    process.env.ENABLE_MAINNET_DISPATCH = original;
+    process.env.ENABLE_MAINNET_DISPATCH = originalEnable;
+    process.env.DISABLE_MAINNET_DISPATCH = originalDisable;
   });
 
   it('normalizes unknown modes to testnet', () => {
@@ -22,12 +24,17 @@ describe('client network mode helpers', () => {
     expect(toRouteNetworkLabel('mainnet')).toBe('base-mainnet');
   });
 
-  it('gates mainnet execution by env flag', () => {
-    process.env.ENABLE_MAINNET_DISPATCH = 'false';
+  it('enables mainnet execution by default and honors kill switches', () => {
     expect(isExecutionSupportedForMode('testnet')).toBe(true);
+    expect(isExecutionSupportedForMode('mainnet')).toBe(true);
+
+    process.env.ENABLE_MAINNET_DISPATCH = 'false';
     expect(isExecutionSupportedForMode('mainnet')).toBe(false);
 
     process.env.ENABLE_MAINNET_DISPATCH = 'true';
     expect(isExecutionSupportedForMode('mainnet')).toBe(true);
+
+    process.env.DISABLE_MAINNET_DISPATCH = 'true';
+    expect(isExecutionSupportedForMode('mainnet')).toBe(false);
   });
 });

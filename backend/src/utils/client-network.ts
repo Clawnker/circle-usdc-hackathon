@@ -27,5 +27,7 @@ export function toRouteNetworkLabel(mode: ClientNetworkMode): string {
 
 export function isExecutionSupportedForMode(mode: ClientNetworkMode): boolean {
   if (mode === 'testnet') return true;
-  return process.env.ENABLE_MAINNET_DISPATCH === 'true';
+  if (process.env.DISABLE_MAINNET_DISPATCH === 'true') return false;
+  if (process.env.ENABLE_MAINNET_DISPATCH === 'false') return false;
+  return true;
 }

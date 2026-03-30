@@ -210,12 +210,13 @@ export function registerAgent(req: RegisterRequest): ExternalAgent {
   externalAgents.set(storageKey, agent);
   saveAgents();
 
-  // Trigger embedding sync (non-blocking)
-  import('./capability-matcher.js').then(({ capabilityMatcher }) => {
-    capabilityMatcher.syncAgentEmbeddings(id, structuredCapabilities).catch(err => {
+  // Trigger embedding sync (non-blocking) without relying on dynamic import in Jest.
+  void Promise.resolve()
+    .then(() => require('./capability-matcher') as typeof import('./capability-matcher'))
+    .then(({ capabilityMatcher }) => capabilityMatcher.syncAgentEmbeddings(id, structuredCapabilities))
+    .catch((err) => {
       console.error(`[ExternalAgents] Failed to sync embeddings for ${id}:`, err);
     });
-  });
 
   // Also update the registrations.json for the /api/agents endpoint
   updateRegistrationsJson(agent);

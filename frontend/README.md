@@ -1,104 +1,83 @@
 # Hivemind Protocol Frontend
 
-A stunning, demo-ready frontend for the Hivemind Protocol - the orchestration layer for Solana's agent economy.
+The frontend for the Hivemind Command Center on Base.
 
-## 🚀 Features
+## What it does
 
-- **TaskInput** - Natural language prompt input with suggested prompts
-- **SwarmGraph** - Real-time agent visualization using React Flow
-- **WalletPanel** - AgentWallet balance display (SOL + USDC)
-- **PaymentFeed** - Live x402 payment activity stream
-- **MessageLog** - Expandable inter-agent message viewer
-- **ResultDisplay** - Task completion results
+- Presents the command center UI for dispatching prompts to specialists
+- Persists and switches between `testnet` and `mainnet`
+- Handles route preview, delegated payment, and direct payment flows
+- Streams task progress over WebSocket with HTTP polling fallback
+- Provides marketplace, registry, history, and wallet views
 
-## 🎨 Design
+## Key files
 
-- **Dark Theme** - Deep navy/black background
-- **Neon Accents** - Cyan/purple glows for active elements
-- **Glassmorphism** - Subtle blur effects on panels
-- **Micro-animations** - Framer Motion for smooth transitions
-- **Responsive** - Optimized for 1920x1080 demo displays
-
-## 📦 Tech Stack
-
-```json
-{
-  "next": "^16.1.0",
-  "react": "^19.0.0",
-  "@xyflow/react": "^12.0.0",
-  "lucide-react": "^0.312.0",
-  "framer-motion": "^10.18.0",
-  "socket.io-client": "^4.7.4",
-  "tailwindcss": "^4.0.0"
-}
+```text
+src/
+|-- app/
+|   |-- globals.css
+|   |-- layout.tsx
+|   `-- page.tsx
+|-- components/
+|   |-- NetworkModeToggle.tsx
+|   |-- PaymentFlow.tsx
+|   |-- TaskInput.tsx
+|   `-- ...
+|-- hooks/
+|   |-- useCommandCenter.ts
+|   `-- useWebSocket.ts
+|-- lib/
+|   |-- command-center.ts
+|   |-- command-center-api.ts
+|   |-- command-center-storage.ts
+|   `-- networkMode.ts
+`-- providers/
 ```
 
-## 🛠️ Setup
+## Local development
 
 ```bash
-# Install dependencies
 npm install
-
-# Copy environment file
-cp .env.example .env.local
-
-# Start development server
 npm run dev
 ```
 
-The app will be available at [http://localhost:3001](http://localhost:3001) (or next available port).
+Default frontend URL:
 
-## 🔧 Environment Variables
+```text
+http://localhost:3001
+```
+
+## Environment
 
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:3000    # Backend API
-NEXT_PUBLIC_WS_URL=http://localhost:3000     # WebSocket server
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_WS_URL=ws://localhost:3000
+NEXT_PUBLIC_API_KEY=demo-key
 ```
 
-## 📁 Project Structure
+## Testing
 
-```
-src/
-├── app/
-│   ├── globals.css      # Design system & animations
-│   ├── layout.tsx       # Root layout with metadata
-│   └── page.tsx         # Main Command Center page
-├── components/
-│   ├── TaskInput.tsx    # Prompt input with suggestions
-│   ├── SwarmGraph.tsx   # React Flow agent visualization
-│   ├── WalletPanel.tsx  # Wallet balance display
-│   ├── PaymentFeed.tsx  # x402 payment activity
-│   ├── MessageLog.tsx   # Agent message viewer
-│   └── ResultDisplay.tsx # Task results
-├── hooks/
-│   └── useWebSocket.ts  # WebSocket connection hook
-└── types/
-    └── index.ts         # TypeScript definitions
+Unit and library tests:
+
+```bash
+npm test
 ```
 
-## 🔌 WebSocket Events
+Typecheck and production build:
 
-The frontend listens for these events from the backend:
-
-```typescript
-{ type: 'task:status', taskId, status, step? }
-{ type: 'agent:message', taskId, from, to, payload, timestamp }
-{ type: 'payment', taskId, from, to, amount, token, txSignature }
-{ type: 'task:complete', taskId, result }
+```bash
+npm run typecheck
+npm run build
 ```
 
-## 🎬 Demo Flow
+Browser UI tests:
 
-1. User types a natural language prompt in TaskInput
-2. SwarmGraph animates as Dispatcher routes to specialists
-3. Payments appear in PaymentFeed in real-time
-4. Agent messages stream into MessageLog
-5. Final results display when task completes
+```bash
+npx playwright install chromium
+npm run test:ui
+```
 
-## 🏆 Hackathon
+## Notes
 
-Part of the **Colosseum Agent Hackathon** - $100k USDC prize pool.
-
----
-
-Built with 💜 by the Clawnker Team
+- The UI suite uses Playwright request mocking for route preview and dispatch so network-mode behavior is deterministic in CI.
+- The production build no longer depends on fetching Google Fonts at build time, which keeps local and CI runs reproducible in restricted environments.

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hexagon, Activity, History, ShieldCheck } from 'lucide-react';
-// Legacy WalletContext removed - using OnchainKit useAccount instead
+import { Hexagon, Activity, History, ShieldCheck, LayoutGrid, Zap, Shield, ArrowRight, DollarSign } from 'lucide-react';
 import {
   TaskInput,
   SwarmGraph,
@@ -22,907 +21,73 @@ import {
   PaymentFlow,
   NetworkModeToggle,
 } from '@/components';
-import { DelegationPanel, getDelegationState, recordDelegationSpend } from '@/components/DelegationPanel';
-import { useAccount } from 'wagmi';
+import { DelegationPanel } from '@/components/DelegationPanel';
 import { AgentDetailModal } from '@/components/AgentDetailModal';
-import { ActivityFeed, ActivityItem } from '@/components/ActivityFeed';
-import { useWebSocket } from '@/hooks/useWebSocket';
-import type { SpecialistType, QueryHistoryItem } from '@/types';
-import { LayoutGrid, Zap, Shield, ArrowRight, DollarSign, Globe, Terminal } from 'lucide-react';
-import {
-  getExplorerTxUrl,
-  getModeScopedStorageKey,
-  NETWORK_MODE_EVENT,
-  NETWORK_MODE_LABELS,
-  NETWORK_MODE_STORAGE_KEY,
-  resolveNetworkMode,
-  supportsDirectPayments,
-} from '@/lib/networkMode';
-import type { NetworkMode } from '@/types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
-const SPECIALIST_NAMES: Record<string, string> = {
-  aura: 'Social Analyst',
-  magos: 'Market Oracle',
-  bankr: 'DeFi Specialist Bankr',
-  general: 'General Assistant',
-  alphahunter: 'AlphaHunter',
-  riskbot: 'RiskBot',
-  newsdigest: 'NewsDigest',
-  whalespy: 'WhaleSpy',
-  scribe: 'Scribe',
-  seeker: 'Seeker',
-  sentinel: 'Sentinel',
-  dispatcher: 'Dispatcher',
-  'multi-hop': 'Multi-hop Orchestrator',
-};
-
-const SPECIALIST_FEES: Record<string, number> = {
-  bankr: 0.10,
-  scribe: 0.10,
-  seeker: 0.10,
-  magos: 0.10,
-  aura: 0.10,
-  sentinel: 2.50,
-  general: 0,
-};
+import { ActivityFeed } from '@/components/ActivityFeed';
+import { useCommandCenter } from '@/hooks/useCommandCenter';
+import { CORE_AGENTS, SPECIALIST_FEES, type BazaarAgentPayload } from '@/lib/command-center';
+import type { SpecialistType } from '@/types';
 
 export default function CommandCenter() {
   const [activeView, setActiveView] = useState<'dispatch' | 'marketplace' | 'registry' | 'history'>('dispatch');
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  // Legacy wallet context removed
-  const { address: onchainAddress, isConnected: isWalletConnected } = useAccount();
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
-  const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
-  const [preSelectedAgent, setPreSelectedAgent] = useState<string | null>(null);
-  const [networkMode, setNetworkMode] = useState<NetworkMode>(() => {
-    if (typeof window === 'undefined') return 'testnet';
-    return resolveNetworkMode(localStorage.getItem(NETWORK_MODE_STORAGE_KEY));
-  });
-  const [hiredAgents, setHiredAgents] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return ['bankr', 'scribe', 'seeker'];
-    try {
-      const saved = localStorage.getItem(getModeScopedStorageKey('hivemind-swarm', resolveNetworkMode(localStorage.getItem(NETWORK_MODE_STORAGE_KEY))));
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return ['bankr', 'scribe', 'seeker'];
-  });
-  const [customInstructions, setCustomInstructions] = useState<Record<string, string>>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const saved = localStorage.getItem(getModeScopedStorageKey('hivemind-custom-instructions', resolveNetworkMode(localStorage.getItem(NETWORK_MODE_STORAGE_KEY))));
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {};
-  });
-  // Store metadata for external registry agents (description, capabilities, color, price)
-  const [registryMeta, setRegistryMeta] = useState<Record<string, {
-    name: string;
-    description: string;
-    capabilities: string[];
-    color: string;
-    price?: number;
-  }>>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const saved = localStorage.getItem(getModeScopedStorageKey('hivemind-registry-meta', resolveNetworkMode(localStorage.getItem(NETWORK_MODE_STORAGE_KEY))));
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {};
-  });
-
-  // Core agents cannot be removed from the swarm
-  const CORE_AGENTS = ['bankr', 'scribe', 'seeker'];
-
-  const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([]);
-  const [currentPrompt, setCurrentPrompt] = useState<string>('');
-  const [reRunPrompt, setReRunPrompt] = useState<string>('');
-  const [lastResult, setLastResult] = useState<{
-    query: string;
-    status: 'success' | 'failure';
-    result: string;
-    cost: number;
-    specialist: string;
-    taskId?: string;
-    rawResult?: any;
-  } | null>(null);
-
-  // Approval popup state
-  const [pendingApproval, setPendingApproval] = useState<{
-    prompt: string;
-    specialist: string;
-    specialistInfo: {
-      name: string;
-      description: string;
-      fee: string;
-      feeCurrency: string;
-      successRate?: number;
-    };
-  } | null>(null);
-
-  // Post-task add to swarm state
-  // Register form removed - agents register via Bazaar or API
-  const [showAddToSwarm, setShowAddToSwarm] = useState<{
-    specialist: string;
-    specialistName: string;
-  } | null>(null);
-
-  // Payment required state
-  const [paymentRequired, setPaymentRequired] = useState<{
-    specialistId: string;
-    fee: number;
-    prompt: string;
-    transferTo?: string;
-  } | null>(null);
+  const [showMobileGraph, setShowMobileGraph] = useState(false);
 
   const {
-    isConnected,
-    taskStatus,
+    activityItems,
+    clearPreSelectedAgent,
     currentStep,
+    customInstructions,
+    dismissShowAddToSwarm,
+    error,
+    handleAddAgentToSwarm,
+    handleAddToSwarm,
+    handleApproveAgent,
+    handleApproveTransaction,
+    handleBazaarAdd,
+    handleCancelApproval,
+    handleNewQuery,
+    handlePaymentCancel,
+    handlePaymentComplete,
+    handleRejectTransaction,
+    handleReRun,
+    handleRemoveHiredAgent,
+    handleSubmit,
+    handleUpdateInstructions,
+    hiredAgents,
+    isConnected,
+    isLoading,
+    lastResult,
     messages,
+    networkMode,
+    paymentRequired,
     payments,
-    result,
+    pendingApproval,
     pendingTransaction,
-    subscribe,
-    reset,
-  } = useWebSocket();
+    preSelectedAgent,
+    queryHistory,
+    registryMeta,
+    reRunPrompt,
+    result,
+    setNetworkMode,
+    showAddToSwarm,
+    taskStatus,
+  } = useCommandCenter();
 
-  const [showMobileGraph, setShowMobileGraph] = useState(false);
-  const swarmStorageKey = getModeScopedStorageKey('hivemind-swarm', networkMode);
-  const registryMetaStorageKey = getModeScopedStorageKey('hivemind-registry-meta', networkMode);
-  const customInstructionsStorageKey = getModeScopedStorageKey('hivemind-custom-instructions', networkMode);
-
-  // Persist swarm agents
-  useEffect(() => {
-    localStorage.setItem(swarmStorageKey, JSON.stringify(hiredAgents));
-  }, [hiredAgents, swarmStorageKey]);
-
-  // Persist registry metadata
-  useEffect(() => {
-    localStorage.setItem(registryMetaStorageKey, JSON.stringify(registryMeta));
-  }, [registryMeta, registryMetaStorageKey]);
-
-  useEffect(() => {
-    localStorage.setItem(customInstructionsStorageKey, JSON.stringify(customInstructions));
-  }, [customInstructions, customInstructionsStorageKey]);
-
-  useEffect(() => {
-    localStorage.setItem(NETWORK_MODE_STORAGE_KEY, networkMode);
-    window.dispatchEvent(new CustomEvent(NETWORK_MODE_EVENT, { detail: networkMode }));
-  }, [networkMode]);
-
-  useEffect(() => {
-    try {
-      const savedSwarm = localStorage.getItem(swarmStorageKey);
-      setHiredAgents(savedSwarm ? JSON.parse(savedSwarm) : ['bankr', 'scribe', 'seeker']);
-    } catch {
-      setHiredAgents(['bankr', 'scribe', 'seeker']);
-    }
-
-    try {
-      const savedMeta = localStorage.getItem(registryMetaStorageKey);
-      setRegistryMeta(savedMeta ? JSON.parse(savedMeta) : {});
-    } catch {
-      setRegistryMeta({});
-    }
-
-    try {
-      const savedInstructions = localStorage.getItem(customInstructionsStorageKey);
-      setCustomInstructions(savedInstructions ? JSON.parse(savedInstructions) : {});
-    } catch {
-      setCustomInstructions({});
-    }
-
-    setCurrentTaskId(null);
-    setPreSelectedAgent(null);
-    setShowAddToSwarm(null);
-    setPaymentRequired(null);
-    setPendingApproval(null);
-    setLastResult(null);
-    setActivityItems([]);
-    setError(null);
-    setIsLoading(false);
-    reset();
-  }, [customInstructionsStorageKey, networkMode, registryMetaStorageKey, reset, swarmStorageKey]);
-
-  // Persistence for query history
-  useEffect(() => {
-    const saved = localStorage.getItem('queryHistory');
-    if (saved) {
-      try {
-        setQueryHistory(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to parse query history', e);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('queryHistory', JSON.stringify(queryHistory));
-  }, [queryHistory]);
-
-  // Add activity when task status changes
-  useEffect(() => {
-    if (taskStatus && currentTaskId) {
-      const specialist = currentStep?.specialist || 'dispatcher';
-      const specialistName = SPECIALIST_NAMES[specialist] || specialist;
-
-      let message = '';
-      let type: ActivityItem['type'] = 'processing';
-
-      switch (taskStatus) {
-        case 'routing':
-          message = `Analyzing request...`;
-          type = 'dispatch';
-          break;
-        case 'awaiting_payment':
-          message = `Awaiting payment confirmation`;
-          type = 'processing';
-          break;
-        case 'processing':
-          message = `Processing with ${specialistName}`;
-          type = 'processing';
-          break;
-        case 'completed':
-          message = `Task completed successfully`;
-          type = 'result';
-          setIsLoading(false);
-          // Set last result for ResultCard
-          if (result) {
-            const r = result as any;
-            let content = '';
-
-            // Handle multi-hop steps
-            if (r.data?.isMultiHop && r.data?.steps) {
-              const hops = r.data.hops as string[];
-              message = `Completed via ${hops.length} agents`;
-              // Use the last step's summary (typically the synthesis step)
-              const steps = r.data.steps as any[];
-              const lastStep = steps[steps.length - 1];
-              content = lastStep?.summary || steps.map((s: any) => s.summary).join('\n\n');
-            } else if (r.data?.isDAG && r.data?.summary) {
-              // DAG orchestration result - use the synthesized summary
-              message = `Completed`;
-              content = r.data.summary;
-            } else {
-              // Prefer summary (full context) over insight (brief) for search results
-              if (r.data?.summary) content = r.data.summary;
-              else if (r.data?.insight) content = r.data.insight;
-              else if (r.data?.externalAgent) {
-                // External agent result - data is nested: r.data.data.analysis
-                const agentData = r.data?.data || r.data;
-                const analysis = agentData?.analysis;
-                if (analysis) {
-                  let parts: string[] = [];
-                  if (analysis.summary) parts.push(analysis.summary);
-                  if (analysis.score !== undefined) parts.push(`**Score:** ${analysis.score}/100`);
-                  if (analysis.findings?.length > 0) {
-                    parts.push('\n**Findings:**');
-                    analysis.findings.forEach((f: any) => {
-                      parts.push(`• **[${f.severity || 'Unknown'}]** ${f.title || f.description || JSON.stringify(f)}`);
-                      if (f.recommendation) parts.push(`  → ${f.recommendation}`);
-                    });
-                  }
-                  if (analysis.gasOptimizations?.length > 0) {
-                    parts.push('\n**Gas Optimizations:**');
-                    analysis.gasOptimizations.forEach((g: string) => parts.push(`• ${g}`));
-                  }
-                  if (analysis.bestPractices) {
-                    parts.push('\n**Best Practices:**');
-                    Object.entries(analysis.bestPractices).forEach(([key, val]) => {
-                      parts.push(`• ${key}: ${val}`);
-                    });
-                  }
-                  content = parts.join('\n');
-                } else {
-                  content = typeof agentData === 'string' ? agentData : JSON.stringify(agentData, null, 2);
-                }
-              }
-              else if (r.data?.details?.response) content = typeof r.data.details.response === 'string' ? r.data.details.response : JSON.stringify(r.data.details.response);
-            }
-
-            // Check if bankr result requires wallet action (EVM transfer)
-            if (r.data?.requiresWalletAction && r.data?.details) {
-              const d = r.data.details;
-              const transferAmount = parseFloat(d.amount || '0');
-              if (transferAmount > 0 && d.to) {
-                setPaymentRequired({
-                  specialistId: 'bankr',
-                  fee: transferAmount,
-                  prompt: currentPrompt,
-                  transferTo: d.to,
-                });
-              }
-            }
-
-            const totalCost = payments.reduce((sum, p) => sum + p.amount, 0);
-
-            // Pre-pay handles specialist fees before dispatch - no post-pay needed
-            const specialistId = currentStep?.specialist || 'dispatcher';
-
-            setLastResult({
-              query: currentPrompt,
-              status: 'success',
-              result: content || 'Task completed',
-              cost: totalCost,
-              specialist: r.data?.isMultiHop ? r.data.hops.map((h: string) => h.charAt(0).toUpperCase() + h.slice(1)).join(' → ') 
-                : r.data?.isDAG ? (r.data.steps || []).map((s: any) => (SPECIALIST_NAMES[s.specialist] || s.specialist)).join(' → ')
-                : (SPECIALIST_NAMES[specialistId] || specialistId),
-              taskId: currentTaskId || undefined,
-              isMultiHop: r.data?.isMultiHop,
-              rawResult: r,
-            } as any);
-
-            // Smooth scroll to result
-            setTimeout(() => {
-              if (typeof window !== 'undefined') {
-                document.querySelector('[data-result-card]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }
-            }, 100);
-
-            // Extract transaction details from bankr results
-            const transactions: any[] = [];
-            if (r.data?.details?.type === 'swap' || r.data?.details?.type === 'compound') {
-              if (r.data.details.swap) {
-                transactions.push({
-                  type: 'swap',
-                  inputToken: r.data.details.swap.inputToken,
-                  outputToken: r.data.details.swap.outputToken,
-                  inputAmount: r.data.details.swap.inputAmount,
-                  outputAmount: r.data.details.swap.outputAmount,
-                });
-              }
-              if (r.data.details.transfer) {
-                transactions.push({
-                  type: 'transfer',
-                  inputToken: r.data.details.transfer.token,
-                  inputAmount: r.data.details.transfer.amount,
-                  recipient: r.data.details.transfer.recipient,
-                });
-              }
-            }
-
-            // Format payments for history
-            const historyPayments = payments.map(p => ({
-              specialist: p.specialist || specialistId,
-              amount: p.amount,
-              currency: 'USDC',
-              status: 'completed' as const,
-            }));
-
-            // Add to query history
-            setQueryHistory(prev => {
-              const newItem: QueryHistoryItem = {
-                id: currentTaskId,
-                prompt: currentPrompt,
-                specialist: specialistId,
-                cost: totalCost,
-                status: 'success' as const,
-                timestamp: new Date(),
-                result: content,
-                payments: historyPayments.length > 0 ? historyPayments : undefined,
-                transactions: transactions.length > 0 ? transactions : undefined,
-                networkMode,
-              };
-              return [newItem, ...prev].slice(0, 20);
-            });
-          }
-          break;
-        case 'failed':
-          message = `Task failed`;
-          type = 'error';
-          setIsLoading(false);
-          const totalCostFailed = payments.reduce((sum, p) => sum + p.amount, 0);
-          const specialistIdFailed = currentStep?.specialist || 'dispatcher';
-
-          setLastResult({
-            query: currentPrompt,
-            status: 'failure',
-            result: error || 'An unexpected error occurred',
-            cost: totalCostFailed,
-            specialist: SPECIALIST_NAMES[specialistIdFailed] || specialistIdFailed,
-            taskId: currentTaskId || undefined,
-            rawResult: null,
-          });
-
-          // Add to query history
-          setQueryHistory(prev => {
-            const newItem: QueryHistoryItem = {
-              id: currentTaskId || Date.now().toString(),
-              prompt: currentPrompt,
-              specialist: specialistIdFailed,
-              cost: totalCostFailed,
-              status: 'failed' as const,
-              timestamp: new Date(),
-              networkMode,
-            };
-            return [newItem, ...prev].slice(0, 20);
-          });
-          break;
-        default:
-          message = `Status: ${taskStatus}`;
-      }
-
-      setActivityItems(prev => {
-        // Avoid duplicate status messages
-        const lastItem = prev[prev.length - 1];
-        if (lastItem?.message === message) return prev;
-
-        return [...prev, {
-          id: `${Date.now()}-${taskStatus}`,
-          type,
-          message,
-          specialist,
-          timestamp: new Date(),
-        }];
-      });
-    }
-  }, [taskStatus, currentStep, currentTaskId, result, payments, currentPrompt, error]);
-
-  // Add activity for payments
-  useEffect(() => {
-    if (payments.length > 0) {
-      const latestPayment = payments[payments.length - 1];
-      setActivityItems(prev => {
-        // Check if we already have this payment
-        if (prev.some(item => item.id === `payment-${latestPayment.id}`)) return prev;
-
-        return [...prev, {
-          id: `payment-${latestPayment.id}`,
-          type: 'payment',
-          message: `Paid ${latestPayment.amount} ${latestPayment.token}`,
-          specialist: latestPayment.to,
-          timestamp: new Date(),
-          link: latestPayment.txSignature
-            ? getExplorerTxUrl(networkMode, latestPayment.txSignature)
-            : undefined,
-        }];
-      });
-    }
-  }, [payments, networkMode]);
-
-  // Add activity for agent messages
-  useEffect(() => {
-    if (messages.length > 0) {
-      const latestMessage = messages[messages.length - 1];
-      setActivityItems(prev => {
-        // Avoid duplicates
-        if (prev.some(item => item.id === latestMessage.id)) return prev;
-
-        return [...prev, {
-          id: latestMessage.id,
-          type: 'processing',
-          message: latestMessage.content ?? '',
-          specialist: latestMessage.from,
-          timestamp: new Date(latestMessage.timestamp),
-        }];
-      });
-    }
-  }, [messages]);
-
-  // Add agent message when result comes in
-  useEffect(() => {
-    if (result && currentStep?.specialist) {
-      const r = result as any;
-      let content = '';
-
-      if (r.data?.insight) {
-        content = r.data.insight;
-      } else if (r.data?.summary) {
-        content = r.data.summary;
-      } else if (r.data?.details?.response) {
-        content = typeof r.data.details.response === 'string'
-          ? r.data.details.response
-          : JSON.stringify(r.data.details.response);
-      } else if (r.data?.type) {
-        content = `${r.data.type} ${r.data.status || 'completed'}`;
-      }
-
-      if (content) {
-        // Note: messages come from WebSocket, but we can add to activity
-        setActivityItems(prev => [...prev, {
-          id: `msg-${Date.now()}`,
-          type: 'result',
-          message: content.slice(0, 100) + (content.length > 100 ? '...' : ''),
-          specialist: currentStep.specialist || 'dispatcher',
-          timestamp: new Date(),
-          details: content,
-        }]);
-      }
-    }
-  }, [result, currentStep]);
-
-  const handleSubmit = useCallback(async (prompt: string, approvedAgent?: string) => {
-    setIsLoading(true);
-    setError(null);
-    setLastResult(null);
-    setCurrentPrompt(prompt);
-    setShowAddToSwarm(null);
-    reset();
-    setActivityItems([{
-      id: `${Date.now()}-submit`,
-      type: 'dispatch',
-      message: `Dispatching: "${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}"`,
-      specialist: 'dispatcher',
-      timestamp: new Date(),
-    }]);
-
-    try {
-      const riskyPaymentIntent = /\b(send|transfer|swap|buy|sell|approve|allowance)\b/i.test(prompt);
-      if (networkMode === 'mainnet' && riskyPaymentIntent) {
-        setError('Mainnet mode is currently preview-only for payment actions. Switch to Testnet to execute safely.');
-        setIsLoading(false);
-        return;
-      }
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
-      };
-
-      // Add payment proof if we have it (from pre-pay flow)
-      if ((window as any).__pendingPaymentProof) {
-        headers['X-Payment-Proof'] = (window as any).__pendingPaymentProof;
-        delete (window as any).__pendingPaymentProof;
-      }
-
-      // Pre-pay: check fee before dispatching
-      if (!headers['X-Payment-Proof']) {
-        try {
-          const previewRes = await fetch(`${API_URL}/api/route-preview`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, hiredAgents, networkMode }),
-          });
-          if (previewRes.ok) {
-            const preview = await previewRes.json();
-            const resolvedPreviewMode = resolveNetworkMode(preview.network);
-            const fee = Number(preview.fee || 0);
-
-            if (networkMode === 'mainnet' && (!supportsDirectPayments(networkMode) || resolvedPreviewMode !== 'mainnet') && fee > 0) {
-              setError('Mainnet mode is preview-only in this release. No paid dispatch was executed.');
-              setIsLoading(false);
-              return;
-            }
-            if (fee > 0) {
-              // Check for delegation (auto-pay)
-              const delegation = getDelegationState(networkMode);
-              const remaining = delegation ? Math.max(0, Number(delegation.allowance || 0) - Number(delegation.spent || 0)) : 0;
-
-              console.log('[pre-pay] Delegation check:', {
-                enabled: delegation?.enabled, remaining, fee,
-                onchainAddress, hasAddress: !!onchainAddress
-              });
-
-              const delegatedWalletAddress = (onchainAddress || delegation?.walletAddress || '').toString();
-              const hasUsableDelegatedWallet = /^0x[a-fA-F0-9]{40}$/.test(delegatedWalletAddress);
-              const canAutoPay = Boolean(delegation?.enabled) && (remaining + 1e-6) >= fee && hasUsableDelegatedWallet;
-
-              if (canAutoPay) {
-                // Auto-pay: backend pulls USDC from user's wallet via on-chain approval
-                try {
-                  const delegateRes = await fetch(`${API_URL}/api/delegate-pay`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      userAddress: delegatedWalletAddress,
-                      amount: fee,
-                      specialist: preview.specialist,
-                    }),
-                  });
-                  if (delegateRes.ok) {
-                    const delegateData = await delegateRes.json();
-                    headers['X-Payment-Proof'] = delegateData.txHash;
-                    recordDelegationSpend(networkMode, fee, preview.specialist, delegateData.txHash);
-
-                    // Record in Agent Payments
-                    const feePayment = {
-                      id: `delegate-${Date.now()}`,
-                      from: 'user',
-                      to: preview.specialist,
-                      amount: fee,
-                      token: 'USDC' as const,
-                      txSignature: delegateData.txHash,
-                      timestamp: new Date(),
-                      method: 'on-chain' as const,
-                      specialist: preview.specialist,
-                      networkMode,
-                    };
-                    window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
-                    setActivityItems(prev => [...prev, {
-                      id: `payment-${delegateData.txHash}`,
-                      type: 'payment',
-                      message: `Auto-paid ${fee} USDC to ${preview.specialist}`,
-                      specialist: preview.specialist,
-                      timestamp: new Date(),
-                      link: delegateData.explorer,
-                    }]);
-                    // Continue to dispatch with proof
-                  } else {
-                    const errData = await delegateRes.json().catch(() => ({}));
-                    console.warn('[auto-pay] transferFrom failed:', errData);
-                    setPaymentRequired({
-                      specialistId: preview.specialist,
-                      fee,
-                      prompt,
-                    });
-                    return;
-                  }
-                } catch (delegateErr) {
-                  console.warn('[auto-pay] Error:', delegateErr);
-                  setPaymentRequired({
-                    specialistId: preview.specialist,
-                    fee,
-                    prompt,
-                  });
-                  return;
-                }
-              } else {
-                // No delegation - show manual payment popup
-                setPaymentRequired({
-                  specialistId: preview.specialist,
-                  fee,
-                  prompt,
-                });
-                return;
-              }
-            }
-          }
-        } catch (previewErr) {
-          console.warn('[pre-pay] Route preview failed, proceeding without pre-pay:', previewErr);
-        }
-      }
-
-      const response = await fetch(`${API_URL}/dispatch`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          prompt,
-          userId: process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
-          walletUsername: undefined,
-          customInstructions,
-          hiredAgents,
-          approvedAgent,  // Pass the approved agent if user approved
-          networkMode,
-        }),
-      });
-
-      if (response.status === 402) {
-        const data = await response.json();
-        setIsLoading(false);
-        setPaymentRequired({
-          specialistId: data.specialist,
-          fee: data.fee || 0,
-          prompt,
-        });
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(`Request failed: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Check if approval is required (agent not in swarm)
-      if (data.requiresApproval && data.specialistInfo) {
-        setIsLoading(false);
-        setPendingApproval({
-          prompt,
-          specialist: data.specialist,
-          specialistInfo: data.specialistInfo,
-        });
-        return;
-      }
-
-      setCurrentTaskId(data.taskId);
-      subscribe(data.taskId);
-
-      // Track if we used an agent outside the swarm (for post-task prompt)
-      if (approvedAgent && !hiredAgents.includes(approvedAgent)) {
-        // Will show "Add to swarm" after task completes
-        const specialistName = SPECIALIST_NAMES[approvedAgent] || approvedAgent;
-        // Store for later - will show after task completes
-        (window as any).__pendingSwarmAdd = { specialist: approvedAgent, specialistName };
-      }
-
-      // Add routing activity
-      const specialistName = SPECIALIST_NAMES[data.specialist] || data.specialist;
-      setActivityItems(prev => [...prev, {
-        id: `${Date.now()}-routed`,
-        type: 'dispatch',
-        message: `Routed to ${specialistName}`,
-        specialist: data.specialist,
-        timestamp: new Date(),
-      }]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit task');
-      setIsLoading(false);
-    }
-  }, [reset, subscribe, customInstructions, hiredAgents, onchainAddress, isWalletConnected, networkMode]);
-
-  // Handle approval from popup
-  const handleApproveAgent = useCallback(() => {
-    if (pendingApproval) {
-      const { prompt, specialist } = pendingApproval;
-      setPendingApproval(null);
-      handleSubmit(prompt, specialist);
-    }
-  }, [pendingApproval, handleSubmit]);
-
-  const handleCancelApproval = useCallback(() => {
-    setPendingApproval(null);
-    setIsLoading(false);
-  }, []);
-
-  // Handle transaction approval flow
-  const handleApproveTransaction = useCallback(async () => {
-    if (!pendingTransaction) return;
-
-    try {
-      const response = await fetch(`${API_URL}/api/transactions/approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
-        },
-        body: JSON.stringify({ taskId: pendingTransaction.taskId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to approve transaction');
-      }
-    } catch (err) {
-      console.error('Failed to approve transaction:', err);
-      setError('Failed to approve transaction');
-    }
-  }, [pendingTransaction]);
-
-  const handleRejectTransaction = useCallback(async () => {
-    if (!pendingTransaction) return;
-
-    try {
-      const response = await fetch(`${API_URL}/api/transactions/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'demo-key',
-        },
-        body: JSON.stringify({ taskId: pendingTransaction.taskId }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to reject transaction');
-      }
-    } catch (err) {
-      console.error('Failed to reject transaction:', err);
-      setError('Failed to reject transaction');
-    }
-  }, [pendingTransaction]);
-
-  const handleNewQuery = useCallback(() => {
-    setLastResult(null);
-    setCurrentTaskId(null);
-    setReRunPrompt('');
-    // reset(); // Don't clear messages yet so user can reference them
-  }, []);
-
-  const handleAddAgentToSwarm = useCallback((agentId: string) => {
-    setPreSelectedAgent(agentId);
-    setHiredAgents(prev => prev.includes(agentId) ? prev : [...prev, agentId]);
+  const handleMarketplaceHire = (agentId: string) => {
+    handleAddAgentToSwarm(agentId);
     setActiveView('dispatch');
-    // We could also pre-fill the prompt here if we wanted
-  }, []);
+  };
 
-  const removeHiredAgent = useCallback((agentId: string) => {
-    // Prevent removing core agents
-    if (CORE_AGENTS.includes(agentId)) {
-      console.warn(`Cannot remove core agent: ${agentId}`);
-      return;
-    }
-    setHiredAgents(prev => prev.filter(id => id !== agentId));
-    if (preSelectedAgent === agentId) {
-      setPreSelectedAgent(null);
-    }
-  }, [preSelectedAgent]);
-
-  const handleUpdateInstructions = useCallback((agentId: string, instructions: string) => {
-    setCustomInstructions(prev => ({
-      ...prev,
-      [agentId]: instructions
-    }));
-  }, []);
-
-  // Bazaar: register external agent with backend, then add to local swarm
-  const handleBazaarAdd = useCallback(async (agentPayload: any) => {
-    const agentId = agentPayload.name.toLowerCase().replace(/\s+/g, '-');
-    
-    // Extract capabilities from description keywords
-    const desc = (agentPayload.description || '').toLowerCase();
-    const capabilityMap: Record<string, string[]> = {
-      'defi': ['DeFi', 'Swap routing', 'Liquidity analysis'],
-      'trading': ['Trading', 'Market analysis'],
-      'security': ['Security audit', 'Vulnerability scanning'],
-      'audit': ['Smart contract audit', 'Risk assessment'],
-      'coding': ['Code generation', 'Development'],
-      'developer': ['Software development', 'Code review'],
-      'research': ['Research', 'Data analysis'],
-      'creative': ['Creative writing', 'Content generation'],
-      'portfolio': ['Portfolio management', 'Rebalancing'],
-      'fact-check': ['Fact checking', 'Verification'],
-      'market': ['Market intelligence', 'Price analysis'],
-      'cloud': ['Cloud architecture', 'Infrastructure'],
-      'frontend': ['Frontend development', 'UI/UX'],
-      'backend': ['Backend development', 'API design'],
-    };
-    const capabilities: string[] = [];
-    for (const [keyword, caps] of Object.entries(capabilityMap)) {
-      if (desc.includes(keyword)) capabilities.push(...caps);
-    }
-    if (capabilities.length === 0) capabilities.push('General purpose agent');
-    // Deduplicate
-    const uniqueCaps = [...new Set(capabilities)].slice(0, 5);
-
-    // Derive color using same hash as SwarmGraph
-    const hashCode = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; } return Math.abs(h); };
-    const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#A78BFA', '#F97316', '#06D6A0', '#E879F9', '#38BDF8'];
-    const color = colors[hashCode(agentId) % colors.length];
-
-    // Store metadata for the modal
-    setRegistryMeta(prev => ({
-      ...prev,
-      [agentId]: {
-        name: agentPayload.name,
-        description: agentPayload.description || 'External ERC-8004 agent',
-        capabilities: uniqueCaps,
-        color,
-      }
-    }));
-
-    try {
-      const res = await fetch(`${API_URL}/api/agents/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...agentPayload, capabilities: uniqueCaps }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Registration failed');
-      handleAddAgentToSwarm(agentId);
-    } catch (err: any) {
-      console.error('[Bazaar] Add failed:', err);
-      handleAddAgentToSwarm(agentId);
-    }
-  }, [handleAddAgentToSwarm]);
-
-  const handleReRun = useCallback((prompt: string) => {
-    setReRunPrompt(prompt);
+  const handleBazaarAddAndOpenDispatch = async (agentPayload: BazaarAgentPayload) => {
+    await handleBazaarAdd(agentPayload);
     setActiveView('dispatch');
-    handleSubmit(prompt);
-  }, [handleSubmit]);
+  };
 
-  // Reset loading state and check for add-to-swarm when task completes
-  useEffect(() => {
-    if (taskStatus === 'completed') {
-      setIsLoading(false);
-      // Check if there's a pending swarm add
-      const pendingAdd = (window as any).__pendingSwarmAdd;
-      if (pendingAdd) {
-        setShowAddToSwarm(pendingAdd);
-        delete (window as any).__pendingSwarmAdd;
-      }
-    } else if (taskStatus === 'failed') {
-      setIsLoading(false);
-      delete (window as any).__pendingSwarmAdd;
-    }
-  }, [taskStatus]);
-
-  // Handle adding agent to swarm
-  const handleAddToSwarm = useCallback((specialist: string) => {
-    setHiredAgents(prev => prev.includes(specialist) ? prev : [...prev, specialist]);
-  }, []);
+  const handleHistoryReRun = (prompt: string) => {
+    setActiveView('dispatch');
+    handleReRun(prompt);
+  };
 
   return (
     <div className="relative min-h-screen">
@@ -1006,27 +171,24 @@ export default function CommandCenter() {
 
             <NetworkModeToggle
               mode={networkMode}
-              onChange={(next) => {
-                setNetworkMode(next);
-                setError(null);
-              }}
+              onChange={setNetworkMode}
             />
 
             <WalletConnect />
 
             {/* Connection Status */}
             <motion.div
-            className="flex items-center gap-2 px-3 py-2 rounded-full glass-panel-subtle"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            title={isConnected ? 'WebSocket connected to backend' : 'Backend not running - start with: cd hackathon/backend && npm run dev'}
-          >
-            <div className={`status-dot ${isConnected ? 'status-active' : 'status-error'}`} />
-            <span className="text-xs text-[var(--text-secondary)]">
-              {isConnected ? 'Connected' : 'Backend Offline'}
-            </span>
-          </motion.div>
+              className="flex items-center gap-2 px-3 py-2 rounded-full glass-panel-subtle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              title={isConnected ? 'WebSocket connected to backend' : 'Backend not running - start with: cd hackathon/backend && npm run dev'}
+            >
+              <div className={`status-dot ${isConnected ? 'status-active' : 'status-error'}`} />
+              <span className="text-xs text-[var(--text-secondary)]">
+                {isConnected ? 'Connected' : 'Backend Offline'}
+              </span>
+            </motion.div>
           </div>
         </motion.header>
 
@@ -1056,13 +218,12 @@ export default function CommandCenter() {
                         {...lastResult}
                         onNewQuery={handleNewQuery}
                       />
-                      {/* Add to Swarm Banner - shows after task completes with non-swarm agent */}
                       {showAddToSwarm && (
                         <AddToSwarmBanner
                           specialist={showAddToSwarm.specialist}
                           specialistName={showAddToSwarm.specialistName}
                           onAdd={handleAddToSwarm}
-                          onDismiss={() => setShowAddToSwarm(null)}
+                          onDismiss={dismissShowAddToSwarm}
                         />
                       )}
                     </div>
@@ -1074,14 +235,13 @@ export default function CommandCenter() {
                       disabled={false}
                       initialAgentId={preSelectedAgent}
                       initialPrompt={reRunPrompt}
-                      onClearPreSelect={() => setPreSelectedAgent(null)}
+                      onClearPreSelect={clearPreSelectedAgent}
                       networkMode={networkMode}
                     />
                   )}
                 </AnimatePresence>
               </motion.div>
 
-              {/* Message Log - BELOW TaskInput/ResultCard but ABOVE the grid */}
               <AnimatePresence>
                 {messages.length > 0 && (
                   <motion.div
@@ -1095,18 +255,15 @@ export default function CommandCenter() {
                 )}
               </AnimatePresence>
 
-              {/* Main Grid */}
               <div className="lg:flex-1 grid grid-cols-12 gap-4 lg:min-h-0">
-                {/* Left Column - Swarm Graph + Activity */}
                 <div className="col-span-12 lg:col-span-5 flex flex-col gap-4 lg:max-h-[calc(100vh-250px)] overflow-y-auto">
-                  {/* SwarmGraph toggle on mobile */}
                   <div className="lg:hidden mb-2">
                     <button
                       onClick={() => setShowMobileGraph(!showMobileGraph)}
                       className="w-full py-2 px-4 glass-panel-subtle rounded-lg text-sm text-[var(--text-secondary)] flex items-center justify-between"
                     >
-                      <span>🔮 Agent Network</span>
-                      <span>{showMobileGraph ? '▲' : '▼'}</span>
+                      <span>Agent Network</span>
+                      <span>{showMobileGraph ? '^' : 'v'}</span>
                     </button>
                   </div>
                   {(showMobileGraph || typeof window !== 'undefined' && window.innerWidth >= 1024) && (
@@ -1128,7 +285,6 @@ export default function CommandCenter() {
                     </motion.div>
                   )}
 
-                  {/* Activity Feed */}
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -1139,9 +295,7 @@ export default function CommandCenter() {
                   </motion.div>
                 </div>
 
-                {/* Right Column - Panels */}
                 <div className="col-span-12 lg:col-span-7 flex flex-col gap-4 lg:max-h-[calc(100vh-250px)] overflow-y-auto">
-                  {/* Wallet Panel */}
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -1151,7 +305,6 @@ export default function CommandCenter() {
                     <DelegationPanel networkMode={networkMode} />
                   </motion.div>
 
-                  {/* Payment Feed */}
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -1162,7 +315,6 @@ export default function CommandCenter() {
                 </div>
               </div>
 
-              {/* Result Display */}
               {(taskStatus || result || error) && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -1188,7 +340,7 @@ export default function CommandCenter() {
             >
               <Marketplace
                 hiredAgents={hiredAgents}
-                onHire={handleAddAgentToSwarm}
+                onHire={handleMarketplaceHire}
               />
             </motion.div>
           ) : activeView === 'registry' ? (
@@ -1201,7 +353,7 @@ export default function CommandCenter() {
               className="flex-1"
             >
               <BazaarRegistry
-                onAddToSwarm={handleBazaarAdd}
+                onAddToSwarm={handleBazaarAddAndOpenDispatch}
                 hiredAgents={hiredAgents}
                 networkMode={networkMode}
               />
@@ -1215,7 +367,7 @@ export default function CommandCenter() {
               transition={{ duration: 0.2 }}
               className="flex-1"
             >
-              <QueryHistory history={queryHistory} onReRun={handleReRun} networkMode={networkMode} />
+              <QueryHistory history={queryHistory} onReRun={handleHistoryReRun} networkMode={networkMode} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -1227,14 +379,11 @@ export default function CommandCenter() {
           transition={{ delay: 0.5 }}
           className="mt-12 mb-8 relative overflow-hidden rounded-2xl"
         >
-          {/* Gradient border effect */}
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#00F0FF]/30 via-[#FFD700]/10 to-[#00F0FF]/20 p-[1px]" />
           <div className="relative rounded-2xl bg-[#0a0b1a]/95 backdrop-blur-xl p-8">
-            {/* Background glow */}
             <div className="absolute top-0 left-1/4 w-96 h-48 bg-[#00F0FF]/5 blur-[100px] rounded-full pointer-events-none" />
             <div className="absolute bottom-0 right-1/4 w-64 h-32 bg-[#FFD700]/5 blur-[80px] rounded-full pointer-events-none" />
 
-            {/* Header */}
             <div className="relative z-10 text-center mb-8">
               <h2 className="text-3xl font-bold mb-2">
                 Built for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] to-[#FFD700]">Autonomous Agents</span>
@@ -1244,9 +393,7 @@ export default function CommandCenter() {
               </p>
             </div>
 
-            {/* Two use case cards */}
             <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-              {/* Register as an Agent */}
               <motion.div
                 whileHover={{ scale: 1.02, y: -2 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -1280,7 +427,6 @@ export default function CommandCenter() {
                 </div>
               </motion.div>
 
-              {/* Route to Specialists */}
               <motion.div
                 whileHover={{ scale: 1.02, y: -2 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
@@ -1304,7 +450,7 @@ export default function CommandCenter() {
                     </li>
                     <li className="flex items-start gap-2">
                       <ArrowRight size={14} className="text-[#00F0FF]/60 mt-0.5 shrink-0" />
-                      <span>No API keys — x402 handles payment + auth</span>
+                      <span>No API keys - x402 handles payment + auth</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <ArrowRight size={14} className="text-[#00F0FF]/60 mt-0.5 shrink-0" />
@@ -1315,7 +461,6 @@ export default function CommandCenter() {
               </motion.div>
             </div>
 
-            {/* CTA Row */}
             <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-3">
               <a
                 href="https://github.com/Clawnker/circle-usdc-hackathon/blob/main/REGISTER_AGENT.md"
@@ -1337,7 +482,6 @@ export default function CommandCenter() {
           </div>
         </motion.section>
 
-        {/* Footer */}
         <motion.footer
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1355,18 +499,17 @@ export default function CommandCenter() {
         </motion.footer>
       </div>
 
-      {/* Agent Detail Modal */}
       {selectedAgent && (
         <AgentDetailModal
           specialist={selectedAgent}
           onClose={() => setSelectedAgent(null)}
           isHired={hiredAgents.includes(selectedAgent)}
           isProcessing={isLoading}
-          isCoreAgent={CORE_AGENTS.includes(selectedAgent)}
+          isCoreAgent={CORE_AGENTS.includes(selectedAgent as typeof CORE_AGENTS[number])}
           customInstructions={customInstructions[selectedAgent] || ''}
           onUpdateInstructions={(instructions) => handleUpdateInstructions(selectedAgent, instructions)}
           onRemove={() => {
-            removeHiredAgent(selectedAgent);
+            handleRemoveHiredAgent(selectedAgent);
             setSelectedAgent(null);
           }}
           fee={SPECIALIST_FEES[selectedAgent]}
@@ -1374,7 +517,6 @@ export default function CommandCenter() {
         />
       )}
 
-      {/* Approval Popup for non-swarm agents */}
       {pendingApproval && (
         <ApprovalPopup
           isOpen={true}
@@ -1386,7 +528,6 @@ export default function CommandCenter() {
         />
       )}
 
-      {/* Transaction Approval Modal */}
       {pendingTransaction && (
         <TransactionApproval
           isOpen={true}
@@ -1397,101 +538,24 @@ export default function CommandCenter() {
         />
       )}
 
-      {/* Payment Flow Modal */}
       {paymentRequired && (
         <PaymentFlow
           specialistId={paymentRequired.specialistId}
           fee={paymentRequired.fee}
           recipientAddress={paymentRequired.transferTo}
           networkMode={networkMode}
-          onPaymentComplete={(txHash) => {
-            if (paymentRequired.transferTo) {
-              // Direct transfer completed - update history with real result
-              const addr = paymentRequired.transferTo;
-              const truncAddr = `${addr.slice(0, 6)}…${addr.slice(-4)}`;
-              const basescanLink = getExplorerTxUrl(networkMode, txHash);
-              const completedResult = `✅ **Transfer Complete**\n• Sent ${paymentRequired.fee} USDC to ${truncAddr}\n• Chain: ${NETWORK_MODE_LABELS[networkMode].label}\n• Tx: [${txHash.slice(0, 10)}…${txHash.slice(-6)}](${basescanLink})`;
-
-              // Update the last result display
-              setLastResult(prev => prev ? {
-                ...prev,
-                result: completedResult,
-              } : prev);
-
-              // Update the query history entry with completed result
-              setQueryHistory(prev => {
-                const updated = [...prev];
-                if (updated.length > 0) {
-                  updated[0] = {
-                    ...updated[0],
-                    result: completedResult,
-                    transactions: [{
-                      type: 'transfer',
-                      txHash,
-                      recipient: addr,
-                      inputAmount: paymentRequired.fee,
-                      inputToken: 'USDC',
-                    }],
-                  };
-                }
-                return updated;
-              });
-
-              setActivityItems(prev => [...prev, {
-                id: `transfer-${txHash}`,
-                type: 'result',
-                message: `Sent ${paymentRequired.fee} USDC to ${truncAddr}`,
-                specialist: 'bankr',
-                timestamp: new Date(),
-                link: basescanLink,
-              }]);
-              setPaymentRequired(null);
-              setIsLoading(false);
-            } else {
-              // Specialist fee payment completed - record in Agent Payments, then dispatch
-              const feePayment = {
-                id: `user-tx-${Date.now()}`,
-                from: 'user',
-                to: paymentRequired.specialistId,
-                amount: paymentRequired.fee,
-                token: 'USDC' as const,
-                txSignature: txHash,
-                timestamp: new Date(),
-                method: 'on-chain' as const,
-                specialist: paymentRequired.specialistId,
-                networkMode,
-              };
-              setActivityItems(prev => [...prev, {
-                id: `payment-${txHash}`,
-                type: 'payment',
-                message: `Paid ${paymentRequired.fee} USDC to ${paymentRequired.specialistId}`,
-                specialist: paymentRequired.specialistId,
-                timestamp: new Date(),
-                link: getExplorerTxUrl(networkMode, txHash),
-              }]);
-              window.dispatchEvent(new CustomEvent('hivemind-payment', { detail: feePayment }));
-
-              // Store proof and re-dispatch the original query
-              (window as any).__pendingPaymentProof = txHash;
-              const prompt = paymentRequired.prompt;
-              setPaymentRequired(null);
-              handleSubmit(prompt);
-            }
-          }}
-          onCancel={() => {
-            setPaymentRequired(null);
-            setIsLoading(false);
-          }}
+          onPaymentComplete={handlePaymentComplete}
+          onCancel={handlePaymentCancel}
         />
       )}
-      {/* Mobile Bottom Navigation */}
+
       <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden">
         <div className="glass-panel border-t border-[var(--glass-border)] px-2 py-1.5 flex items-center justify-around">
           {[
-            { tab: 'dispatch' as const, icon: '🎯', label: 'Dispatch' },
-            { tab: 'marketplace' as const, icon: '🏪', label: 'Agents' },
-            { tab: 'registry' as const, icon: '🛡️', label: 'Agent Registry' },
-            { tab: 'history' as const, icon: '📜', label: 'History' },
+            { tab: 'dispatch' as const, icon: 'D', label: 'Dispatch' },
+            { tab: 'marketplace' as const, icon: 'A', label: 'Agents' },
+            { tab: 'registry' as const, icon: 'R', label: 'Agent Registry' },
+            { tab: 'history' as const, icon: 'H', label: 'History' },
           ].map(({ tab, icon, label }) => (
             <button
               key={tab}

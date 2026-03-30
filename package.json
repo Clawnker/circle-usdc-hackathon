@@ -1,0 +1,20 @@
+{
+  "name": "circle-usdc-hackathon",
+  "private": true,
+  "scripts": {
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "npm --prefix backend run test:ci",
+    "test:frontend": "npm --prefix frontend run test",
+    "test:ui": "npm --prefix frontend run test:ui",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:frontend",
+    "typecheck:backend": "npm --prefix backend run typecheck",
+    "typecheck:frontend": "npm --prefix frontend run typecheck",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "npm --prefix backend run lint",
+    "lint:frontend": "npm --prefix frontend run lint",
+    "ci": "npm run typecheck && npm run test && npm run build"
+  }
+}

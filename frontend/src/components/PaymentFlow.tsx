@@ -53,12 +53,12 @@ export function PaymentFlow({ specialistId, fee, onPaymentComplete, onCancel, re
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="glass-panel p-6 max-w-md w-full text-center">
-          <h3 className="text-xl font-bold mb-3">Execution Guard Active</h3>
+          <h3 className="text-xl font-bold mb-3">Payments Disabled</h3>
           <p className="text-[var(--text-secondary)] mb-2">
-            {NETWORK_MODE_LABELS[networkMode].label} is set to preview mode in this build.
+            {NETWORK_MODE_LABELS[networkMode].label} payments are disabled by runtime configuration.
           </p>
           <p className="text-xs text-[var(--text-muted)] mb-6">
-            Switch to Testnet to complete on-chain payment and dispatch execution safely.
+            Switch to Testnet or re-enable mainnet payments to continue.
           </p>
           <button
             onClick={onCancel}

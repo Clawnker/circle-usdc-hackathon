@@ -146,6 +146,7 @@ export function TaskInput({
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   placeholder="Ask the Hivemind anything..."
+                  data-testid="task-input"
                   disabled={isLoading || disabled}
                   className="w-full bg-transparent px-4 py-3 sm:px-5 sm:py-4 text-base sm:text-xl text-white
                     placeholder:text-white/20 focus:outline-none disabled:opacity-50"
@@ -174,6 +175,7 @@ export function TaskInput({
               {/* Action Button */}
               <motion.button
                 type="submit"
+                data-testid="task-submit"
                 disabled={!isReady}
                 whileHover={isReady ? { scale: 1.02, x: 2 } : {}}
                 whileTap={isReady ? { scale: 0.98 } : {}}
@@ -228,11 +230,14 @@ export function TaskInput({
                       Hivemind Routing Enabled
                     </span>
                     <span className="text-white/20">•</span>
-                    <span className={`text-[11px] px-1.5 py-0.5 rounded border ${networkMode === 'mainnet' ? 'border-amber-400/40 text-amber-300' : 'border-cyan-400/40 text-cyan-300'}`}>
+                    <span
+                      data-testid="task-network-badge"
+                      className={`text-[11px] px-1.5 py-0.5 rounded border ${networkMode === 'mainnet' ? 'border-amber-400/40 text-amber-300' : 'border-cyan-400/40 text-cyan-300'}`}
+                    >
                       {NETWORK_MODE_LABELS[networkMode].badge}
                     </span>
                     {!supportsDirectPayments(networkMode) && (
-                      <span className="text-[11px] text-amber-300">Execution guard enabled</span>
+                      <span className="text-[11px] text-amber-300">Payments disabled</span>
                     )}
                   </div>
                   
