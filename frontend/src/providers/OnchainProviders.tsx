@@ -24,7 +24,7 @@ const config = createConfig({
 const queryClient = new QueryClient();
 
 export function OnchainProviders({ children }: { children: React.ReactNode }) {
-  const [networkMode, setNetworkMode] = useState<NetworkMode>(getStoredNetworkMode);
+  const [networkMode, setNetworkMode] = useState<NetworkMode>('testnet');
   const network = getNetworkConfig(networkMode);
 
   useEffect(() => {

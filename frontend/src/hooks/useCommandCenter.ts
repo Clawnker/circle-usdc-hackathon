@@ -6,6 +6,7 @@ import { getDelegationState, recordDelegationSpend } from '@/components/Delegati
 import { useWebSocket } from '@/hooks/useWebSocket';
 import {
   CORE_AGENTS,
+  DEFAULT_SWARM_AGENTS,
   SPECIALIST_NAMES,
   buildBazaarRegistration,
   type BazaarAgentPayload,
@@ -196,11 +197,11 @@ function buildHistoryPayments(payments: Payment[], specialistId: string): Paymen
 
 export function useCommandCenter() {
   const { address: onchainAddress } = useAccount();
-  const [networkMode, setNetworkModeState] = useState<NetworkMode>(loadInitialNetworkMode);
-  const [hiredAgents, setHiredAgents] = useState<string[]>(() => loadHiredAgents(loadInitialNetworkMode()));
-  const [customInstructions, setCustomInstructions] = useState<Record<string, string>>(() => loadCustomInstructions(loadInitialNetworkMode()));
-  const [registryMeta, setRegistryMeta] = useState<RegistryMetaMap>(() => loadRegistryMeta(loadInitialNetworkMode()));
-  const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>(loadQueryHistory);
+  const [networkMode, setNetworkModeState] = useState<NetworkMode>('testnet');
+  const [hiredAgents, setHiredAgents] = useState<string[]>(() => [...DEFAULT_SWARM_AGENTS]);
+  const [customInstructions, setCustomInstructions] = useState<Record<string, string>>({});
+  const [registryMeta, setRegistryMeta] = useState<RegistryMetaMap>({});
+  const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -212,6 +213,7 @@ export function useCommandCenter() {
   const [pendingApproval, setPendingApproval] = useState<PendingApprovalState | null>(null);
   const [showAddToSwarm, setShowAddToSwarm] = useState<PendingSwarmAdd | null>(null);
   const [paymentRequired, setPaymentRequired] = useState<PaymentRequiredState | null>(null);
+  const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
   const [storageReadyMode, setStorageReadyMode] = useState<NetworkMode | null>(null);
 
   const {
@@ -227,8 +229,15 @@ export function useCommandCenter() {
   } = useWebSocket();
 
   useEffect(() => {
+    setQueryHistory(loadQueryHistory());
+    setNetworkModeState(loadInitialNetworkMode());
+    setHasHydratedStorage(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydratedStorage) return;
     persistNetworkMode(networkMode);
-  }, [networkMode]);
+  }, [hasHydratedStorage, networkMode]);
 
   useEffect(() => {
     setStorageReadyMode(null);
@@ -267,8 +276,9 @@ export function useCommandCenter() {
   }, [customInstructions, networkMode, storageReadyMode]);
 
   useEffect(() => {
+    if (!hasHydratedStorage) return;
     persistQueryHistory(queryHistory);
-  }, [queryHistory]);
+  }, [hasHydratedStorage, queryHistory]);
 
   useEffect(() => {
     if (!taskStatus || !currentTaskId) return;

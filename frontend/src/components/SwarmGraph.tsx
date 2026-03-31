@@ -151,6 +151,7 @@ function AgentNode({ data }: { data: {
   specialist: SpecialistType; 
   isActive: boolean; 
   isCenter: boolean;
+  isCompact?: boolean;
   status?: 'ready' | 'active' | 'complete' | 'idle';
   currentAction?: string;
   reputation?: number;
@@ -165,10 +166,10 @@ function AgentNode({ data }: { data: {
   const isActive = data.isActive || data.status === 'active';
   
   // Responsive sizing
-  const isSmallScreen = typeof window !== 'undefined' && window.innerWidth < 640;
-  const baseSize = data.isCenter ? (isSmallScreen ? 64 : 80) : (isSmallScreen ? 48 : 56);
-  const iconSize = data.isCenter ? (isSmallScreen ? 24 : 28) : (isSmallScreen ? 18 : 20);
-  const fontSize = isSmallScreen ? 8 : 10;
+  const isCompact = data.isCompact ?? false;
+  const baseSize = data.isCenter ? (isCompact ? 64 : 80) : (isCompact ? 48 : 56);
+  const iconSize = data.isCenter ? (isCompact ? 24 : 28) : (isCompact ? 18 : 20);
+  const fontSize = isCompact ? 8 : 10;
 
   // Price badge logic
   const priceLabel = data.price !== undefined 
@@ -245,14 +246,14 @@ function AgentNode({ data }: { data: {
       </span>
 
       {/* Price Badge */}
-      {priceLabel && !data.isCenter && !isSmallScreen && (
+      {priceLabel && !data.isCenter && !isCompact && (
         <div className="absolute -bottom-3 px-1.5 py-0.5 rounded-md bg-black/80 border border-white/10 text-[8px] font-mono text-green-400 z-20 whitespace-nowrap shadow-sm">
           {priceLabel}
         </div>
       )}
 
       {/* ERC-8004 ID Badge (if available) */}
-      {!data.isCenter && !isSmallScreen && (
+      {!data.isCenter && !isCompact && (
         <div className="mt-4 px-1.5 py-0.5 rounded-full bg-black/40 border border-white/5 flex items-center gap-1">
           <Shield size={fontSize - 2} className="text-[var(--accent-cyan)]" />
           <span className="font-mono text-white/70" style={{ fontSize: fontSize - 2 }}>8004</span>
@@ -318,6 +319,7 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAge
   // Responsive dimensions
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const isCompact = dimensions.width < 360;
 
   useEffect(() => {
     const updateDimensions = () => {
@@ -352,6 +354,7 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAge
         specialist: 'dispatcher' as SpecialistType, 
         isActive: false, 
         isCenter: true,
+        isCompact,
         status: 'idle',
         currentAction: undefined,
       },
@@ -374,13 +377,14 @@ export function SwarmGraph({ activeSpecialist, currentStep, taskStatus, hiredAge
           specialist: pos.id as SpecialistType, 
           isActive: false, 
           isCenter: false,
+          isCompact,
           status: hiredAgents.includes(pos.id) ? 'ready' : 'idle',
           currentAction: undefined,
           price, // Pass price to node data
         },
       };
     }),
-  ], [positions, hiredAgents, pricing, registryMeta]);
+  ], [positions, hiredAgents, isCompact, pricing, registryMeta]);
 
   const initialEdges: Edge[] = useMemo(() => {
     const edges: Edge[] = [];

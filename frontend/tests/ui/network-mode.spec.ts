@@ -107,3 +107,35 @@ test('sends the selected network mode through dispatch after a zero-fee preview'
   await expect.poll(() => dispatchBody?.networkMode).toBe('testnet');
   await expect(page.getByText('Connection Required')).toBeVisible();
 });
+
+test('does not emit hydration mismatch errors on initial load', async ({ page }) => {
+  const consoleErrors: string[] = [];
+
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await mockPricing(page);
+  await page.route('**/api/wallet/balances?**', async (route) => {
+    await fulfillJson(route, {
+      balances: {
+        eth: 0.0101,
+        usdc: 49.2005,
+      },
+    });
+  });
+  await page.route('**/wallet/transactions?**', async (route) => {
+    await fulfillJson(route, { transactions: [] });
+  });
+
+  await openDispatchPage(page);
+  await page.waitForTimeout(1000);
+
+  const hydrationErrors = consoleErrors.filter((message) =>
+    message.includes('Minified React error #418') || message.includes('Hydration failed'),
+  );
+
+  expect(hydrationErrors).toEqual([]);
+});

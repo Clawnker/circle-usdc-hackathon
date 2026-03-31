@@ -46,7 +46,7 @@ export function WalletPanel({ className = '', networkMode }: WalletPanelProps) {
   const [copied, setCopied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const delegation = getDelegationState(networkMode);
+  const [delegation, setDelegation] = useState(() => getDelegationState(networkMode));
 
   const displayAddress = isConnected ? (address || '') : network.treasuryAddress;
 
@@ -79,6 +79,16 @@ export function WalletPanel({ className = '', networkMode }: WalletPanelProps) {
       setLastUpdated(new Date());
     }
   }, [isConnected, ethBalance, usdcBalance]);
+
+  useEffect(() => {
+    const syncDelegation = () => {
+      setDelegation(getDelegationState(networkMode));
+    };
+
+    syncDelegation();
+    window.addEventListener('delegation-updated', syncDelegation);
+    return () => window.removeEventListener('delegation-updated', syncDelegation);
+  }, [networkMode]);
 
   const fetchBalance = useCallback(async () => {
     setIsRefreshing(true);

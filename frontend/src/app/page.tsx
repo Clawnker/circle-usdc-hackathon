@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Hexagon, Activity, History, ShieldCheck, LayoutGrid, Zap, Shield, ArrowRight, DollarSign } from 'lucide-react';
 import {
@@ -32,6 +32,7 @@ export default function CommandCenter() {
   const [activeView, setActiveView] = useState<'dispatch' | 'marketplace' | 'registry' | 'history'>('dispatch');
   const [selectedAgent, setSelectedAgent] = useState<SpecialistType | null>(null);
   const [showMobileGraph, setShowMobileGraph] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   const {
     activityItems,
@@ -88,6 +89,10 @@ export default function CommandCenter() {
     setActiveView('dispatch');
     handleReRun(prompt);
   };
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   return (
     <div className="relative min-h-screen">
@@ -266,24 +271,22 @@ export default function CommandCenter() {
                       <span>{showMobileGraph ? '^' : 'v'}</span>
                     </button>
                   </div>
-                  {(showMobileGraph || typeof window !== 'undefined' && window.innerWidth >= 1024) && (
-                    <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="min-h-[300px] flex-shrink-0"
-                    >
-                      <SwarmGraph
-                        activeSpecialist={currentStep?.specialist || null}
-                        currentStep={currentStep}
-                        taskStatus={taskStatus}
-                        hiredAgents={hiredAgents}
-                        onAgentClick={(specialist) => setSelectedAgent(specialist)}
-                        pricing={SPECIALIST_FEES}
-                        registryMeta={registryMeta}
-                      />
-                    </motion.div>
-                  )}
+                  <motion.div
+                    initial={hasHydrated ? { opacity: 0, x: -20 } : false}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className={`${showMobileGraph ? 'block' : 'hidden'} lg:block min-h-[300px] flex-shrink-0`}
+                  >
+                    <SwarmGraph
+                      activeSpecialist={currentStep?.specialist || null}
+                      currentStep={currentStep}
+                      taskStatus={taskStatus}
+                      hiredAgents={hiredAgents}
+                      onAgentClick={(specialist) => setSelectedAgent(specialist)}
+                      pricing={SPECIALIST_FEES}
+                      registryMeta={registryMeta}
+                    />
+                  </motion.div>
 
                   <motion.div
                     initial={{ opacity: 0, x: -20 }}
