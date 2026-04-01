@@ -110,6 +110,12 @@ describe('environment switching integration', () => {
     expect(mainnetPreview.json.network).toBe('base-mainnet');
     expect(testnetPreview.json.chainId).toBe(84532);
     expect(mainnetPreview.json.chainId).toBe(8453);
+    expect(testnetPreview.json.routingPlan.networkMode).toBe('testnet');
+    expect(mainnetPreview.json.routingPlan.networkMode).toBe('mainnet');
+    expect(testnetPreview.json.routingPlan.kind).toBe('single-hop');
+    expect(mainnetPreview.json.routingPlan.kind).toBe('single-hop');
+    expect(testnetPreview.json.routingPlan.steps[0].specialist).toBe('bankr');
+    expect(mainnetPreview.json.routingPlan.steps[0].specialist).toBe('bankr');
     expect(testnetPreview.json.usdcAddress).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
     expect(mainnetPreview.json.usdcAddress).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913');
 

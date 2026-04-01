@@ -32,6 +32,9 @@ import { addMessage, emitTaskUpdate, subscribeToTask } from './task-events';
 import {
   isComplexQuery,
   detectMultiHop,
+  buildRoutingPlanFromDAG,
+  buildRoutingPlanFromLegacyMultiHop,
+  buildRoutingPlanFromSpecialist,
   resolveAgentFee,
   routePrompt,
   getSpecialistDisplayName,
@@ -108,6 +111,31 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     bestSpecialist = 'multi-hop';
   }
 
+  const finalHops = isMultiStep ? dagPlan.steps.map((step) => step.specialist) : legacyHops;
+  const isActuallyMultiStep = isMultiStep || !!legacyHops;
+  const routingPlan = isMultiStep
+    ? buildRoutingPlanFromDAG(dagPlan, networkMode, {
+      selectedSpecialist: bestSpecialist,
+      metadata: {
+        routeNetwork: network.routeLabel,
+        hiredAgents: request.hiredAgents,
+      },
+    })
+    : legacyHops && legacyHops.length > 0
+      ? buildRoutingPlanFromLegacyMultiHop(request.prompt, legacyHops, networkMode, {
+        selectedSpecialist: bestSpecialist,
+        metadata: {
+          routeNetwork: network.routeLabel,
+          hiredAgents: request.hiredAgents,
+        },
+      })
+      : buildRoutingPlanFromSpecialist(request.prompt, bestSpecialist, networkMode, {
+        metadata: {
+          routeNetwork: network.routeLabel,
+          hiredAgents: request.hiredAgents,
+        },
+      });
+
   let taskFallbackChain: string[] | undefined;
   if (!isMultiStep && bestSpecialist !== 'multi-hop') {
     const isFastPath = isSecurityAuditQuery ||
@@ -143,13 +171,12 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
         taskId: '',
         status: 'failed',
         specialist: bestSpecialist,
+        routingPlan,
         error: `Estimated cost (${finalEstimatedCost.toFixed(2)} USDC) exceeds your budget limit of ${request.maxBudget.toFixed(2)} USDC.`,
       };
     }
   }
 
-  const finalHops = isMultiStep ? dagPlan.steps.map((step) => step.specialist) : legacyHops;
-  const isActuallyMultiStep = isMultiStep || !!legacyHops;
   const isApproved = request.approvedAgent === bestSpecialist;
   const isInSwarm = !request.hiredAgents || request.hiredAgents.includes(bestSpecialist);
   const requiresApproval = !isInSwarm && !isApproved && bestSpecialist !== 'general' && bestSpecialist !== 'scribe' && bestSpecialist !== 'multi-hop';
@@ -178,6 +205,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       taskId: '',
       status: 'pending',
       specialist: approvalSpecialist,
+      routingPlan,
       requiresApproval,
       specialistInfo: {
         name: displayName,
@@ -212,6 +240,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
       routeNetwork: network.routeLabel,
     },
     dagPlan,
+    routingPlan,
     fallbackChain: taskFallbackChain,
     callbackUrl: request.callbackUrl,
   };
@@ -230,6 +259,7 @@ export async function dispatch(request: DispatchRequest): Promise<DispatchRespon
     taskId,
     status: task.status,
     specialist,
+    routingPlan,
   };
 }
 

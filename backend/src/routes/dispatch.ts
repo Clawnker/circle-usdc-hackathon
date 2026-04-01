@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { createHash } from 'crypto';
-import dispatcher, { dispatch, getTask, getRecentTasks, executeTask, updateTaskStatus, routePrompt, isComplexQuery } from '../dispatcher';
+import dispatcher, { dispatch, getTask, getRecentTasks, executeTask, updateTaskStatus, isComplexQuery } from '../dispatcher';
 import { DispatchRequest, SpecialistType } from '../types';
 import config from '../config';
 import { planDAG } from '../llm-planner';
 import { validateAndConsumePaymentProof } from '../payments';
 import { getExternalAgent } from '../external-agents';
+import { buildRoutingDecision, buildRoutingPlanFromDAG } from '../routing';
 import { parseEnvelopeV1 } from '../hivemind/envelope';
 import { applyLedgerTransitionV1, createLedgerStateV1, LedgerTransitionPayload } from '../hivemind/ledger';
 import { dispatchIdempotencyStore } from '../reliability/idempotency-store';
@@ -77,6 +78,7 @@ router.post('/route-preview', async (req: Request, res: Response) => {
       if (dagPlan.steps.length > 1) {
         const totalFee = dagPlan.totalEstimatedCost || dagPlan.steps.reduce((sum, s) => sum + (s.estimatedCost || 0), 0);
         const specialists = dagPlan.steps.map(s => s.specialist);
+        const routingPlan = buildRoutingPlanFromDAG(dagPlan, mode);
         return res.json({ 
           specialist: specialists.join(' → '), 
           specialists,
@@ -87,13 +89,15 @@ router.post('/route-preview', async (req: Request, res: Response) => {
           executionSupported,
           isMultiStep: true,
           steps: dagPlan.steps.length,
+          routingPlan,
           showEstimate: true // Complex plan usually has a reasonably accurate estimate sum
         });
       }
     }
     
     // Simple query — use routing with swarm context
-    const specialist = await routePrompt(prompt, hiredAgents, mode);
+    const routingDecision = await buildRoutingDecision(prompt, hiredAgents, mode);
+    const { specialist, plan: routingPlan } = routingDecision;
     
     // Determine fee and estimation confidence
     let fee = 0;
@@ -125,6 +129,7 @@ router.post('/route-preview', async (req: Request, res: Response) => {
       networkMode: mode,
       executionSupported,
       showEstimate,
+      routingPlan,
       chainId: network.chainId,
       usdcAddress: network.usdcAddress,
       identityRegistry: network.identityRegistry || 'pending-deployment',

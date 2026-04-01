@@ -1,7 +1,12 @@
 import {
   SpecialistType,
+  DAGPlan,
+  RoutingDecision,
+  RoutingPlan,
+  RoutingPlanSource,
+  RoutingPlanStep,
 } from './types';
-import type { CapabilityMetrics, ExternalAgent } from './types';
+import type { CapabilityMetrics } from './types';
 import config from './config';
 import { getReputationScore, getReputationStats } from './reputation';
 import { planWithLLM } from './llm-planner';
@@ -10,6 +15,12 @@ import { isExternalAgent, getExternalAgents, getExternalAgent } from './external
 import { classifyIntent } from './intent-classifier';
 import { priceRouter } from './price-router';
 import type { ClientNetworkMode } from './utils/client-network';
+import {
+  getBuiltInRoutingCatalogAgents,
+  getRoutingCatalogAgents,
+  type RoutingCatalogAgent,
+  type RoutingCatalogCapability,
+} from './routing/capability-catalog';
 
 const SPECIALIST_DESCRIPTIONS: Record<SpecialistType, string> = {
   magos: 'Market analysis & predictions',
@@ -29,15 +40,6 @@ const SPECIALIST_PRICING: Record<SpecialistType, { fee: string; description: str
   seeker: { fee: '0.10', description: 'Web research & search' },
   general: { fee: '0', description: 'General queries' },
   'multi-hop': { fee: '0', description: 'Orchestrated multi-agent workflow' },
-};
-
-type RoutingCapabilityLike = {
-  id?: string;
-  name?: string;
-  description?: string;
-  category?: string;
-  subcategories?: string[];
-  confidenceScore?: number;
 };
 
 type LocalRoutingCandidate = {
@@ -70,6 +72,14 @@ const ROUTING_LATENCY_WARN_MS = 5000;
 const ROUTING_LATENCY_HIGH_MS = 15000;
 const ROUTING_LATENCY_SEVERE_MS = 30000;
 
+type RoutingPlanOptions = {
+  confidence?: number;
+  reasoning?: string;
+  metadata?: Record<string, any>;
+  selectedSpecialist?: SpecialistType;
+  source?: RoutingPlanSource;
+};
+
 function hasLlmRoutingSupport(): boolean {
   if (process.env.NODE_ENV === 'test') return false;
   return Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
@@ -98,37 +108,24 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function getCapabilityMatcherManifests(): Map<string, RoutingCapabilityLike[]> {
-  const manifests = (capabilityMatcher as { specialistManifests?: Map<string, RoutingCapabilityLike[]> }).specialistManifests;
-  return manifests instanceof Map ? manifests : new Map<string, RoutingCapabilityLike[]>();
-}
-
-function getLocalCapabilitiesForAgent(
-  agentId: string,
-  networkMode: ClientNetworkMode,
-  externalAgent?: ReturnType<typeof getExternalAgent>
-): RoutingCapabilityLike[] {
-  if (externalAgent?.structuredCapabilities?.length) {
-    return externalAgent.structuredCapabilities as RoutingCapabilityLike[];
-  }
-
-  return (getCapabilityMatcherManifests().get(agentId) || []) as RoutingCapabilityLike[];
-}
-
 function buildCapabilityTokenSet(
   agentId: string,
-  capabilities: RoutingCapabilityLike[],
+  capabilities: RoutingCatalogCapability[],
   description?: string
 ): Set<string> {
   const parts: string[] = [agentId, description || ''];
 
   for (const capability of capabilities) {
+    const details = capability.capability;
     parts.push(
-      capability.id || '',
-      capability.name || '',
-      capability.description || '',
-      capability.category || '',
-      ...(capability.subcategories || [])
+      details.id || '',
+      details.name || '',
+      details.description || '',
+      details.category || '',
+      ...(details.subcategories || []),
+      ...(capability.keywords || []),
+      ...(capability.verbs || []),
+      ...(capability.entities || [])
     );
   }
 
@@ -136,30 +133,32 @@ function buildCapabilityTokenSet(
 }
 
 function getRepresentativeCapabilityId(
-  capabilities: RoutingCapabilityLike[],
+  capabilities: RoutingCatalogCapability[],
   capabilityTokens: Set<string>,
   promptTokens: string[]
 ): string {
-  let bestMatch = capabilities[0]?.id || 'generic';
+  let bestMatch = capabilities[0]?.capabilityId || 'generic';
   let bestScore = -1;
 
   for (const capability of capabilities) {
+    const details = capability.capability;
     const tokens = new Set(tokenizeRoutingText([
-      capability.id || '',
-      capability.name || '',
-      capability.description || '',
-      ...(capability.subcategories || []),
+      details.id || '',
+      details.name || '',
+      details.description || '',
+      ...(details.subcategories || []),
+      ...(capability.keywords || []),
     ].join(' ')));
 
     const overlap = promptTokens.reduce((count, token) => count + (tokens.has(token) ? 1 : 0), 0);
     if (overlap > bestScore) {
       bestScore = overlap;
-      bestMatch = capability.id || bestMatch;
+      bestMatch = capability.capabilityId || bestMatch;
     }
   }
 
   if (bestScore <= 0 && capabilityTokens.size > 0) {
-    return capabilities[0]?.id || bestMatch;
+    return capabilities[0]?.capabilityId || bestMatch;
   }
 
   return bestMatch;
@@ -192,34 +191,27 @@ function buildPromptIntentFlags(prompt: string, tokens: string[]) {
   };
 }
 
-function getHealthMultiplier(externalAgent?: ExternalAgent): number {
-  if (!externalAgent) return 1;
-  if (externalAgent.active === false || externalAgent.healthy === false) return 0;
-  if (!externalAgent.lastHealthCheck) return 1;
-
-  const lastHealthCheckMs = new Date(externalAgent.lastHealthCheck).getTime();
-  if (!Number.isFinite(lastHealthCheckMs)) return 0.7;
-
-  if ((Date.now() - lastHealthCheckMs) > EXTERNAL_AGENT_HEALTH_STALE_MS) {
-    return 0.55;
-  }
-
+function getHealthMultiplier(agent?: RoutingCatalogAgent): number {
+  if (!agent || agent.source === 'built-in') return 1;
+  if (!agent.health.active || !agent.health.healthy) return 0;
+  if (agent.health.stale) return 0.55;
   return 1;
 }
 
 function getLatencyMetric(
   agentId: string,
   representativeCapabilityId: string,
-  capabilities: RoutingCapabilityLike[]
+  capabilities: RoutingCatalogCapability[]
 ): CapabilityMetrics | null {
   const reputation = getReputationStats(agentId);
   const capabilityStats = reputation.capabilities as Record<string, CapabilityMetrics | undefined>;
   const lookupKeys = new Set<string>(['generic', representativeCapabilityId]);
 
   for (const capability of capabilities) {
-    if (capability.id) lookupKeys.add(capability.id);
-    if (capability.category) lookupKeys.add(capability.category);
-    for (const subcategory of capability.subcategories || []) {
+    const details = capability.capability;
+    if (details.id) lookupKeys.add(details.id);
+    if (details.category) lookupKeys.add(details.category);
+    for (const subcategory of details.subcategories || []) {
       lookupKeys.add(subcategory);
     }
   }
@@ -247,7 +239,7 @@ function getLatencyMetric(
 function getLatencyMultiplier(
   agentId: string,
   representativeCapabilityId: string,
-  capabilities: RoutingCapabilityLike[]
+  capabilities: RoutingCatalogCapability[]
 ): { multiplier: number; p50: number } {
   const metric = getLatencyMetric(agentId, representativeCapabilityId, capabilities);
   const p50 = metric?.p50 || 0;
@@ -267,15 +259,17 @@ function rankAgentsWithLocalSignals(
   const promptTokens = tokenizeRoutingText(prompt);
   const flags = buildPromptIntentFlags(prompt, promptTokens);
   const candidates: LocalRoutingCandidate[] = [];
-  const builtInAgents = Array.from(getCapabilityMatcherManifests().keys());
-  const externalAgents = getExternalAgents(networkMode).filter((agent) => agent.active !== false && agent.healthy !== false);
+  const builtInAgents = getBuiltInRoutingCatalogAgents();
+  const externalAgents = getRoutingCatalogAgents(networkMode)
+    .filter((agent) => agent.source === 'external' && agent.health.active && agent.health.healthy);
 
-  const maybeAddCandidate = (
-    agentId: string,
-    description: string,
-    capabilities: RoutingCapabilityLike[],
-    externalAgent?: ReturnType<typeof getExternalAgent>
-  ) => {
+  const maybeAddCandidate = (catalogAgent: RoutingCatalogAgent) => {
+    const agentId = catalogAgent.agentId;
+    const description = catalogAgent.source === 'external'
+      ? `${catalogAgent.displayName} ${catalogAgent.description || ''}`.trim()
+      : (SPECIALIST_DESCRIPTIONS[agentId as SpecialistType] || catalogAgent.description || agentId);
+    const capabilities = catalogAgent.capabilities;
+
     if (hiredAgents && agentId !== 'general' && !hiredAgents.includes(agentId as SpecialistType)) {
       return;
     }
@@ -285,11 +279,12 @@ function rankAgentsWithLocalSignals(
     const keywordHits = scoreKeywordMatches(promptTokens, SPECIALIST_SIGNAL_KEYWORDS[agentId] || []);
     const representativeCapabilityId = getRepresentativeCapabilityId(capabilities, capabilityTokens, promptTokens);
     const marketData = priceRouter.getMarketData(representativeCapabilityId);
-    const agentPrice = resolveAgentFee(agentId, representativeCapabilityId, networkMode);
+    const matchedCapability = capabilities.find((capability) => capability.capabilityId === representativeCapabilityId);
+    const agentPrice = matchedCapability?.estimatedPrice ?? resolveAgentFee(agentId, representativeCapabilityId, networkMode);
     const priceEfficiency = priceRouter.calculatePriceEfficiency(agentPrice, marketData.average);
     const reputation = getReputationScore(agentId, representativeCapabilityId);
-    const confidence = capabilities.reduce((sum, capability) => sum + (capability.confidenceScore || 0.8), 0) / Math.max(capabilities.length, 1);
-    const healthMultiplier = getHealthMultiplier(externalAgent);
+    const confidence = capabilities.reduce((sum, capability) => sum + (capability.capability.confidenceScore || 0.8), 0) / Math.max(capabilities.length, 1);
+    const healthMultiplier = getHealthMultiplier(catalogAgent);
     const latency = getLatencyMultiplier(agentId, representativeCapabilityId, capabilities);
 
     let score = 0;
@@ -299,10 +294,10 @@ function rankAgentsWithLocalSignals(
     score += priceEfficiency * 0.08;
     score += Math.min(confidence, 1) * 0.08;
 
-    if (flags.mentionsName(agentId) || (externalAgent && flags.mentionsName(externalAgent.name))) {
+    if (flags.mentionsName(agentId) || (catalogAgent.source === 'external' && flags.mentionsName(catalogAgent.displayName))) {
       score += 0.16;
     }
-    if (flags.invokesAgent(agentId) || (externalAgent && flags.invokesAgent(externalAgent.name))) {
+    if (flags.invokesAgent(agentId) || (catalogAgent.source === 'external' && flags.invokesAgent(catalogAgent.displayName))) {
       score += 0.34;
     }
 
@@ -325,7 +320,7 @@ function rankAgentsWithLocalSignals(
       score += 0.28;
     }
 
-    if (flags.hasAddress && flags.wantsSecurity && externalAgent) {
+    if (flags.hasAddress && flags.wantsSecurity && catalogAgent.source === 'external') {
       score += 0.16;
     }
 
@@ -348,21 +343,20 @@ function rankAgentsWithLocalSignals(
     });
   };
 
-  for (const agentId of builtInAgents) {
-    maybeAddCandidate(agentId, SPECIALIST_DESCRIPTIONS[agentId as SpecialistType] || agentId, getLocalCapabilitiesForAgent(agentId, networkMode));
+  for (const agent of builtInAgents) {
+    maybeAddCandidate(agent);
   }
 
-  for (const externalAgent of externalAgents) {
-    maybeAddCandidate(
-      externalAgent.id,
-      `${externalAgent.name} ${externalAgent.description || ''}`,
-      getLocalCapabilitiesForAgent(externalAgent.id, networkMode, externalAgent),
-      externalAgent
-    );
+  for (const agent of externalAgents) {
+    maybeAddCandidate(agent);
   }
 
   if (!hiredAgents || hiredAgents.length === 0 || hiredAgents.includes('general')) {
-    maybeAddCandidate('general', SPECIALIST_DESCRIPTIONS.general, []);
+    candidates.push({
+      agentId: 'general',
+      score: 0.05,
+      reasoning: 'local-signals fallback-general',
+    });
   }
 
   return candidates.sort((left, right) => right.score - left.score);
@@ -411,6 +405,144 @@ export function getSpecialistPreviewInfo(
   }
 
   return { fee: '0', description: 'Unknown' };
+}
+
+function buildRoutingPlanId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildRoutingPlanStepFromSelection(
+  promptTemplate: string,
+  specialist: SpecialistType,
+  networkMode: ClientNetworkMode,
+  index = 0,
+  reason?: string
+): RoutingPlanStep {
+  return {
+    id: `step-${index + 1}`,
+    specialist,
+    promptTemplate,
+    dependencies: index === 0 ? [] : [`step-${index}`],
+    estimatedCost: resolveAgentFee(specialist, undefined, networkMode),
+    reason,
+  };
+}
+
+export function buildRoutingPlanFromSpecialist(
+  prompt: string,
+  specialist: SpecialistType,
+  networkMode: ClientNetworkMode = 'testnet',
+  options: RoutingPlanOptions = {}
+): RoutingPlan {
+  const reasoning = options.reasoning || `Route selector chose ${specialist}.`;
+  const step = buildRoutingPlanStepFromSelection(prompt, specialist, networkMode, 0, reasoning);
+  const kind = specialist === 'multi-hop' ? 'multi-hop' : 'single-hop';
+
+  return {
+    planId: buildRoutingPlanId(kind === 'multi-hop' ? 'route-multi' : 'route-single'),
+    kind,
+    source: options.source || 'route-selector',
+    query: prompt,
+    networkMode,
+    entrySpecialist: specialist,
+    selectedSpecialist: options.selectedSpecialist || specialist,
+    steps: [step],
+    totalEstimatedCost: step.estimatedCost,
+    reasoning,
+    confidence: options.confidence,
+    metadata: options.metadata,
+  };
+}
+
+export function buildRoutingPlanFromLegacyMultiHop(
+  prompt: string,
+  hops: SpecialistType[],
+  networkMode: ClientNetworkMode = 'testnet',
+  options: RoutingPlanOptions = {}
+): RoutingPlan {
+  const steps = hops.map((specialist, index) => {
+    const promptTemplate = index === 0
+      ? prompt
+      : `Continue the original request using the output from step-${index}: ${prompt}`;
+
+    return buildRoutingPlanStepFromSelection(
+      promptTemplate,
+      specialist,
+      networkMode,
+      index,
+      `Legacy multi-hop step ${index + 1}: ${specialist}`
+    );
+  });
+
+  return {
+    planId: buildRoutingPlanId('route-legacy'),
+    kind: 'multi-hop',
+    source: options.source || 'legacy-multi-hop',
+    query: prompt,
+    networkMode,
+    entrySpecialist: hops[0] || 'general',
+    selectedSpecialist: options.selectedSpecialist || 'multi-hop',
+    steps,
+    totalEstimatedCost: steps.reduce((sum, step) => sum + step.estimatedCost, 0),
+    reasoning: options.reasoning || `Legacy multi-hop router selected ${hops.join(' -> ')}.`,
+    confidence: options.confidence,
+    metadata: options.metadata,
+  };
+}
+
+export function buildRoutingPlanFromDAG(
+  dagPlan: DAGPlan,
+  networkMode: ClientNetworkMode = 'testnet',
+  options: RoutingPlanOptions = {}
+): RoutingPlan {
+  const steps = dagPlan.steps.map((step) => ({
+    id: step.id,
+    specialist: step.specialist,
+    promptTemplate: step.promptTemplate,
+    dependencies: step.dependencies,
+    estimatedCost: step.estimatedCost,
+    reason: `DAG step ${step.id}`,
+  }));
+  const isMultiHop = steps.length > 1;
+  const firstSpecialist = steps[0]?.specialist || options.selectedSpecialist || 'general';
+
+  return {
+    planId: dagPlan.planId || buildRoutingPlanId('route-dag'),
+    kind: isMultiHop ? 'multi-hop' : 'single-hop',
+    source: options.source || 'dag-planner',
+    query: dagPlan.query,
+    networkMode,
+    entrySpecialist: firstSpecialist,
+    selectedSpecialist: options.selectedSpecialist || (isMultiHop ? 'multi-hop' : firstSpecialist),
+    steps,
+    totalEstimatedCost: dagPlan.totalEstimatedCost || steps.reduce((sum, step) => sum + step.estimatedCost, 0),
+    reasoning: options.reasoning || dagPlan.reasoning || 'DAG planner generated a routing plan.',
+    confidence: options.confidence,
+    metadata: {
+      originalDagPlanId: dagPlan.planId,
+      ...options.metadata,
+    },
+  };
+}
+
+export async function buildRoutingDecision(
+  prompt: string,
+  hiredAgents?: SpecialistType[],
+  networkMode: ClientNetworkMode = 'testnet'
+): Promise<RoutingDecision> {
+  const legacyHops = detectMultiHop(prompt);
+  if (legacyHops) {
+    return {
+      specialist: 'multi-hop',
+      plan: buildRoutingPlanFromLegacyMultiHop(prompt, legacyHops, networkMode),
+    };
+  }
+
+  const specialist = await routePrompt(prompt, hiredAgents, networkMode);
+  return {
+    specialist,
+    plan: buildRoutingPlanFromSpecialist(prompt, specialist, networkMode),
+  };
 }
 
 export function isComplexQuery(prompt: string): boolean {
@@ -615,21 +747,22 @@ export async function routePrompt(
       (/0x[a-fA-F0-9]{40}/.test(prompt) || /\b(contract|function|mapping|pragma|solidity|modifier|require)\b/i.test(prompt))) {
     console.log('[Router] Fast-path: contract audit query detected, looking for security specialist');
 
-    const agents = getExternalAgents(networkMode);
-    const securityAgent = agents.find((agent) =>
-      agent.capabilities?.some((capability: string) => {
-        const normalized = capability.toLowerCase().replace(/\s+/g, '-');
+    const securityAgent = getRoutingCatalogAgents(networkMode)
+      .filter((agent) => agent.source === 'external')
+      .find((agent) =>
+        agent.capabilities.some((capability) => {
+          const normalized = capability.capabilityId.toLowerCase().replace(/\s+/g, '-');
         return ['security-audit', 'smart-contract-audit', 'audit', 'vulnerability-scanning', 'security'].some(
           (keyword) => normalized.includes(keyword) || keyword.includes(normalized)
         );
-      })
-    );
+        })
+      );
 
     if (securityAgent) {
-      console.log(`[Router] Found security agent: ${securityAgent.id}`);
-      if (!hiredAgents || hiredAgents.includes(securityAgent.id as SpecialistType)) {
-        setRouteCache(cacheKey, securityAgent.id as SpecialistType);
-        return securityAgent.id as SpecialistType;
+      console.log(`[Router] Found security agent: ${securityAgent.agentId}`);
+      if (!hiredAgents || hiredAgents.includes(securityAgent.agentId as SpecialistType)) {
+        setRouteCache(cacheKey, securityAgent.agentId as SpecialistType);
+        return securityAgent.agentId as SpecialistType;
       }
     }
   }
@@ -832,33 +965,40 @@ export function getSpecialistPricing(): Record<SpecialistType, { fee: string; de
 }
 
 export function getSpecialists(): any[] {
+  const catalogAgents = getRoutingCatalogAgents('testnet');
+  const builtInCatalog = new Map(
+    catalogAgents
+      .filter((agent) => agent.source === 'built-in')
+      .map((agent) => [agent.agentId, agent])
+  );
   const builtIn = Object.entries(SPECIALIST_DESCRIPTIONS).map(([name, description]) => {
-    const structuredCapabilities = getCapabilityMatcherManifests().get(name) || [];
+    const catalogAgent = builtInCatalog.get(name);
+    const structuredCapabilities = catalogAgent?.capabilities.map((capability) => capability.capability) || [];
 
     return {
       name,
-      description,
-      fee: String((config.fees as any)[name] || 0),
+      description: catalogAgent?.description || description,
+      fee: String((config.fees as any)[name] || catalogAgent?.defaultPrice || 0),
       success_rate: Math.round(getReputationScore(name as SpecialistType) * 100),
       external: false,
       structuredCapabilities,
     };
   });
 
-  const external = getExternalAgents('testnet')
-    .filter((agent) => agent.active && agent.healthy)
+  const external = catalogAgents
+    .filter((agent) => agent.source === 'external' && agent.health.active && agent.health.healthy && agent.externalAgent)
     .map((agent) => ({
-      name: agent.id,
-      displayName: agent.name,
+      name: agent.agentId,
+      displayName: agent.displayName,
       description: agent.description,
-      fee: String(Object.values(agent.pricing)[0] || 0),
+      fee: String(agent.defaultPrice || 0),
       success_rate: 0,
       external: true,
-      endpoint: agent.endpoint,
-      wallet: agent.wallet,
-      capabilities: agent.capabilities,
-      structuredCapabilities: agent.structuredCapabilities,
-      pricing: agent.pricing,
+      endpoint: agent.externalAgent?.endpoint,
+      wallet: agent.externalAgent?.wallet,
+      capabilities: agent.externalAgent?.capabilities,
+      structuredCapabilities: agent.capabilities.map((capability) => capability.capability),
+      pricing: agent.externalAgent?.pricing,
     }));
 
   return [...builtIn, ...external];

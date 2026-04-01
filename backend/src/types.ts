@@ -23,6 +23,43 @@ export interface DAGPlan {
   timeoutMs?: number;       // Total timeout for the DAG execution
 }
 
+export type RoutingPlanKind = 'single-hop' | 'multi-hop';
+
+export type RoutingPlanSource =
+  | 'route-selector'
+  | 'legacy-multi-hop'
+  | 'dag-planner';
+
+export interface RoutingPlanStep {
+  id: string;
+  specialist: SpecialistType;
+  promptTemplate: string;
+  dependencies: string[];
+  estimatedCost: number;
+  capabilityId?: string;
+  reason?: string;
+}
+
+export interface RoutingPlan {
+  planId: string;
+  kind: RoutingPlanKind;
+  source: RoutingPlanSource;
+  query: string;
+  networkMode: 'testnet' | 'mainnet';
+  entrySpecialist: SpecialistType;
+  selectedSpecialist: SpecialistType;
+  steps: RoutingPlanStep[];
+  totalEstimatedCost: number;
+  reasoning: string;
+  confidence?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface RoutingDecision {
+  specialist: SpecialistType;
+  plan: RoutingPlan;
+}
+
 export interface PlanResult {
   stepId: string;
   specialist: SpecialistType;
@@ -56,6 +93,7 @@ export interface Task {
   metadata?: Record<string, any>;
   callbackUrl?: string;  // Webhook to call on completion
   dagPlan?: DAGPlan;     // Added for Phase 2b
+  routingPlan?: RoutingPlan;
   fallbackChain?: string[]; // Added for Phase 2e: ordered list of agent IDs
 }
 
@@ -130,6 +168,7 @@ export interface DispatchResponse {
   taskId: string;
   status: TaskStatus;
   specialist: SpecialistType;
+  routingPlan?: RoutingPlan;
   result?: SpecialistResult;
   error?: string;
   // Preview mode fields
